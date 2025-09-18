@@ -81,22 +81,34 @@ let page=1, pageSize=50, total=0;
 async function post(action, payload={}){
   const k = adminKey();
   if (k && !payload.admin_key) payload.admin_key = k;
-  const res = await fetch(API_BASE, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action, ...payload})});
-  return res.json();
+  try{
+    const res = await fetch(API_BASE, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({action, ...payload})});
+    return await res.json();
+  }catch(err){
+    console.error('POST error', err);
+    return { ok:false, msg:'Network error' };
+  }
 }
 
 function toast(id, msg){ document.getElementById(id).textContent = msg; setTimeout(()=>{document.getElementById(id).textContent='';}, 3000); }
 
 async function createClient(){
-  const name = c_name.value.trim();
-  const phone = c_phone.value.trim();
-  const wechat = c_wechat.value.trim();
-  const email = c_email.value.trim();
-  const password = c_pass.value.trim();
-  const package_name = p_name.value.trim();
-  const total_hours = Number(p_hours.value.trim()||10);
-  const coach_id = document.getElementById('coach_id').value.trim();
-  const r = await post('create_client', {name, phone, wechat, email, password, package_name, total_hours, coach_id});
+  try{
+    const name = document.getElementById('c_name').value.trim();
+    const phone = document.getElementById('c_phone').value.trim();
+    const wechat = document.getElementById('c_wechat').value.trim();
+    const email = document.getElementById('c_email').value.trim();
+    const password = document.getElementById('c_pass').value.trim();
+    const package_name = document.getElementById('p_name').value.trim();
+    const total_hours = Number(document.getElementById('p_hours').value.trim()||10);
+    const coach_id = document.getElementById('coach_id').value.trim();
+    const r = await post('create_client', {name, phone, wechat, email, password, package_name, total_hours, coach_id});
+    toast('createClientMsg', r && r.ok ? `成功，client_id=${r.client_id}, package_id=${r.package_id}` : ('失败：'+(r && r.msg || 'Network error')));
+  }catch(err){
+    console.error(err);
+    alert('创建失败：'+err.message);
+  }
+});
   toast('createClientMsg', r.ok?`成功，client_id=${r.client_id}, package_id=${r.package_id}`:('失败：'+r.msg));
 }
 
