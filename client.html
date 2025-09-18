@@ -13,9 +13,9 @@
   table{width:100%;border-collapse:collapse}
   th,td{padding:8px;border-bottom:1px solid #eee;font-size:14px}
   .status-pending{background:#FCE7C7}
-  .status-confirmed{background:#CCE5FF}
   .status-scheduled{background:#E5E7EB}
   .status-done{background:#D1FAE5}
+  .muted{color:#6b7280}
 </style>
 </head>
 <body>
@@ -23,6 +23,7 @@
   <h1>客户端 · TXT 订课</h1>
 
   <div class="card">
+    <div class="muted" style="margin-bottom:8px">API: <code id="apiShow"></code></div>
     <h3>登录</h3>
     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
       <input id="email" placeholder="邮箱(或留空用电话)" />
@@ -31,61 +32,99 @@
       <button id="loginBtn" onclick="login()">登录</button>
     </div>
     <div id="userInfo" style="margin-top:8px;color:#10b981"></div>
+    <div id="loginTip" class="muted" style="margin-top:6px;font-size:13px">提示：邮箱或电话二选一 + 密码。</div>
   </div>
 
   <div id="dash" class="card" style="display:none">
     <h3>我的套餐</h3>
-    <div id="pkgs"></div>
-    <h3 style="margin-top:12px">预约上课</h3>
+    <div id="pkgs" class="muted">（登录后显示）</div>
+    <h3 style="margin-top:16px">预约上课</h3>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
       <select id="pkgSel"></select>
       <input id="date" type="date" />
       <input id="time" type="time" />
       <input id="coach" placeholder="可选：指定教练ID" />
       <input id="dur" placeholder="时长(小时)，默认1" />
-      <input id="notes" placeholder="备注" />
+      <input id="notes" placeholder="备注(可选)" />
       <button onclick="createSession()">提交预约(待确认)</button>
     </div>
+    <div id="bookMsg" style="margin-top:8px;color:#111"></div>
   </div>
 
   <div id="sess" class="card" style="display:none">
     <h3>我的上课记录</h3>
-    <table id="sessTbl"><thead>
-      <tr><th>session_id</th><th>date</th><th>time</th><th>coach</th><th>status</th><th>备注</th><th>反馈</th><th>提交</th></tr>
-    </thead><tbody></tbody></table>
+    <table id="sessTbl">
+      <thead>
+        <tr><th>session_id</th><th>date</th><th>time</th><th>coach</th><th>status</th><th>备注</th><th>反馈</th><th>保存</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
   </div>
 </div>
+
 <script>
-// —— 必填：把你的 Web App URL 粘到这里 ——
+// === 把你的 Apps Script Web App /exec 地址填在这里 ===
 const API_BASE = 'https://script.google.com/macros/s/AKfycbyl5DkZiRoR5b-mzzzCSgVErJ0hqe3TU8kphcWtSCV7H3Heha_VSlrQ14i7XKeSTovcLw/exec';
 
-function api(){ return API_BASE; }
-async function post(action, payload={}){ const r=await fetch(api(),{method:'POST',headers:{'Content-Type':'application/json'}, body:JSON.stringify({action, ...payload})}); return r.json(); }
+document.getElementById('apiShow').textContent = API_BASE;
 
-let client=null;
-
-async function login(){
-  loginBtn.disabled = true;
-  const email = document.getElementById('email').value.trim();
-  const phone = document.getElementById('phone').value.trim();
-  const password = document.getElementById('password').value.trim();
-  const r = await post('login_client', {email, phone, password});
-  loginBtn.disabled = false;
-  if(!r.ok){ alert(r.msg||'登录失败'); return; }
-  client = r.client;
-  userInfo.textContent = `${client.name} (${client.client_id}) 已登录。`;
-  pkgs.innerHTML = (r.packages||[]).map(p=>`<div>• ${p.package_name} [${p.package_id}]：总 ${p.total_hours} 小时 / 剩余 ${p.remaining_hours} 小时</div>`).join('');
-  pkgSel.innerHTML = (client.package_ids||[]).map(pid=>`<option value="${pid}">${pid}</option>`).join('');
-  renderSessions(r.sessions||[]);
-  dash.style.display='block';
-  sess.style.display='block';
+// ---- 简单请求，避免 CORS 预检（OPTIONS）----
+async function post(action, payload = {}) {
+  try {
+    const res = await fetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' }, // 关键：text/plain → 避免预检
+      body: JSON.stringify({ action, ...payload })
+    });
+    // Apps Script 始终 200，这里直接按 JSON 解析
+    return await res.json();
+  } catch (err) {
+    console.error('POST error', err);
+    alert('网络错误：' + err.message);
+    return { ok:false, msg:'Network error' };
+  }
 }
 
+let client = null;
+
+// ---- 登录 ----
+async function login(){
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  try{
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const r = await post('login_client', { email, phone, password });
+    if(!r.ok){ alert(r.msg || '登录失败'); return; }
+
+    client = r.client;
+    document.getElementById('userInfo').textContent = `${client.name} (${client.client_id}) 已登录`;
+    // 套餐
+    document.getElementById('pkgs').innerHTML =
+      (r.packages||[]).map(p =>
+        `<div>• ${p.package_name} [${p.package_id}]：总 ${p.total_hours} 小时 / 剩余 ${p.remaining_hours} 小时</div>`
+      ).join('') || '<span class="muted">暂无套餐</span>';
+    // 套餐下拉
+    document.getElementById('pkgSel').innerHTML =
+      (client.package_ids||[]).map(pid => `<option value="${pid}">${pid}</option>`).join('');
+
+    renderSessions(r.sessions||[]);
+    document.getElementById('dash').style.display = 'block';
+    document.getElementById('sess').style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+}
+window.login = login;
+
+// ---- 渲染课程表 ----
 function renderSessions(list){
-  const tb = document.querySelector('#sessTbl tbody'); tb.innerHTML='';
+  const tb = document.querySelector('#sessTbl tbody');
+  tb.innerHTML = '';
   list.forEach(s=>{
     const tr = document.createElement('tr');
-    tr.className = 'status-'+(s.status||'');
+    tr.className = 'status-' + (s.status||'');
     tr.innerHTML = `
       <td>${s.session_id}</td>
       <td>${s.date||''}</td>
@@ -93,31 +132,48 @@ function renderSessions(list){
       <td>${s.coach_name||''}</td>
       <td>${s.status||''}</td>
       <td><input data-id="${s.session_id}" class="note" value="${s.notes||''}"/></td>
-      <td><input data-id="${s.session_id}" class="fb" value="${s.feedback||''}"/></td>
-      <td><button onclick="saveRow('${s.session_id}')">保存</button></td>`;
+      <td><input data-id="${s.session_id}" class="fb"   value="${s.feedback||''}"/></td>
+      <td><button onclick="saveRow('${s.session_id}')">保存</button></td>
+    `;
     tb.appendChild(tr);
   });
 }
 
+// ---- 保存备注/反馈 ----
 async function saveRow(id){
   const notes = document.querySelector(`input.note[data-id='${id}']`).value;
   const feedback = document.querySelector(`input.fb[data-id='${id}']`).value;
-  const r = await post('update_session_notes', {session_id:id, notes, feedback});
-  if(!r.ok) alert(r.msg||'保存失败');
+  const r = await post('update_session_notes', { session_id:id, notes, feedback });
+  if(!r.ok) alert(r.msg || '保存失败');
 }
+window.saveRow = saveRow;
 
+// ---- 创建预约 ----
 async function createSession(){
-  if(!client) return alert('请先登录');
+  if(!client){ alert('请先登录'); return; }
   const package_id = document.getElementById('pkgSel').value;
   const date = document.getElementById('date').value;
   const time = document.getElementById('time').value;
   const coach_id = document.getElementById('coach').value.trim();
-  const duration_hours = Number(document.getElementById('dur').value||1);
+  const duration_hours = Number(document.getElementById('dur').value || 1);
   const notes = document.getElementById('notes').value.trim();
-  const r = await post('create_session', {package_id, client_id:client.client_id, coach_id, date, time, duration_hours, notes});
-  if(!r.ok) return alert(r.msg||'预约失败');
-  alert('预约成功，等待教练确认');
+
+  if(!package_id){ alert('请选择套餐'); return; }
+  if(!date || !time){ alert('请选择日期和时间'); return; }
+
+  const r = await post('create_session', {
+    package_id, client_id: client.client_id, coach_id, date, time, duration_hours, notes
+  });
+  const msgEl = document.getElementById('bookMsg');
+  if(!r.ok){
+    msgEl.style.color = '#ef4444';
+    msgEl.textContent = '预约失败：' + (r.msg || 'Unknown error');
+  }else{
+    msgEl.style.color = '#10b981';
+    msgEl.textContent = '预约成功，等待教练确认';
+  }
 }
+window.createSession = createSession;
 </script>
 </body>
 </html>
