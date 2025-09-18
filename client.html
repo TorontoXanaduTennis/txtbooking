@@ -21,10 +21,6 @@
 <body>
 <div class="wrap">
   <h1>客户端 · TXT 订课</h1>
-  <div class="card">
-    <h3>后端 API</h3>
-    <input id="api" placeholder="https://script.google.com/macros/s/AKfycbyl5DkZiRoR5b-mzzzCSgVErJ0hqe3TU8kphcWtSCV7H3Heha_VSlrQ14i7XKeSTovcLw/exec" style="width:100%"/>
-  </div>
 
   <div class="card">
     <h3>登录</h3>
@@ -32,7 +28,7 @@
       <input id="email" placeholder="邮箱(或留空用电话)" />
       <input id="phone" placeholder="电话(可选)" />
       <input id="password" placeholder="密码" />
-      <button onclick="login()">登录</button>
+      <button id="loginBtn" onclick="login()">登录</button>
     </div>
     <div id="userInfo" style="margin-top:8px;color:#10b981"></div>
   </div>
@@ -60,24 +56,26 @@
   </div>
 </div>
 <script>
-let API_BASE='';
-let client=null;
+// —— 必填：把你的 Web App URL 粘到这里 ——
+const API_BASE = 'https://script.google.com/macros/s/AKfycbyl5DkZiRoR5b-mzzzCSgVErJ0hqe3TU8kphcWtSCV7H3Heha_VSlrQ14i7XKeSTovcLw/exec';
 
-function api(){ if(!API_BASE) API_BASE = document.getElementById('api').value.trim(); return API_BASE; }
+function api(){ return API_BASE; }
 async function post(action, payload={}){ const r=await fetch(api(),{method:'POST',headers:{'Content-Type':'application/json'}, body:JSON.stringify({action, ...payload})}); return r.json(); }
 
+let client=null;
+
 async function login(){
+  loginBtn.disabled = true;
   const email = document.getElementById('email').value.trim();
   const phone = document.getElementById('phone').value.trim();
   const password = document.getElementById('password').value.trim();
   const r = await post('login_client', {email, phone, password});
+  loginBtn.disabled = false;
   if(!r.ok){ alert(r.msg||'登录失败'); return; }
   client = r.client;
   userInfo.textContent = `${client.name} (${client.client_id}) 已登录。`;
-  // 套餐
   pkgs.innerHTML = (r.packages||[]).map(p=>`<div>• ${p.package_name} [${p.package_id}]：总 ${p.total_hours} 小时 / 剩余 ${p.remaining_hours} 小时</div>`).join('');
   pkgSel.innerHTML = (client.package_ids||[]).map(pid=>`<option value="${pid}">${pid}</option>`).join('');
-  // 课程
   renderSessions(r.sessions||[]);
   dash.style.display='block';
   sess.style.display='block';
