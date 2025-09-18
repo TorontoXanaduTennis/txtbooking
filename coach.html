@@ -15,6 +15,7 @@
   .status-pending{background:#FCE7C7}
   .status-scheduled{background:#E5E7EB}
   .status-done{background:#D1FAE5}
+  .muted{color:#6b7280}
 </style>
 </head>
 <body>
@@ -22,10 +23,11 @@
   <h1>教练端 · TXT 订课</h1>
 
   <div class="card">
+    <div class="muted" style="margin-bottom:8px">API: <code id="apiShow"></code></div>
     <h3>登录（coach_id + coach_email）</h3>
     <input id="cid" placeholder="coach_id" />
     <input id="cem" placeholder="coach_email" />
-    <button onclick="login()">登录</button>
+    <button id="loginBtn" onclick="login()">登录</button>
     <button onclick="refresh()">刷新</button>
     <div id="info" style="margin-top:8px;color:#10b981"></div>
   </div>
@@ -37,33 +39,64 @@
     </thead><tbody></tbody></table>
   </div>
 </div>
+
 <script>
-// —— 必填：把你的 Web App URL 粘到这里 ——
+// === 把你的 Apps Script Web App /exec 地址填在这里 ===
 const API_BASE = 'https://script.google.com/macros/s/AKfycbyl5DkZiRoR5b-mzzzCSgVErJ0hqe3TU8kphcWtSCV7H3Heha_VSlrQ14i7XKeSTovcLw/exec';
 
-let coach=null;
-async function post(action, payload={}){ const r=await fetch(API_BASE,{method:'POST',headers:{'Content-Type':'application/json'}, body:JSON.stringify({action, ...payload})}); return r.json(); }
+document.getElementById('apiShow').textContent = API_BASE;
 
-async function login(){
-  const coach_id = document.getElementById('cid').value.trim();
-  const coach_email = document.getElementById('cem').value.trim();
-  const r = await post('login_coach', {coach_id, coach_email});
-  if(!r.ok) return alert(r.msg||'登录失败');
-  coach = r.coach; info.textContent = `${coach.coach_name} (${coach.coach_id}) 已登录`;
-  localStorage.setItem('TXT_COACH', JSON.stringify({coach_id, coach_email}));
-  render(r.sessions||[]);
-  sess.style.display='block';
+// —— 封装 POST：使用 text/plain 避免 CORS 预检（OPTIONS）——
+async function post(action, payload = {}) {
+  try {
+    const res = await fetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' }, // 关键：simple request，避免预检
+      body: JSON.stringify({ action, ...payload })
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('POST error', err);
+    alert('网络错误：' + err.message);
+    return { ok:false, msg:'Network error' };
+  }
 }
 
+let coach = null;
+
+// —— 登录 ——
+async function login(){
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  try{
+    const coach_id = document.getElementById('cid').value.trim();
+    const coach_email = document.getElementById('cem').value.trim();
+    const r = await post('login_coach', { coach_id, coach_email });
+    if(!r.ok){ alert(r.msg || '登录失败'); return; }
+
+    coach = r.coach;
+    document.getElementById('info').textContent = `${coach.coach_name} (${coach.coach_id}) 已登录`;
+    localStorage.setItem('TXT_COACH', JSON.stringify({ coach_id, coach_email }));
+    render(r.sessions || []);
+    document.getElementById('sess').style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+}
+window.login = login;
+
+// —— 刷新 ——
 async function refresh(){
   const saved = localStorage.getItem('TXT_COACH');
   if(!saved) return alert('请先登录');
-  const {coach_id, coach_email} = JSON.parse(saved);
-  const r = await post('login_coach', {coach_id, coach_email});
-  if(!r.ok) return alert(r.msg||'刷新失败');
-  render(r.sessions||[]);
+  const { coach_id, coach_email } = JSON.parse(saved);
+  const r = await post('login_coach', { coach_id, coach_email });
+  if(!r.ok) return alert(r.msg || '刷新失败');
+  render(r.sessions || []);
 }
+window.refresh = refresh;
 
+// —— 渲染表格 ——
 function render(list){
   const tb = document.querySelector('#tbl tbody'); tb.innerHTML='';
   list.forEach(s=>{
@@ -76,17 +109,20 @@ function render(list){
       <td>${s.client_id}</td>
       <td>${s.duration_hours||1}</td>
       <td>${s.status||''}</td>
-      <td>${s.status==='pending'?`<button onclick=\"confirm('${s.session_id}')\">确认</button>`:''}</td>`;
+      <td>${s.status==='pending'
+        ? `<button onclick="confirmSess('${s.session_id}')">确认</button>` : ''}</td>`;
     tb.appendChild(tr);
   });
 }
 
-async function confirm(id){
-  const r = await post('confirm_session', {session_id:id});
-  if(!r.ok) return alert(r.msg||'失败');
+// —— 确认预约（pending -> scheduled） ——
+async function confirmSess(id){
+  const r = await post('confirm_session', { session_id:id });
+  if(!r.ok) return alert(r.msg || '失败');
   alert('已确认，状态为待完成');
   refresh();
 }
+window.confirmSess = confirmSess;
 </script>
 </body>
 </html>
