@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>客户端 · TXT 订课</title>
+<style>
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#f6f7fb;color:#111}
+  .wrap{max-width:900px;margin:24px auto;padding:0 16px}
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 6px 18px #00000012;padding:16px;margin-bottom:16px}
+  input,select,button{padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px}
+  button{background:#111;color:#fff;cursor:pointer}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-bottom:1px solid #eee;font-size:14px}
+  .status-pending{background:#FCE7C7}
+  .status-confirmed{background:#CCE5FF}
+  .status-scheduled{background:#E5E7EB}
+  .status-done{background:#D1FAE5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>客户端 · TXT 订课</h1>
+  <div class="card">
+    <h3>后端 API</h3>
+    <input id="api" placeholder="https://script.google.com/macros/s/AKfycbyl5DkZiRoR5b-mzzzCSgVErJ0hqe3TU8kphcWtSCV7H3Heha_VSlrQ14i7XKeSTovcLw/exec" style="width:100%"/>
+  </div>
+
+  <div class="card">
+    <h3>登录</h3>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+      <input id="email" placeholder="邮箱(或留空用电话)" />
+      <input id="phone" placeholder="电话(可选)" />
+      <input id="password" placeholder="密码" />
+      <button onclick="login()">登录</button>
+    </div>
+    <div id="userInfo" style="margin-top:8px;color:#10b981"></div>
+  </div>
+
+  <div id="dash" class="card" style="display:none">
+    <h3>我的套餐</h3>
+    <div id="pkgs"></div>
+    <h3 style="margin-top:12px">预约上课</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      <select id="pkgSel"></select>
+      <input id="date" type="date" />
+      <input id="time" type="time" />
+      <input id="coach" placeholder="可选：指定教练ID" />
+      <input id="dur" placeholder="时长(小时)，默认1" />
+      <input id="notes" placeholder="备注" />
+      <button onclick="createSession()">提交预约(待确认)</button>
+    </div>
+  </div>
+
+  <div id="sess" class="card" style="display:none">
+    <h3>我的上课记录</h3>
+    <table id="sessTbl"><thead>
+      <tr><th>session_id</th><th>date</th><th>time</th><th>coach</th><th>status</th><th>备注</th><th>反馈</th><th>提交</th></tr>
+    </thead><tbody></tbody></table>
+  </div>
+</div>
+<script>
+let API_BASE='';
+let client=null;
+
+function api(){ if(!API_BASE) API_BASE = document.getElementById('api').value.trim(); return API_BASE; }
+async function post(action, payload={}){ const r=await fetch(api(),{method:'POST',headers:{'Content-Type':'application/json'}, body:JSON.stringify({action, ...payload})}); return r.json(); }
+
+async function login(){
+  const email = document.getElementById('email').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const password = document.getElementById('password').value.trim();
+  const r = await post('login_client', {email, phone, password});
+  if(!r.ok){ alert(r.msg||'登录失败'); return; }
+  client = r.client;
+  userInfo.textContent = `${client.name} (${client.client_id}) 已登录。`;
+  // 套餐
+  pkgs.innerHTML = (r.packages||[]).map(p=>`<div>• ${p.package_name} [${p.package_id}]：总 ${p.total_hours} 小时 / 剩余 ${p.remaining_hours} 小时</div>`).join('');
+  pkgSel.innerHTML = (client.package_ids||[]).map(pid=>`<option value="${pid}">${pid}</option>`).join('');
+  // 课程
+  renderSessions(r.sessions||[]);
+  dash.style.display='block';
+  sess.style.display='block';
+}
+
+function renderSessions(list){
+  const tb = document.querySelector('#sessTbl tbody'); tb.innerHTML='';
+  list.forEach(s=>{
+    const tr = document.createElement('tr');
+    tr.className = 'status-'+(s.status||'');
+    tr.innerHTML = `
+      <td>${s.session_id}</td>
+      <td>${s.date||''}</td>
+      <td>${s.time||''}</td>
+      <td>${s.coach_name||''}</td>
+      <td>${s.status||''}</td>
+      <td><input data-id="${s.session_id}" class="note" value="${s.notes||''}"/></td>
+      <td><input data-id="${s.session_id}" class="fb" value="${s.feedback||''}"/></td>
+      <td><button onclick="saveRow('${s.session_id}')">保存</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+async function saveRow(id){
+  const notes = document.querySelector(`input.note[data-id='${id}']`).value;
+  const feedback = document.querySelector(`input.fb[data-id='${id}']`).value;
+  const r = await post('update_session_notes', {session_id:id, notes, feedback});
+  if(!r.ok) alert(r.msg||'保存失败');
+}
+
+async function createSession(){
+  if(!client) return alert('请先登录');
+  const package_id = document.getElementById('pkgSel').value;
+  const date = document.getElementById('date').value;
+  const time = document.getElementById('time').value;
+  const coach_id = document.getElementById('coach').value.trim();
+  const duration_hours = Number(document.getElementById('dur').value||1);
+  const notes = document.getElementById('notes').value.trim();
+  const r = await post('create_session', {package_id, client_id:client.client_id, coach_id, date, time, duration_hours, notes});
+  if(!r.ok) return alert(r.msg||'预约失败');
+  alert('预约成功，等待教练确认');
+}
+</script>
+</body>
+</html>
