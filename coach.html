@@ -20,16 +20,13 @@
 <body>
 <div class="wrap">
   <h1>教练端 · TXT 订课</h1>
-  <div class="card">
-    <h3>后端 API</h3>
-    <input id="api" placeholder="https://script.google.com/macros/s/AKfycbyl5DkZiRoR5b-mzzzCSgVErJ0hqe3TU8kphcWtSCV7H3Heha_VSlrQ14i7XKeSTovcLw/exec" style="width:100%"/>
-  </div>
 
   <div class="card">
     <h3>登录（coach_id + coach_email）</h3>
     <input id="cid" placeholder="coach_id" />
     <input id="cem" placeholder="coach_email" />
     <button onclick="login()">登录</button>
+    <button onclick="refresh()">刷新</button>
     <div id="info" style="margin-top:8px;color:#10b981"></div>
   </div>
 
@@ -41,10 +38,11 @@
   </div>
 </div>
 <script>
-let API_BASE='';
+// —— 必填：把你的 Web App URL 粘到这里 ——
+const API_BASE = 'https://script.google.com/macros/s/AKfycbyl5DkZiRoR5b-mzzzCSgVErJ0hqe3TU8kphcWtSCV7H3Heha_VSlrQ14i7XKeSTovcLw/exec';
+
 let coach=null;
-function api(){ if(!API_BASE) API_BASE = document.getElementById('api').value.trim(); return API_BASE; }
-async function post(action, payload={}){ const r=await fetch(api(),{method:'POST',headers:{'Content-Type':'application/json'}, body:JSON.stringify({action, ...payload})}); return r.json(); }
+async function post(action, payload={}){ const r=await fetch(API_BASE,{method:'POST',headers:{'Content-Type':'application/json'}, body:JSON.stringify({action, ...payload})}); return r.json(); }
 
 async function login(){
   const coach_id = document.getElementById('cid').value.trim();
@@ -52,8 +50,18 @@ async function login(){
   const r = await post('login_coach', {coach_id, coach_email});
   if(!r.ok) return alert(r.msg||'登录失败');
   coach = r.coach; info.textContent = `${coach.coach_name} (${coach.coach_id}) 已登录`;
+  localStorage.setItem('TXT_COACH', JSON.stringify({coach_id, coach_email}));
   render(r.sessions||[]);
   sess.style.display='block';
+}
+
+async function refresh(){
+  const saved = localStorage.getItem('TXT_COACH');
+  if(!saved) return alert('请先登录');
+  const {coach_id, coach_email} = JSON.parse(saved);
+  const r = await post('login_coach', {coach_id, coach_email});
+  if(!r.ok) return alert(r.msg||'刷新失败');
+  render(r.sessions||[]);
 }
 
 function render(list){
@@ -77,6 +85,7 @@ async function confirm(id){
   const r = await post('confirm_session', {session_id:id});
   if(!r.ok) return alert(r.msg||'失败');
   alert('已确认，状态为待完成');
+  refresh();
 }
 </script>
 </body>
