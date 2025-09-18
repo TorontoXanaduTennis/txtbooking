@@ -19,15 +19,21 @@
   .row-actions button{margin-right:6px}
   .red{background:#ef4444}
   .green{background:#10b981}
+  .blue{background:#3b82f6}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>管理端 · TXT 订课</h1>
   <div class="card">
-    <h3>后端 API</h3>
-    <input id="api" placeholder="https://script.google.com/macros/s/AKfycbyl5DkZiRoR5b-mzzzCSgVErJ0hqe3TU8kphcWtSCV7H3Heha_VSlrQ14i7XKeSTovcLw/exec" style="width:100%"/>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div>API: <code id="apiShow"></code></div>
+      <input id="adminkey" placeholder="Admin Key(一次保存)" />
+      <button onclick="saveKey()">保存Key</button>
+      <button onclick="loadSessions()">刷新列表</button>
+    </div>
   </div>
+
   <div class="card">
     <h3>录入新客户</h3>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
@@ -62,20 +68,24 @@
   </div>
 </div>
 <script>
-let API_BASE = '';
+// —— 必填：把你的 Web App URL 粘到这里 ——
+const API_BASE = 'https://script.google.com/macros/s/AKfycbyl5DkZiRoR5b-mzzzCSgVErJ0hqe3TU8kphcWtSCV7H3Heha_VSlrQ14i7XKeSTovcLw/exec'; // 例: https://script.google.com/macros/s/AKfycb.../exec
+
+document.getElementById('apiShow').textContent = API_BASE;
+
+function adminKey(){ return localStorage.getItem('TXT_ADMIN_KEY')||''; }
+function saveKey(){ localStorage.setItem('TXT_ADMIN_KEY', document.getElementById('adminkey').value.trim()); alert('已保存'); }
+
 let page=1, pageSize=50, total=0;
 
-function toast(id, msg){ document.getElementById(id).textContent = msg; setTimeout(()=>{document.getElementById(id).textContent='';}, 3000); }
-
-function api(){
-  if (!API_BASE) API_BASE = document.getElementById('api').value.trim();
-  return API_BASE;
-}
-
 async function post(action, payload={}){
-  const res = await fetch(api(), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action, ...payload})});
+  const k = adminKey();
+  if (k && !payload.admin_key) payload.admin_key = k;
+  const res = await fetch(API_BASE, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action, ...payload})});
   return res.json();
 }
+
+function toast(id, msg){ document.getElementById(id).textContent = msg; setTimeout(()=>{document.getElementById(id).textContent='';}, 3000); }
 
 async function createClient(){
   const name = c_name.value.trim();
@@ -96,12 +106,10 @@ async function loadSessions(delta){
   if (!r.ok){ alert(r.msg||'加载失败'); return; }
   total = r.total; document.getElementById('pageinfo').textContent = `第 ${page} 页 / 共 ${Math.ceil(total/pageSize)} 页`;
   const tb = document.querySelector('#sessTbl tbody'); tb.innerHTML='';
-  const H = r.headers;
-  const idx = Object.fromEntries(H.map((h,i)=>[h,i]));
+  const H = r.headers; const idx = Object.fromEntries(H.map((h,i)=>[h,i]));
   r.data.forEach(row=>{
     const tr = document.createElement('tr');
-    const status = (row[idx.status]+'')||'';
-    tr.className = 'status-'+status;
+    const status = (row[idx.status]+'')||''; tr.className = 'status-'+status;
     tr.innerHTML = `
       <td>${row[idx.session_id]}</td>
       <td>${row[idx.date]}</td>
@@ -115,6 +123,7 @@ async function loadSessions(delta){
       <td class="row-actions">
         <button class="green" onclick="complete('${row[idx.session_id]}')">已完成</button>
         <button class="red" onclick="cancel('${row[idx.session_id]}')">取消</button>
+        <button class="blue" onclick="sw('${row[idx.session_id]}')">换教练</button>
       </td>`;
     tb.appendChild(tr);
   });
@@ -131,7 +140,16 @@ async function cancel(session_id){
   if (!r.ok) return alert(r.msg||'失败');
   loadSessions();
 }
+async function sw(session_id){
+  const coach_id = prompt('输入新的 coach_id：');
+  if (!coach_id) return;
+  const r = await post('switch_coach', {session_id, coach_id});
+  if (!r.ok) return alert(r.msg||'失败');
+  loadSessions();
+}
 
+// 首次加载
+loadSessions();
 </script>
 </body>
 </html>
