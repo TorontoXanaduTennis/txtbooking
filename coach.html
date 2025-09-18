@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>教练端 · TXT 订课</title>
+<style>
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#f6f7fb;color:#111}
+  .wrap{max-width:1000px;margin:24px auto;padding:0 16px}
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 6px 18px #00000012;padding:16px;margin-bottom:16px}
+  input,button{padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px}
+  button{background:#111;color:#fff;cursor:pointer}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-bottom:1px solid #eee;font-size:14px}
+  .status-pending{background:#FCE7C7}
+  .status-scheduled{background:#E5E7EB}
+  .status-done{background:#D1FAE5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>教练端 · TXT 订课</h1>
+  <div class="card">
+    <h3>后端 API</h3>
+    <input id="api" placeholder="https://script.google.com/macros/s/AKfycbyl5DkZiRoR5b-mzzzCSgVErJ0hqe3TU8kphcWtSCV7H3Heha_VSlrQ14i7XKeSTovcLw/exec" style="width:100%"/>
+  </div>
+
+  <div class="card">
+    <h3>登录（coach_id + coach_email）</h3>
+    <input id="cid" placeholder="coach_id" />
+    <input id="cem" placeholder="coach_email" />
+    <button onclick="login()">登录</button>
+    <div id="info" style="margin-top:8px;color:#10b981"></div>
+  </div>
+
+  <div id="sess" class="card" style="display:none">
+    <h3>我的课程</h3>
+    <table id="tbl"><thead>
+      <tr><th>session_id</th><th>date</th><th>time</th><th>client</th><th>duration</th><th>status</th><th>操作</th></tr>
+    </thead><tbody></tbody></table>
+  </div>
+</div>
+<script>
+let API_BASE='';
+let coach=null;
+function api(){ if(!API_BASE) API_BASE = document.getElementById('api').value.trim(); return API_BASE; }
+async function post(action, payload={}){ const r=await fetch(api(),{method:'POST',headers:{'Content-Type':'application/json'}, body:JSON.stringify({action, ...payload})}); return r.json(); }
+
+async function login(){
+  const coach_id = document.getElementById('cid').value.trim();
+  const coach_email = document.getElementById('cem').value.trim();
+  const r = await post('login_coach', {coach_id, coach_email});
+  if(!r.ok) return alert(r.msg||'登录失败');
+  coach = r.coach; info.textContent = `${coach.coach_name} (${coach.coach_id}) 已登录`;
+  render(r.sessions||[]);
+  sess.style.display='block';
+}
+
+function render(list){
+  const tb = document.querySelector('#tbl tbody'); tb.innerHTML='';
+  list.forEach(s=>{
+    const tr = document.createElement('tr');
+    tr.className = 'status-'+(s.status||'');
+    tr.innerHTML = `
+      <td>${s.session_id}</td>
+      <td>${s.date||''}</td>
+      <td>${s.time||''}</td>
+      <td>${s.client_id}</td>
+      <td>${s.duration_hours||1}</td>
+      <td>${s.status||''}</td>
+      <td>${s.status==='pending'?`<button onclick=\"confirm('${s.session_id}')\">确认</button>`:''}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+async function confirm(id){
+  const r = await post('confirm_session', {session_id:id});
+  if(!r.ok) return alert(r.msg||'失败');
+  alert('已确认，状态为待完成');
+}
+</script>
+</body>
+</html>
