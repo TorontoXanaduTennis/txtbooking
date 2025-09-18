@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>管理端 · TXT 订课</title>
+<style>
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#f6f7fb;color:#111}
+  .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 6px 18px #00000012;padding:16px;margin-bottom:16px}
+  input,select,button{padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px}
+  button{background:#111;color:#fff;cursor:pointer}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-bottom:1px solid #eee;font-size:14px}
+  .status-pending{background:#FCE7C7}
+  .status-confirmed{background:#CCE5FF}
+  .status-scheduled{background:#E5E7EB}
+  .status-done{background:#D1FAE5}
+  .row-actions button{margin-right:6px}
+  .red{background:#ef4444}
+  .green{background:#10b981}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>管理端 · TXT 订课</h1>
+  <div class="card">
+    <h3>后端 API</h3>
+    <input id="api" placeholder="https://script.google.com/macros/s/AKfycbyl5DkZiRoR5b-mzzzCSgVErJ0hqe3TU8kphcWtSCV7H3Heha_VSlrQ14i7XKeSTovcLw/exec" style="width:100%"/>
+  </div>
+  <div class="card">
+    <h3>录入新客户</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      <input id="c_name" placeholder="姓名" />
+      <input id="c_phone" placeholder="电话" />
+      <input id="c_wechat" placeholder="微信" />
+      <input id="c_email" placeholder="邮箱" />
+      <input id="c_pass" placeholder="登录密码" />
+      <input id="p_name" placeholder="首次 Package 名称(如 800/10hr)" />
+      <input id="p_hours" placeholder="总小时(如 10)" />
+      <input id="coach_id" placeholder="对接教练ID(从 Coach 表)" />
+      <button onclick="createClient()">确认录入</button>
+    </div>
+    <div id="createClientMsg" style="margin-top:8px;color:#10b981"></div>
+  </div>
+
+  <div class="card">
+    <h3>Session 列表（每页50条）</h3>
+    <div>
+      <button onclick="loadSessions(-1)">上一页</button>
+      <span id="pageinfo" style="margin:0 8px"></span>
+      <button onclick="loadSessions(1)">下一页</button>
+    </div>
+    <table id="sessTbl">
+      <thead>
+        <tr>
+          <th>session_id</th><th>date</th><th>time</th><th>client_id</th><th>coach</th><th>pkg</th><th>duration</th><th>status</th><th>备注</th><th>操作</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+<script>
+let API_BASE = '';
+let page=1, pageSize=50, total=0;
+
+function toast(id, msg){ document.getElementById(id).textContent = msg; setTimeout(()=>{document.getElementById(id).textContent='';}, 3000); }
+
+function api(){
+  if (!API_BASE) API_BASE = document.getElementById('api').value.trim();
+  return API_BASE;
+}
+
+async function post(action, payload={}){
+  const res = await fetch(api(), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action, ...payload})});
+  return res.json();
+}
+
+async function createClient(){
+  const name = c_name.value.trim();
+  const phone = c_phone.value.trim();
+  const wechat = c_wechat.value.trim();
+  const email = c_email.value.trim();
+  const password = c_pass.value.trim();
+  const package_name = p_name.value.trim();
+  const total_hours = Number(p_hours.value.trim()||10);
+  const coach_id = document.getElementById('coach_id').value.trim();
+  const r = await post('create_client', {name, phone, wechat, email, password, package_name, total_hours, coach_id});
+  toast('createClientMsg', r.ok?`成功，client_id=${r.client_id}, package_id=${r.package_id}`:('失败：'+r.msg));
+}
+
+async function loadSessions(delta){
+  if (delta) page = Math.max(1, page+delta);
+  const r = await post('list_sessions', {page, pageSize});
+  if (!r.ok){ alert(r.msg||'加载失败'); return; }
+  total = r.total; document.getElementById('pageinfo').textContent = `第 ${page} 页 / 共 ${Math.ceil(total/pageSize)} 页`;
+  const tb = document.querySelector('#sessTbl tbody'); tb.innerHTML='';
+  const H = r.headers;
+  const idx = Object.fromEntries(H.map((h,i)=>[h,i]));
+  r.data.forEach(row=>{
+    const tr = document.createElement('tr');
+    const status = (row[idx.status]+'')||'';
+    tr.className = 'status-'+status;
+    tr.innerHTML = `
+      <td>${row[idx.session_id]}</td>
+      <td>${row[idx.date]}</td>
+      <td>${row[idx.time]}</td>
+      <td>${row[idx.client_id]}</td>
+      <td>${row[idx.coach_name]}(${row[idx.coach_id]})</td>
+      <td>${row[idx.package_id]}</td>
+      <td>${row[idx.duration_hours]||1}</td>
+      <td>${status}</td>
+      <td>${row[idx.notes]||''}</td>
+      <td class="row-actions">
+        <button class="green" onclick="complete('${row[idx.session_id]}')">已完成</button>
+        <button class="red" onclick="cancel('${row[idx.session_id]}')">取消</button>
+      </td>`;
+    tb.appendChild(tr);
+  });
+}
+
+async function complete(session_id){
+  const r = await post('complete_session', {session_id});
+  if (!r.ok) return alert(r.msg||'失败');
+  loadSessions();
+}
+async function cancel(session_id){
+  if (!confirm('确认取消并删除该Session？(已完成的不可删除)')) return;
+  const r = await post('cancel_session', {session_id});
+  if (!r.ok) return alert(r.msg||'失败');
+  loadSessions();
+}
+
+</script>
+</body>
+</html>
