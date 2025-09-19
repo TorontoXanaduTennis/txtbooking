@@ -171,4 +171,188 @@ let client = null;
 function saveSession(u){ localStorage.setItem('TXT_CLIENT', JSON.stringify(u||{})); }
 function readSession(){ try{ return JSON.parse(localStorage.getItem('TXT_CLIENT')||'{}'); }catch(e){return{}} }
 
-function saveAuth(a){ localStorage.setItem('TXT_CLIENT_AUTH',
+function saveAuth(a){ localStorage.setItem('TXT_CLIENT_AUTH', JSON.stringify(a||{})); }
+function readAuth(){ try{ return JSON.parse(localStorage.getItem('TXT_CLIENT_AUTH')||'{}'); }catch(e){return{}} }
+
+/* -------- UI 切换 -------- */
+function setLoginUI(logged){
+  loginForm.style.display = logged ? 'none' : 'block';
+  userBar.style.display   = logged ? 'flex' : 'none';
+}
+function logout(){
+  client=null; saveSession(null); saveAuth(null);
+  setLoginUI(false);
+  dash.style.display='none'; sess.style.display='none'; bookMsg.textContent='';
+  ['name','email','phone','password'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+}
+
+/* -------- 登录 -------- */
+async function login(){
+  const btn = document.getElementById('loginBtn'); btn.disabled = true;
+  try{
+    const name = nameEl.value.trim(), email = emailEl.value.trim(), phone = phoneEl.value.trim(), password = passwordEl.value.trim();
+    if (!name) { alert('请填写姓名'); return; }
+    if (!email && !phone){ alert('邮箱与电话需至少填写一个'); return; }
+    if (!password){ alert('请填写登录密码'); return; }
+    const r = await post('login_client', { email, phone, password });
+    if(!r.ok){ alert(r.msg || '登录失败'); return; }
+    if (r.client && r.client.name){
+      const a=String(r.client.name).trim().toLowerCase(), b=name.toLowerCase().trim();
+      if (a!==b){ alert('姓名与账号不匹配'); return; }
+    }
+    client = r.client;
+    saveSession({client_id:client.client_id, email:client.email, phone:client.phone, name:client.name});
+    saveAuth({email, phone, password}); // 保存凭据用于“刷新页面”
+    await renderDashboard(r, /*resetForm=*/true);
+  } finally { btn.disabled = false; }
+}
+
+/* -------- 刷新按钮：拉服务器数据并重置预约区 -------- */
+async function refreshDashboard(){
+  if(!client){ alert('请先登录'); return; }
+  const auth = readAuth();
+  const email = auth.email || client.email || '';
+  const phone = auth.phone || client.phone || '';
+  const password = auth.password || '';
+  if ((!email && !phone) || !password){
+    alert('无法刷新：缺少本地登录凭据，请退出后重新登录。');
+    return;
+  }
+  const r = await post('login_client', { email, phone, password });
+  if(!r.ok){ alert(r.msg || '刷新失败'); return; }
+  await renderDashboard(r, /*resetForm=*/true);
+}
+
+/* -------- 渲染整个仪表盘（可选重置预约区） -------- */
+async function renderDashboard(data, resetForm){
+  const packs = data.packages || [];
+  const sessions = data.sessions || [];
+  client = data.client || client;
+  userInfo.textContent = `${client.name}（${client.client_id}）已登录`;
+  setLoginUI(true);
+
+  // 我的套餐（数字上色）
+  pkgs.innerHTML = packs.map(p =>
+    `• ${p.package_name} [${p.package_id}]：总 <span class="num-green">${p.total_hours}</span> 小时 / 剩余 <span class="num-red">${p.remaining_hours}</span> 小时`
+  ).join('<br/>') || '<span class="muted">暂无套餐</span>';
+
+  // 固定教练展示
+  const coachLabel = (client.coach_name ? `${client.coach_name} ` : '') + (client.coach_id ? `(${client.coach_id})` : '');
+  coachPill.textContent = coachLabel || '未指定教练';
+  coachPill.dataset.coachId = client.coach_id || '';
+
+  // 套餐下拉
+  pkgSel.innerHTML = packs.map(p => `<option value="${p.package_id}">${p.package_name} [${p.package_id}]</option>`).join('');
+
+  // 日期不可选过去 + 预约区（可选重置）
+  const today = new Date(); const y=today.getFullYear(), m=String(today.getMonth()+1).padStart(2,'0'), d=String(today.getDate()).padStart(2,'0');
+  date.min = `${y}-${m}-${d}`;
+  if (resetForm){
+    date.value = date.min;
+    if (hourSel.options.length === 0){ for(let h=8; h<=23; h++){ const v=String(h).padStart(2,'0'); hourSel.add(new Option(v,v)); } }
+    const now=new Date(); let H=Math.max(8, now.getHours()); let M=now.getMinutes()<30?'30':'00'; if (M==='00') H=Math.min(23,H+1);
+    hourSel.value=String(Math.min(Math.max(H,8),23)).padStart(2,'0'); minSel.value=M;
+    durSel.value='1';
+    notesEl.value='';
+  }else{
+    if (hourSel.options.length === 0){ for(let h=8; h<=23; h++){ const v=String(h).padStart(2,'0'); hourSel.add(new Option(v,v)); } }
+    if (!date.value) date.value = date.min;
+  }
+
+  renderSessions(sessions);
+  dash.style.display='block'; sess.style.display='block';
+}
+
+/* -------- 渲染课程表 / 保存备注 -------- */
+function durationLabel(v){ const n=Number(v||1); return (Number.isInteger(n)?n:n.toString())+' hr'; }
+
+function sortSessions(list){
+  const rank = s => (s.status==='pending'?0 : s.status==='scheduled'?1 : 2);
+  return (list||[]).slice().sort((a,b)=>{
+    const ra = rank(a), rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    const sa = getStartDT(a), sb = getStartDT(b);
+    if (ra === 2){ // done: 新到旧
+      const ea = getEndDT(a), eb = getEndDT(b);
+      // 若无结束时间，用开始时间兜底
+      return (eb?eb:sb) - (ea?ea:sa);
+    }
+    // 其他（pending/scheduled）：早到晚
+    return (sa||0) - (sb||0);
+  });
+}
+
+function renderSessions(list){
+  const tb = document.querySelector('#sessTbl tbody'); tb.innerHTML='';
+  const data = sortSessions(list);
+  data.forEach(s=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="w-id">${s.session_id}</td>
+      <td class="w-date">${fmtDate(s.date)}</td>
+      <td class="w-time">${fmtTime(s.time)}</td>
+      <td class="w-dur">${durationLabel(s.duration_hours)}</td>
+      <td class="w-coach">${s.coach_name||''}</td>
+      <td class="w-status">${s.status||''}</td>
+      <td class="w-note"><input class="row-input note" data-id="${s.session_id}" value="${(s.notes||'').replace(/"/g,'&quot;')}"></td>
+      <td class="w-fb"><input class="row-input fb" data-id="${s.session_id}" value="${(s.feedback||'').replace(/"/g,'&quot;')}"></td>
+      <td class="w-act"><button class="btn" onclick="saveRow('${s.session_id}')">保存</button></td>
+    `;
+    tb.appendChild(tr);
+  });
+}
+async function saveRow(id){
+  const notes = document.querySelector(`.note[data-id='${id}']`).value;
+  const feedback = document.querySelector(`.fb[data-id='${id}']`).value;
+  const r = await post('update_session_notes', { session_id:id, notes, feedback });
+  if(!r.ok) alert(r.msg || '保存失败');
+}
+
+/* -------- 创建预约 -------- */
+function composeTimeStr(){ return `${hourSel.value||'08'}:${minSel.value||'00'}`; }
+function isPastSelection(dateStr, timeStr){ const sel=new Date(`${dateStr}T${timeStr}:00`); return sel.getTime() < Date.now() - 60*1000; }
+async function createSession(){
+  if(!client){ alert('请先登录'); return; }
+  const package_id = pkgSel.value, dateStr = date.value, timeStr = composeTimeStr();
+  const duration_hours = Number(durSel.value); const notes = notesEl.value.trim();
+  const coach_id = coachPill.dataset.coachId || '';
+  if(!package_id){ alert('请选择套餐'); return; }
+  if(!dateStr){ alert('请选择日期'); return; }
+  if (isPastSelection(dateStr, timeStr)){ alert('不能选择已过去的时间'); return; }
+  const r = await post('create_session', { package_id, client_id: client.client_id, coach_id, date: dateStr, time: timeStr, duration_hours, notes });
+  if(!r.ok){ bookMsg.style.color='var(--red)'; bookMsg.textContent='预约失败：' + (r.msg||'Unknown error'); }
+  else{ bookMsg.style.color='var(--green)'; bookMsg.textContent='预约成功，等待教练确认'; }
+}
+
+/* -------- DOM 引用 -------- */
+const nameEl = document.getElementById('name');
+const emailEl = document.getElementById('email');
+const phoneEl = document.getElementById('phone');
+const passwordEl = document.getElementById('password');
+const hourSel = document.getElementById('hourSel');
+const minSel  = document.getElementById('minSel');
+const date    = document.getElementById('date');
+const pkgSel  = document.getElementById('pkgSel');
+const coachPill = document.getElementById('coachPill');
+const durSel  = document.getElementById('durSel');
+const notesEl = document.getElementById('notes');
+const loginForm = document.getElementById('loginForm');
+const userBar   = document.getElementById('userBar');
+const pkgs      = document.getElementById('pkgs');
+const dash      = document.getElementById('dash');
+const sess      = document.getElementById('sess');
+const bookMsg   = document.getElementById('bookMsg');
+const userInfo  = document.getElementById('userInfo');
+
+/* -------- 启动：用本地凭据自动登录 -------- */
+(async function init(){
+  const auth = readAuth();
+  if ((auth.email || auth.phone) && auth.password){
+    const rel = await post('login_client', { email: auth.email||'', phone: auth.phone||'', password: auth.password||'' });
+    if (rel.ok){ await renderDashboard(rel, /*resetForm=*/true); return; }
+  }
+  setLoginUI(false);
+})();
+</script>
+</body>
+</html>
