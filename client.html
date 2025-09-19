@@ -29,35 +29,32 @@
   .num-green{color:var(--green);font-weight:700}
   .num-red{color:var(--red);font-weight:700}
 
-  /* 表格：固定布局 + 行间距卡片效果，防止“右边长出去” */
+  /* 表格：固定列宽 + 横向滚动，避免挤压 */
   .table-wrap{position:relative;overflow:auto;padding-top:6px}
-  table{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0 10px}
+  table{min-width:1120px;width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0 10px}
   thead th{position:sticky;top:0;background:var(--bg);z-index:1;font-weight:600;padding:10px}
   tbody tr{background:#fff;box-shadow:var(--shadow)}
-  th,td{padding:10px 12px;font-size:14px;vertical-align:middle}
+  th,td{padding:10px 12px;font-size:14px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   tbody tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px}
   tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
-  .status-pending{background:var(--st-pending)}
-  .status-scheduled{background:var(--st-scheduled)}
-  .status-done{background:var(--st-done)}
-  .w-id{width:160px}
-  .w-coach{width:140px}
-  .w-note,.w-fb{width:220px}
-  .w-act{width:80px}
   .row-input{width:100%}
 
-  /* 小提示 */
-  .tip{font-size:12px;color:var(--muted);margin-top:6px}
+  /* 列宽 */
+  .w-id{width:180px}
+  .w-date{width:120px}
+  .w-time{width:90px}
+  .w-coach{width:140px}
+  .w-status{width:110px}
+  .w-note,.w-fb{width:260px}
+  .w-act{width:74px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>客户端 · TXT 订课</h1>
 
-  <!-- 顶部登录 / 用户条 -->
+  <!-- 登录 / 用户条（不显示 API） -->
   <div class="card" id="loginCard">
-    <div class="muted" style="margin-bottom:8px">API: <code id="apiShow"></code></div>
-
     <div id="loginForm">
       <h3>登录</h3>
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
@@ -67,7 +64,7 @@
         <input id="password" placeholder="登录密码（必填）" type="password" />
         <button id="loginBtn" class="btn blue" onclick="login()" style="grid-column:1/3">登录</button>
       </div>
-      <div class="tip">必须输入：<b>姓名</b> + <b>邮箱或电话</b> + <b>登录密码</b>。</div>
+      <div class="muted" style="margin-top:6px;font-size:12px">必须输入：<b>姓名</b> + <b>邮箱或电话</b> + <b>登录密码</b>。</div>
     </div>
 
     <div id="userBar" style="display:none;align-items:center;justify-content:space-between" class="toolbar">
@@ -87,38 +84,23 @@
     <h3 style="margin-top:16px">预约上课</h3>
     <div class="toolbar" style="flex-wrap:wrap;gap:10px">
       <select id="pkgSel" title="选择套餐"></select>
-
-      <!-- 日期：禁止选择过去 -->
       <input id="date" type="date" title="上课日期" />
-
-      <!-- 时间：小时 8-23，分钟 00/30 -->
       <div class="toolbar" style="gap:6px">
         <select id="hourSel" title="小时"></select>
         <span class="muted">:</span>
-        <select id="minSel" title="分钟">
-          <option value="00">00</option>
-          <option value="30">30</option>
-        </select>
+        <select id="minSel" title="分钟"><option value="00">00</option><option value="30">30</option></select>
       </div>
-
-      <!-- 指定教练：固定显示，不允许修改 -->
       <span class="pill" id="coachPill" title="指定教练"></span>
-
-      <!-- 时长下拉 -->
       <select id="durSel" title="时长">
-        <option value="1">1 hr</option>
-        <option value="1.5">1.5 hr</option>
-        <option value="2">2 hr</option>
-        <option value="2.5">2.5 hr</option>
-        <option value="3">3 hr</option>
-        <option value="3.5">3.5 hr</option>
+        <option value="1">1 hr</option><option value="1.5">1.5 hr</option>
+        <option value="2">2 hr</option><option value="2.5">2.5 hr</option>
+        <option value="3">3 hr</option><option value="3.5">3.5 hr</option>
         <option value="4">4 hr</option>
       </select>
-
       <input id="notes" placeholder="备注（可选）" style="min-width:220px" />
       <button class="btn" onclick="createSession()">提交预约（待确认）</button>
     </div>
-    <div id="bookMsg" class="tip" style="margin-top:6px"></div>
+    <div id="bookMsg" class="muted" style="margin-top:6px"></div>
   </div>
 
   <!-- 上课记录 -->
@@ -129,10 +111,10 @@
         <thead>
           <tr>
             <th class="w-id">session_id</th>
-            <th>date</th>
-            <th>time</th>
+            <th class="w-date">date</th>
+            <th class="w-time">time</th>
             <th class="w-coach">coach</th>
-            <th>status</th>
+            <th class="w-status">status</th>
             <th class="w-note">备注</th>
             <th class="w-fb">反馈</th>
             <th class="w-act">保存</th>
@@ -147,9 +129,8 @@
 <script>
 // === 把你的 Apps Script Web App /exec 地址填在这里 ===
 const API_BASE = 'https://script.google.com/macros/s/AKfycbyx9rOGKsyYE3bcB9sP2iO744vopK-L5p20OcSBo0mNJKj0Dzs8MMPUNmQlGW_XD6E2Og/exec';
-apiShow.textContent = API_BASE;
 
-// 统一 POST（text/plain 规避预检）
+// 简单 POST（text/plain 避免预检）
 async function post(action, payload = {}) {
   try {
     const res = await fetch(API_BASE, {
@@ -164,149 +145,100 @@ async function post(action, payload = {}) {
   }
 }
 
-/* ========== 日期/时间工具（修复显示） ========== */
+/* ===== 日期/时间工具 ===== */
 const isDate = v => Object.prototype.toString.call(v)==='[object Date]' && !isNaN(v);
 function parseMaybeDate(x){
   if (x==null || x==='') return null;
   if (isDate(x)) return x;
-  if (typeof x==='number'){
-    // Sheets: 0 => 1899-12-30
-    const base = Date.UTC(1899,11,30);
-    return new Date(base + x*86400000);
-  }
+  if (typeof x==='number'){ const base = Date.UTC(1899,11,30); return new Date(base + x*86400000); }
   if (typeof x==='string'){
-    // 纯时间 "HH:MM"；或 ISO 字符串
-    if (/^\d{1,2}:\d{2}/.test(x)){
-      const [h,m] = x.split(':').map(Number);
-      const d = new Date(); d.setHours(h,m||0,0,0); return d;
-    }
+    if (/^\d{1,2}:\d{2}/.test(x)){ const [h,m]=x.split(':').map(Number); const d=new Date(); d.setHours(h,m||0,0,0); return d; }
     const d = new Date(x); if(!isNaN(d)) return d;
   }
   return null;
 }
-function fmtDate(x){
-  const d = parseMaybeDate(x);
-  return d ? d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}) : (x||'');
-}
-function fmtTime(x){
-  const d = parseMaybeDate(x);
-  return d ? d.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'}) : (x||'');
-}
+function fmtDate(x){ const d=parseMaybeDate(x); return d?d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}):(x||''); }
+function fmtTime(x){ const d=parseMaybeDate(x); return d?d.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'}):(x||''); }
 
-/* ========== 登录/状态 ========== */
+/* ===== 登录/状态 ===== */
 let client = null;
 function saveSession(u){ localStorage.setItem('TXT_CLIENT', JSON.stringify(u||{})); }
 function readSession(){ try{ return JSON.parse(localStorage.getItem('TXT_CLIENT')||'{}'); }catch(e){return{}} }
 function setLoginUI(logged){
-  if (logged){
-    loginForm.style.display='none';
-    userBar.style.display='flex';
-  }else{
-    loginForm.style.display='block';
-    userBar.style.display='none';
-  }
+  loginForm.style.display = logged ? 'none' : 'block';
+  userBar.style.display   = logged ? 'flex' : 'none';
 }
 function logout(){
-  client=null; saveSession(null);
-  setLoginUI(false);
-  dash.style.display='none'; sess.style.display='none';
-  // 清空表单
+  client=null; saveSession(null); setLoginUI(false);
+  dash.style.display='none'; sess.style.display='none'; bookMsg.textContent='';
   ['name','email','phone','password'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  bookMsg.textContent='';
 }
-async function reloadAfterLogin(){
-  if(!client) return;
-  await afterLogin(client, /*refreshOnly*/true);
-}
+async function reloadAfterLogin(){ if(!client) return; await afterLogin(client,true); }
 
 async function login(){
   const btn = document.getElementById('loginBtn'); btn.disabled = true;
   try{
-    const name = document.getElementById('name').value.trim();
-    const email = document.getElementById('email').value.trim();
-    const phone = document.getElementById('phone').value.trim();
-    const password = document.getElementById('password').value.trim();
-
+    const name = nameEl.value.trim(), email = emailEl.value.trim(), phone = phoneEl.value.trim(), password = passwordEl.value.trim();
     if (!name) { alert('请填写姓名'); return; }
     if (!email && !phone){ alert('邮箱与电话需至少填写一个'); return; }
     if (!password){ alert('请填写登录密码'); return; }
-
     const r = await post('login_client', { email, phone, password });
     if(!r.ok){ alert(r.msg || '登录失败'); return; }
-
-    // 服务端只校验账号+密码，这里用 name 做额外匹配（若返回里有 name 字段）
-    if (r.client && r.client.name && name && String(r.client.name).trim()!==name){
-      // 容忍大小写/空格差异
-      const a = String(r.client.name).trim().toLowerCase();
-      const b = name.toLowerCase().trim();
+    if (r.client && r.client.name){
+      const a=String(r.client.name).trim().toLowerCase(), b=name.toLowerCase().trim();
       if (a!==b){ alert('姓名与账号不匹配'); return; }
     }
-
     client = r.client;
     saveSession({client_id:client.client_id, email:client.email, phone:client.phone, name:client.name});
     await afterLogin(r);
-  } finally {
-    btn.disabled = false;
-  }
+  } finally { btn.disabled = false; }
 }
 
 async function afterLogin(dataOrClient, refreshOnly=false){
-  const packs = dataOrClient.packages || [];
-  const sessions = dataOrClient.sessions || [];
+  const packs = dataOrClient.packages || []; const sessions = dataOrClient.sessions || [];
   client = dataOrClient.client || dataOrClient;
-
   userInfo.textContent = `${client.name}（${client.client_id}）已登录`;
   setLoginUI(true);
 
-  // 我的套餐（数字着色）
+  // 套餐数字着色
   pkgs.innerHTML = packs.map(p =>
     `• ${p.package_name} [${p.package_id}]：总 <span class="num-green">${p.total_hours}</span> 小时 / 剩余 <span class="num-red">${p.remaining_hours}</span> 小时`
   ).join('<br/>') || '<span class="muted">暂无套餐</span>';
 
-  // 套餐下拉（用 packages 列表）
+  // 套餐下拉
   pkgSel.innerHTML = packs.map(p => `<option value="${p.package_id}">${p.package_name} [${p.package_id}]</option>`).join('');
 
-  // 固定教练（不可更改）
+  // 固定教练
   const coachLabel = (client.coach_name ? `${client.coach_name} ` : '') + (client.coach_id ? `(${client.coach_id})` : '');
   coachPill.textContent = coachLabel || '未指定教练';
   coachPill.dataset.coachId = client.coach_id || '';
 
-  // 日期最小为今天
-  const today = new Date();
-  const yyyy = today.getFullYear(), mm = String(today.getMonth()+1).padStart(2,'0'), dd = String(today.getDate()).padStart(2,'0');
-  date.min = `${yyyy}-${mm}-${dd}`;
-  if (!refreshOnly && !date.value) date.value = date.min;
+  // 日期不可选过去
+  const today = new Date(); const y=today.getFullYear(), m=String(today.getMonth()+1).padStart(2,'0'), d=String(today.getDate()).padStart(2,'0');
+  date.min = `${y}-${m}-${d}`; if (!refreshOnly && !date.value) date.value = date.min;
 
-  // 小时 8-23
-  if (hourSel.options.length === 0){
-    for(let h=8; h<=23; h++){ const v=String(h).padStart(2,'0'); const opt=document.createElement('option'); opt.value=v; opt.textContent=v; hourSel.appendChild(opt); }
-  }
-  // 默认给最近的半小时
+  // 小时 8–23
+  if (hourSel.options.length === 0){ for(let h=8; h<=23; h++){ const v=String(h).padStart(2,'0'); hourSel.add(new Option(v,v)); } }
   if (!refreshOnly){
-    const now = new Date();
-    let H = Math.max(8, now.getHours());
-    let M = now.getMinutes() < 30 ? '30' : '00';
-    if (M==='00'){ H = Math.min(23, H+1); }
-    hourSel.value = String(Math.min(Math.max(H,8),23)).padStart(2,'0');
-    minSel.value = M;
+    const now=new Date(); let H=Math.max(8, now.getHours()); let M=now.getMinutes()<30?'30':'00'; if (M==='00') H=Math.min(23,H+1);
+    hourSel.value=String(Math.min(Math.max(H,8),23)).padStart(2,'0'); minSel.value=M;
   }
 
   renderSessions(sessions);
-  dash.style.display='block';
-  sess.style.display='block';
+  dash.style.display='block'; sess.style.display='block';
 }
 
-/* ========== 课程表渲染/保存 ========== */
+/* ===== 课程表渲染/保存 ===== */
 function renderSessions(list){
   const tb = document.querySelector('#sessTbl tbody'); tb.innerHTML='';
   (list||[]).forEach(s=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="w-id">${s.session_id}</td>
-      <td>${fmtDate(s.date)}</td>
-      <td>${fmtTime(s.time)}</td>
+      <td class="w-date">${fmtDate(s.date)}</td>
+      <td class="w-time">${fmtTime(s.time)}</td>
       <td class="w-coach">${s.coach_name||''}</td>
-      <td>${s.status||''}</td>
+      <td class="w-status">${s.status||''}</td>
       <td class="w-note"><input class="row-input note" data-id="${s.session_id}" value="${(s.notes||'').replace(/"/g,'&quot;')}"></td>
       <td class="w-fb"><input class="row-input fb" data-id="${s.session_id}" value="${(s.feedback||'').replace(/"/g,'&quot;')}"></td>
       <td class="w-act"><button class="btn" onclick="saveRow('${s.session_id}')">保存</button></td>
@@ -321,57 +253,48 @@ async function saveRow(id){
   if(!r.ok) alert(r.msg || '保存失败');
 }
 
-/* ========== 校验 + 预约 ========== */
-function composeTimeStr(){
-  const h = hourSel.value || '08';
-  const m = minSel.value || '00';
-  return `${h}:${m}`;
-}
-function isPastSelection(dateStr, timeStr){
-  // 如果选择今天，且时间早于当前半小时，认为过去
-  const sel = new Date(`${dateStr}T${timeStr}:00`);
-  const now = new Date();
-  return sel.getTime() < now.getTime() - 60*1000; // 给 1 分钟容差
-}
+/* ===== 预约 ===== */
+function composeTimeStr(){ return `${hourSel.value||'08'}:${minSel.value||'00'}`; }
+function isPastSelection(dateStr, timeStr){ const sel=new Date(`${dateStr}T${timeStr}:00`); return sel.getTime() < Date.now() - 60*1000; }
 async function createSession(){
   if(!client){ alert('请先登录'); return; }
-  const package_id = pkgSel.value;
-  const dateStr = date.value;
-  const timeStr = composeTimeStr();
-  const duration_hours = Number(durSel.value);
-  const notes = document.getElementById('notes').value.trim();
-  const coach_id = coachPill.dataset.coachId || ''; // 固定
-
+  const package_id = pkgSel.value, dateStr = date.value, timeStr = composeTimeStr();
+  const duration_hours = Number(durSel.value); const notes = notesEl.value.trim();
+  const coach_id = coachPill.dataset.coachId || '';
   if(!package_id){ alert('请选择套餐'); return; }
   if(!dateStr){ alert('请选择日期'); return; }
-  // 禁止过去的日期
   if (isPastSelection(dateStr, timeStr)){ alert('不能选择已过去的时间'); return; }
-
-  const r = await post('create_session', {
-    package_id, client_id: client.client_id, coach_id, date: dateStr, time: timeStr, duration_hours, notes
-  });
-  if(!r.ok){
-    bookMsg.style.color = 'var(--red)';
-    bookMsg.textContent = '预约失败：' + (r.msg || 'Unknown error');
-  }else{
-    bookMsg.style.color = 'var(--green)';
-    bookMsg.textContent = '预约成功，等待教练确认';
-    // 重新拉取一次数据显示最新
-    const rel = await post('login_client', { email: client.email, phone: client.phone, password: client.password || '' });
-    if (rel.ok) renderSessions(rel.sessions||[]);
-  }
+  const r = await post('create_session', { package_id, client_id: client.client_id, coach_id, date: dateStr, time: timeStr, duration_hours, notes });
+  if(!r.ok){ bookMsg.style.color='var(--red)'; bookMsg.textContent='预约失败：' + (r.msg||'Unknown error'); }
+  else{ bookMsg.style.color='var(--green)'; bookMsg.textContent='预约成功，等待教练确认'; }
 }
 
-/* ========== 自动恢复登录（可选） ========== */
+/* ===== 简化的元素引用 ===== */
+const nameEl = document.getElementById('name');
+const emailEl = document.getElementById('email');
+const phoneEl = document.getElementById('phone');
+const passwordEl = document.getElementById('password');
+const hourSel = document.getElementById('hourSel');
+const minSel  = document.getElementById('minSel');
+const date    = document.getElementById('date');
+const pkgSel  = document.getElementById('pkgSel');
+const coachPill = document.getElementById('coachPill');
+const durSel  = document.getElementById('durSel');
+const notesEl = document.getElementById('notes');
+const loginForm = document.getElementById('loginForm');
+const userBar   = document.getElementById('userBar');
+const pkgs      = document.getElementById('pkgs');
+const dash      = document.getElementById('dash');
+const sess      = document.getElementById('sess');
+const bookMsg   = document.getElementById('bookMsg');
+const userInfo  = document.getElementById('userInfo');
+
+/* ===== 恢复登录尝试（可选） ===== */
 (async function init(){
-  // 尝试从缓存恢复（仅用于显示 userBar；真正数据以登录接口为准）
   const cache = readSession();
   if (cache && cache.client_id){
     const rel = await post('login_client', { email: cache.email||'', phone: cache.phone||'', password: '' });
-    if (rel.ok){
-      await afterLogin(rel);
-      return;
-    }
+    if (rel.ok){ await afterLogin(rel); return; }
   }
   setLoginUI(false);
 })();
