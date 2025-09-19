@@ -28,7 +28,7 @@
   .btn.gray{background:var(--gray)}
   .muted{color:var(--muted)}
 
-  /* 表格 */
+  /* 表格美化 */
   .table-wrap{position:relative;overflow:auto;padding-top:6px}
   table{width:100%;border-collapse:separate;border-spacing:0 10px}
   thead th{position:sticky;top:0;background:var(--bg);z-index:1;font-weight:600;padding:10px}
@@ -37,6 +37,7 @@
   tbody tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px}
   tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
   .row-actions button{margin-right:6px}
+  .disabled{opacity:.45;pointer-events:none}
 
   /* 状态 badge */
   .badge{padding:2px 10px;border-radius:999px;font-size:12px;display:inline-block}
@@ -49,11 +50,10 @@
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 
-  /* 简易选择教练弹窗 */
+  /* 弹窗 */
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center}
   .dialog{background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:16px;min-width:320px}
   .dialog .actions{margin-top:10px;display:flex;gap:8px;justify-content:flex-end}
-  .disabled{opacity:.5;pointer-events:none}
 </style>
 </head>
 <body>
@@ -81,7 +81,6 @@
       <input id="c_pass"   placeholder="登录密码" />
       <input id="p_name"   placeholder="首次 Package 名称(如 800/10hr)" />
       <input id="p_hours"  placeholder="总小时(如 10)" />
-      <!-- 教练下拉：从后端读取 Coach 表 -->
       <select id="coach_sel"><option value="">选择教练…</option></select>
       <div class="toolbar" style="gap:8px">
         <button class="btn" onclick="createClient()">确认录入</button>
@@ -89,7 +88,7 @@
       </div>
     </div>
     <div id="createClientMsg" style="margin-top:8px;color:var(--success)"></div>
-    <div class="muted" style="margin-top:6px">提示：教练名单来自 Coach 表（通过后端接口 list_coaches）。</div>
+    <div class="muted" style="margin-top:6px">提示：教练名单来自 Coach 表（list_coaches）。</div>
   </div>
 
   <!-- 客户搜索 -->
@@ -131,23 +130,22 @@
 </div>
 
 <script>
-// === Apps Script Web App /exec ===
+/* === Apps Script /exec === */
 const API_BASE = 'https://script.google.com/macros/s/AKfycbzvN9lgnxywjnVTw5E39DSfsWH09dsCE3bwOUbrVP5vbjoBom7Oh_wFHOKlHpkxixW8Ew/exec';
 
-// ---- Admin Key 本地保存 ----
+/* ---- Admin Key ---- */
 function adminKey(){ return localStorage.getItem('TXT_ADMIN_KEY') || ''; }
 function saveKey(){
   localStorage.setItem('TXT_ADMIN_KEY', document.getElementById('adminkey').value.trim());
   alert('已保存');
 }
 function softReset(){
-  // 清空录入表单 & 搜索 & 刷新列表
-  clearCreateForm();
-  resetSearch();
-  loadSessions();
+  clearCreateForm();   // 清空 & 清提示
+  resetSearch();       // 清搜索框 & 结果
+  loadSessions();      // 刷新列表
 }
 
-// ---- 简单请求(避免 CORS 预检) ----
+/* ---- 请求封装（text/plain 避免预检） ---- */
 async function post(action, payload={}){
   const k = adminKey();
   if (k && !payload.admin_key) payload.admin_key = k;
@@ -164,7 +162,7 @@ async function post(action, payload={}){
   }
 }
 
-// ---- 工具：日期/时间解析 & 格式化 ----
+/* ---- 日期/时间工具 ---- */
 const isDate = v => Object.prototype.toString.call(v)==='[object Date]' && !isNaN(v);
 function parseMaybeDate(x){
   if (x==null || x==='') return null;
@@ -192,7 +190,7 @@ function badge(status){
   return status||'';
 }
 
-// ---- 读取教练清单（全局缓存）----
+/* ---- 教练清单（缓存） ---- */
 let COACHES = [];
 async function loadCoaches(){
   const r = await post('list_coaches', {});
@@ -202,7 +200,7 @@ async function loadCoaches(){
     (COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('');
 }
 
-// ---- 简易“选择教练”弹窗（返回 Promise<coach_id|null>）----
+/* ---- 选择教练弹窗 ---- */
 function pickCoach(title='选择教练'){
   return new Promise(resolve=>{
     const ov = document.createElement('div'); ov.className='overlay';
@@ -220,8 +218,14 @@ function pickCoach(title='选择教练'){
   });
 }
 
-// ---- 录入新客户 ----
-function clearCreateForm(){ ['c_name','c_phone','c_wechat','c_email','c_pass','p_name','p_hours'].forEach(id=>document.getElementById(id).value=''); document.getElementById('coach_sel').value=''; document.getElementById('createClientMsg').textContent=''; }
+/* ---- 录入新客户 ---- */
+function clearCreateForm(){
+  ['c_name','c_phone','c_wechat','c_email','c_pass','p_name','p_hours'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  const sel = document.getElementById('coach_sel'); if (sel) sel.value='';
+  const msg = document.getElementById('createClientMsg'); if (msg) msg.textContent='';
+}
 async function createClient(){
   try{
     const name         = c_name.value.trim();
@@ -237,8 +241,9 @@ async function createClient(){
     const el = document.getElementById('createClientMsg');
     if (r && r.ok){
       el.style.color = 'var(--success)';
-      el.textContent = `成功，client_id=${r.client_id}, package_id=${r.package_id}`;
-      clearCreateForm();
+      el.textContent = `成功录入：client_id=${r.client_id}，package_id=${r.package_id}`;
+      // 如需自动清空表单，取消下一行注释
+      // clearCreateForm();
     }else{
       el.style.color = 'var(--danger)';
       el.textContent = '失败：' + (r && r.msg || 'Network error');
@@ -246,23 +251,24 @@ async function createClient(){
   }catch(err){ alert('创建失败：' + err.message); }
 }
 
-// ---- 客户搜索 ----
-function resetSearch(){ document.getElementById('q').value=''; document.getElementById('srCount').textContent=''; document.getElementById('searchRes').innerHTML=''; }
+/* ---- 搜索客户 ---- */
+function resetSearch(){ q.value=''; srCount.textContent=''; searchRes.innerHTML=''; }
 async function searchClients(){
-  const q = document.getElementById('q').value.trim();
-  const box = document.getElementById('searchRes');
-  box.innerHTML = '<div class="muted">搜索中…</div>';
-  const r = await post('search_clients', { q, limit: 50 });
-  if(!r.ok){ box.innerHTML = `<div class="muted">搜索失败：${r.msg||''}</div>`; return; }
+  const keyword = q.value.trim();
+  searchRes.innerHTML = '<div class="muted">搜索中…</div>';
+  const r = await post('search_clients', { q: keyword, limit: 50 });
+  if(!r.ok){ searchRes.innerHTML = `<div class="muted">搜索失败：${r.msg||''}</div>`; return; }
   const items = r.items || [];
-  document.getElementById('srCount').textContent = `共 ${items.length} 条`;
-  box.innerHTML = items.map(it=>{
+  srCount.textContent = `共 ${items.length} 条`;
+  searchRes.innerHTML = items.map(it=>{
     const c = it.client || {};
     const pkgs = it.packages || [];
     const sess = it.sessions || [];
+
     const assignedId = c.assigned_coach || c.coach_id || '';
     const coachObj = (COACHES||[]).find(x=>x.coach_id===assignedId) || {};
     const assignedLabel = assignedId ? `${coachObj.coach_name||''} (${assignedId})` : '未指定';
+
     return `
       <div class="client-card">
         <div class="grid-2">
@@ -306,7 +312,7 @@ async function changeAssignedCoach(client_id){
   searchClients();
 }
 
-// ---- Session 列表 & 操作 ----
+/* ---- Session 列表 & 操作 ---- */
 let page=1, pageSize=50, total=0;
 async function loadSessions(delta){
   if (delta) page = Math.max(1, page + delta);
@@ -314,7 +320,7 @@ async function loadSessions(delta){
   if (!r.ok){ alert(r.msg || '加载失败'); return; }
 
   total = r.total;
-  document.getElementById('pageinfo').textContent = `第 ${page} 页 / 共 ${Math.ceil(total / pageSize)} 页`;
+  pageinfo.textContent = `第 ${page} 页 / 共 ${Math.ceil(total / pageSize)} 页`;
 
   const tb = document.querySelector('#sessTbl tbody'); tb.innerHTML = '';
   const H = r.headers; const idx = Object.fromEntries(H.map((h,i)=>[h,i]));
@@ -323,6 +329,7 @@ async function loadSessions(delta){
     const status = (row[idx.status]+'') || '';
     const end = endTime(row[idx.date], row[idx.time], row[idx.duration_hours]);
     const finished = end ? (new Date().getTime() >= end.getTime()) : false;
+    // 只能 scheduled & 已结束 才能完成
     const canComplete = (status === 'scheduled') && finished;
 
     const tr = document.createElement('tr');
@@ -363,7 +370,7 @@ async function sw(session_id){
   loadSessions();
 }
 
-// 首次加载
+/* ---- 启动 ---- */
 loadCoaches();
 loadSessions();
 </script>
