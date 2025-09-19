@@ -8,7 +8,7 @@
   :root{
     --bg:#f6f7fb; --card:#fff; --text:#111; --muted:#6b7280; --bdr:#e5e7eb;
     --shadow:0 8px 20px rgba(0,0,0,.08);
-    --success:#10b981; --danger:#ef4444; --primary:#111; --blue:#3b82f6;
+    --success:#10b981; --danger:#ef4444; --primary:#111; --blue:#3b82f6; --orange:#f59e0b; --gray:#6b7280;
     --row-gap:10px; --radius:14px;
     --st-pending:#FEF3C7; --st-scheduled:#E5E7EB; --st-done:#D1FAE5;
   }
@@ -24,9 +24,11 @@
   .btn.success{background:var(--success)}
   .btn.danger{background:var(--danger)}
   .btn.blue{background:var(--blue)}
+  .btn.orange{background:var(--orange)}
+  .btn.gray{background:var(--gray)}
   .muted{color:var(--muted)}
 
-  /* 表格美化：使用行间距 + 阴影 + 圆角 + 置顶表头 */
+  /* 表格美化：行间距 + 阴影 + 圆角 + 置顶表头 */
   .table-wrap{position:relative;overflow:auto;padding-top:6px}
   table{width:100%;border-collapse:separate;border-spacing:0 var(--row-gap)}
   thead th{position:sticky;top:0;background:var(--bg);z-index:1;font-weight:600;padding:10px}
@@ -59,6 +61,8 @@
       <input id="adminkey" placeholder="Admin Key(一次保存)" />
       <button class="btn" onclick="saveKey()">保存Key</button>
       <button class="btn" onclick="loadSessions()">刷新列表</button>
+      <!-- 新增：橙色“刷新页面”（软刷新） -->
+      <button class="btn orange" onclick="softRefresh()">刷新页面</button>
     </div>
   </div>
 
@@ -75,7 +79,11 @@
       <input id="p_hours"  placeholder="总小时(如 10)" />
       <!-- 教练下拉：从后端读取 Coach 表 -->
       <select id="coach_sel"><option value="">选择教练…</option></select>
-      <button class="btn" onclick="createClient()">确认录入</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn" onclick="createClient()">确认录入</button>
+        <!-- 新增：灰色清空按钮 -->
+        <button class="btn gray" type="button" onclick="clearNewClientForm()">清空</button>
+      </div>
     </div>
     <div id="createClientMsg" style="margin-top:8px;color:var(--success)"></div>
     <div class="muted" style="margin-top:6px">提示：教练名单来自 Coach 表（通过后端接口 list_coaches）。</div>
@@ -87,6 +95,8 @@
     <div class="toolbar" style="gap:12px">
       <input id="q" style="min-width:320px" placeholder="输入 client_id / 姓名 / 电话 / 微信 / 邮箱（任意其一匹配）" />
       <button class="btn blue" onclick="searchClients()">搜索</button>
+      <!-- 新增：重新搜索（清空输入与结果） -->
+      <button class="btn gray" type="button" onclick="resetSearch()">重新搜索</button>
       <span id="srCount" class="muted"></span>
     </div>
     <div id="searchRes" style="margin-top:10px"></div>
@@ -212,6 +222,16 @@ async function createClient(){
 }
 window.createClient = createClient;
 
+// 新增：清空录入表单
+function clearNewClientForm(){
+  ['c_name','c_phone','c_wechat','c_email','c_pass','p_name','p_hours'].forEach(id=>{
+    const el = document.getElementById(id); if(el) el.value='';
+  });
+  const sel = document.getElementById('coach_sel'); if (sel) sel.value='';
+  const msg = document.getElementById('createClientMsg'); if (msg) msg.textContent='';
+}
+window.clearNewClientForm = clearNewClientForm;
+
 // ---- 客户搜索 ----
 async function searchClients(){
   const q = document.getElementById('q').value.trim();
@@ -248,6 +268,24 @@ async function searchClients(){
   }).join('') || '<div class="muted">未找到匹配客户</div>';
 }
 window.searchClients = searchClients;
+
+// 新增：重置搜索（清空输入与结果）
+function resetSearch(){
+  const q = document.getElementById('q'); if(q) q.value='';
+  const box = document.getElementById('searchRes'); if(box) box.innerHTML='';
+  const cnt = document.getElementById('srCount'); if(cnt) cnt.textContent='';
+}
+window.resetSearch = resetSearch;
+
+// 新增：橙色“刷新页面”（软刷新）
+function softRefresh(){
+  clearNewClientForm();
+  resetSearch();
+  page = 1;
+  loadCoaches();
+  loadSessions();
+}
+window.softRefresh = softRefresh;
 
 // ---- Session 列表 & 操作 ----
 let page=1, pageSize=50, total=0;
@@ -304,7 +342,6 @@ async function cancelSession(session_id){
 window.cancelSession = cancelSession;
 
 async function sw(session_id){
-  // 下拉已在“录入新客户”区域，这里临时输入即可
   const coach_id = prompt('输入新的 coach_id：');
   if (!coach_id) return;
   const r = await post('switch_coach', { session_id, coach_id });
