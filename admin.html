@@ -8,7 +8,7 @@
   :root{
     --bg:#f6f7fb; --card:#fff; --text:#111; --muted:#6b7280; --bdr:#e5e7eb;
     --shadow:0 8px 20px rgba(0,0,0,.08);
-    --success:#10b981; --danger:#ef4444; --primary:#111; --blue:#3b82f6; --orange:#f59e0b; --gray:#6b7280;
+    --success:#10b981; --danger:#ef4444; --primary:#111; --blue:#2563eb; --orange:#f59e0b; --gray:#6b7280;
     --row-gap:10px; --radius:14px;
     --st-pending:#FEF3C7; --st-scheduled:#E5E7EB; --st-done:#D1FAE5;
   }
@@ -28,8 +28,9 @@
   .btn.gray{background:var(--gray)}
   .muted{color:var(--muted)}
 
+  /* 表格 */
   .table-wrap{position:relative;overflow:auto;padding-top:6px}
-  table{width:100%;border-collapse:separate;border-spacing:0 var(--row-gap)}
+  table{width:100%;border-collapse:separate;border-spacing:0 10px}
   thead th{position:sticky;top:0;background:var(--bg);z-index:1;font-weight:600;padding:10px}
   tbody tr{background:#fff;box-shadow:var(--shadow)}
   th,td{padding:10px 12px;font-size:14px}
@@ -37,19 +38,22 @@
   tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
   .row-actions button{margin-right:6px}
 
+  /* 状态 badge */
   .badge{padding:2px 10px;border-radius:999px;font-size:12px;display:inline-block}
   .b-pending{background:var(--st-pending);color:#92400e}
   .b-scheduled{background:var(--st-scheduled);color:#374151}
   .b-done{background:var(--st-done);color:#065f46}
 
+  /* 搜索结果卡片 */
   .client-card{background:#fff;border:1px solid var(--bdr);border-radius:12px;box-shadow:var(--shadow);padding:12px;margin:10px 0}
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 
-  /* 简易模态框 */
-  .modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}
-  .modal .box{background:#fff;border-radius:12px;padding:16px;min-width:320px;box-shadow:var(--shadow)}
-  .hidden{display:none}
+  /* 简易选择教练弹窗 */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center}
+  .dialog{background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:16px;min-width:320px}
+  .dialog .actions{margin-top:10px;display:flex;gap:8px;justify-content:flex-end}
+  .disabled{opacity:.5;pointer-events:none}
 </style>
 </head>
 <body>
@@ -59,11 +63,10 @@
   <!-- 顶部工具栏 -->
   <div class="card">
     <div class="toolbar">
-      <div>API: <code id="apiShow"></code></div>
       <input id="adminkey" placeholder="Admin Key(一次保存)" />
       <button class="btn" onclick="saveKey()">保存Key</button>
       <button class="btn" onclick="loadSessions()">刷新列表</button>
-      <button class="btn orange" onclick="softRefresh()">刷新页面</button>
+      <button class="btn orange" onclick="softReset()">刷新页面</button>
     </div>
   </div>
 
@@ -78,14 +81,15 @@
       <input id="c_pass"   placeholder="登录密码" />
       <input id="p_name"   placeholder="首次 Package 名称(如 800/10hr)" />
       <input id="p_hours"  placeholder="总小时(如 10)" />
+      <!-- 教练下拉：从后端读取 Coach 表 -->
       <select id="coach_sel"><option value="">选择教练…</option></select>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div class="toolbar" style="gap:8px">
         <button class="btn" onclick="createClient()">确认录入</button>
-        <button class="btn gray" type="button" onclick="clearNewClientForm()">清空</button>
+        <button class="btn gray" onclick="clearCreateForm()">清空</button>
       </div>
     </div>
     <div id="createClientMsg" style="margin-top:8px;color:var(--success)"></div>
-    <div class="muted" style="margin-top:6px">提示：教练名单来自 Coach 表。</div>
+    <div class="muted" style="margin-top:6px">提示：教练名单来自 Coach 表（通过后端接口 list_coaches）。</div>
   </div>
 
   <!-- 客户搜索 -->
@@ -94,7 +98,7 @@
     <div class="toolbar" style="gap:12px">
       <input id="q" style="min-width:320px" placeholder="输入 client_id / 姓名 / 电话 / 微信 / 邮箱（任意其一匹配）" />
       <button class="btn blue" onclick="searchClients()">搜索</button>
-      <button class="btn gray" type="button" onclick="resetSearch()">重新搜索</button>
+      <button class="btn gray" onclick="resetSearch()">重新搜索</button>
       <span id="srCount" class="muted"></span>
     </div>
     <div id="searchRes" style="margin-top:10px"></div>
@@ -126,155 +130,204 @@
   </div>
 </div>
 
-<!-- 换教练弹窗 -->
-<div id="coachModal" class="modal hidden">
-  <div class="box">
-    <h4 style="margin:0 0 10px">选择新教练</h4>
-    <select id="coachSelect" style="width:100%;margin-bottom:10px">
-      <option value="">选择教练…</option>
-    </select>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn gray" onclick="closeCoachModal()">取消</button>
-      <button class="btn blue" onclick="confirmSwitchCoach()">确认</button>
-    </div>
-  </div>
-</div>
-
 <script>
 // === Apps Script Web App /exec ===
-const API_BASE = 'https://script.google.com/macros/s/AKfycbyx9rOGKsyYE3bcB9sP2iO744vopK-L5p20OcSBo0mNJKj0Dzs8MMPUNmQlGW_XD6E2Og/exec';
-document.getElementById('apiShow').textContent = API_BASE;
+const API_BASE = 'https://script.google.com/macros/s/AKfycbzvN9lgnxywjnVTw5E39DSfsWH09dsCE3bwOUbrVP5vbjoBom7Oh_wFHOKlHpkxixW8Ew/exec';
 
-// Admin Key
+// ---- Admin Key 本地保存 ----
 function adminKey(){ return localStorage.getItem('TXT_ADMIN_KEY') || ''; }
-function saveKey(){ localStorage.setItem('TXT_ADMIN_KEY', document.getElementById('adminkey').value.trim()); alert('已保存'); }
-window.saveKey = saveKey;
-
-// 简单请求避免预检
-async function post(action, payload={}){
-  const k = adminKey(); if (k && !payload.admin_key) payload.admin_key = k;
-  try{
-    const res = await fetch(API_BASE, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({action, ...payload}) });
-    return await res.json();
-  }catch(e){ console.error(e); return {ok:false, msg:'Network error'}; }
+function saveKey(){
+  localStorage.setItem('TXT_ADMIN_KEY', document.getElementById('adminkey').value.trim());
+  alert('已保存');
+}
+function softReset(){
+  // 清空录入表单 & 搜索 & 刷新列表
+  clearCreateForm();
+  resetSearch();
+  loadSessions();
 }
 
-// 日期/时间格式化（兼容 Sheets 数字）
+// ---- 简单请求(避免 CORS 预检) ----
+async function post(action, payload={}){
+  const k = adminKey();
+  if (k && !payload.admin_key) payload.admin_key = k;
+  try{
+    const res = await fetch(API_BASE, {
+      method: 'POST',
+      headers: {'Content-Type':'text/plain'},
+      body: JSON.stringify({ action, ...payload })
+    });
+    return await res.json();
+  }catch(err){
+    console.error('POST error', err);
+    return { ok:false, msg:'Network error' };
+  }
+}
+
+// ---- 工具：日期/时间解析 & 格式化 ----
 const isDate = v => Object.prototype.toString.call(v)==='[object Date]' && !isNaN(v);
 function parseMaybeDate(x){
+  if (x==null || x==='') return null;
   if (isDate(x)) return x;
-  if (typeof x==='string' && x){ const d=new Date(x); if(!isNaN(d)) return d; }
-  if (typeof x==='number'){ const base = Date.UTC(1899,11,30); return new Date(base + x*86400000); }
+  if (typeof x==='number'){ const base=Date.UTC(1899,11,30); return new Date(base + x*86400000); }
+  if (typeof x==='string'){
+    if (/^\d{1,2}:\d{2}/.test(x)){ const [h,m]=x.split(':').map(Number); const d=new Date(); d.setHours(h,m||0,0,0); return d; }
+    const d = new Date(x); if(!isNaN(d)) return d;
+  }
   return null;
 }
-function fmtDate(x){ const d=parseMaybeDate(x); return d ? d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}) : (x||''); }
-function fmtTime(x){ const d=parseMaybeDate(x); return d ? d.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'}) : (x||''); }
-function badge(s){ if(s==='done')return'<span class="badge b-done">done</span>'; if(s==='scheduled')return'<span class="badge b-scheduled">scheduled</span>'; if(s==='pending')return'<span class="badge b-pending">pending</span>'; return s||''; }
+function fmtDate(x){ const d=parseMaybeDate(x); return d?d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}):(x||''); }
+function fmtTime(x){ const d=parseMaybeDate(x); return d?d.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'}):(x||''); }
+function endTime(dateVal, timeVal, durHours){
+  const d = parseMaybeDate(dateVal);
+  const t = parseMaybeDate(timeVal);
+  if(!d || !t) return null;
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
+  return new Date(start.getTime() + Number(durHours||1)*3600*1000);
+}
+function badge(status){
+  if(status==='done') return '<span class="badge b-done">done</span>';
+  if(status==='scheduled') return '<span class="badge b-scheduled">scheduled</span>';
+  if(status==='pending') return '<span class="badge b-pending">pending</span>';
+  return status||'';
+}
 
-// 教练缓存
-let coachesCache = [];
+// ---- 读取教练清单（全局缓存）----
+let COACHES = [];
 async function loadCoaches(){
   const r = await post('list_coaches', {});
-  const selNew = document.getElementById('coach_sel');
-  if (!r.ok){ selNew.innerHTML = '<option value="">(读取失败)</option>'; return; }
-  coachesCache = r.items || [];
-  selNew.innerHTML = '<option value="">选择教练…</option>' + coachesCache.map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('');
+  if (r.ok) COACHES = r.items||[];
+  const sel = document.getElementById('coach_sel');
+  sel.innerHTML = '<option value="">选择教练…</option>' +
+    (COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('');
 }
 
-// 录入新客户
+// ---- 简易“选择教练”弹窗（返回 Promise<coach_id|null>）----
+function pickCoach(title='选择教练'){
+  return new Promise(resolve=>{
+    const ov = document.createElement('div'); ov.className='overlay';
+    const box = document.createElement('div'); box.className='dialog';
+    box.innerHTML = `
+      <div style="font-weight:600;margin-bottom:8px">${title}</div>
+      <select id="dlg_sel" style="width:100%">
+        ${(COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('')}
+      </select>
+      <div class="actions"><button class="btn gray" id="dlg_cancel">取消</button><button class="btn" id="dlg_ok">确定</button></div>
+    `;
+    ov.appendChild(box); document.body.appendChild(ov);
+    box.querySelector('#dlg_cancel').onclick=()=>{ document.body.removeChild(ov); resolve(null); };
+    box.querySelector('#dlg_ok').onclick=()=>{ const v=box.querySelector('#dlg_sel').value; document.body.removeChild(ov); resolve(v); };
+  });
+}
+
+// ---- 录入新客户 ----
+function clearCreateForm(){ ['c_name','c_phone','c_wechat','c_email','c_pass','p_name','p_hours'].forEach(id=>document.getElementById(id).value=''); document.getElementById('coach_sel').value=''; document.getElementById('createClientMsg').textContent=''; }
 async function createClient(){
-  const name = c_name.value.trim();
-  const phone = c_phone.value.trim();
-  const wechat = c_wechat.value.trim();
-  const email = c_email.value.trim();
-  const password = c_pass.value.trim();
-  const package_name = p_name.value.trim();
-  const total_hours = Number(p_hours.value.trim()||10);
-  const coach_id = coach_sel.value;
-  const r = await post('create_client', { name, phone, wechat, email, password, package_name, total_hours, coach_id });
-  const el = document.getElementById('createClientMsg');
-  if (r && r.ok){ el.style.color='var(--success)'; el.textContent=`成功，client_id=${r.client_id}, package_id=${r.package_id}`; }
-  else { el.style.color='var(--danger)'; el.textContent='失败：'+(r && r.msg || 'Network error'); }
-}
-window.createClient = createClient;
+  try{
+    const name         = c_name.value.trim();
+    const phone        = c_phone.value.trim();
+    const wechat       = c_wechat.value.trim();
+    const email        = c_email.value.trim();
+    const password     = c_pass.value.trim();
+    const package_name = p_name.value.trim();
+    const total_hours  = Number(p_hours.value.trim() || 10);
+    const coach_id     = coach_sel.value;
 
-// 清空录入表单
-function clearNewClientForm(){
-  ['c_name','c_phone','c_wechat','c_email','c_pass','p_name','p_hours'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  coach_sel.value=''; document.getElementById('createClientMsg').textContent='';
+    const r = await post('create_client', { name, phone, wechat, email, password, package_name, total_hours, coach_id });
+    const el = document.getElementById('createClientMsg');
+    if (r && r.ok){
+      el.style.color = 'var(--success)';
+      el.textContent = `成功，client_id=${r.client_id}, package_id=${r.package_id}`;
+      clearCreateForm();
+    }else{
+      el.style.color = 'var(--danger)';
+      el.textContent = '失败：' + (r && r.msg || 'Network error');
+    }
+  }catch(err){ alert('创建失败：' + err.message); }
 }
-window.clearNewClientForm = clearNewClientForm;
 
-// 搜索客户 + 续课按钮
+// ---- 客户搜索 ----
+function resetSearch(){ document.getElementById('q').value=''; document.getElementById('srCount').textContent=''; document.getElementById('searchRes').innerHTML=''; }
 async function searchClients(){
   const q = document.getElementById('q').value.trim();
-  const box = document.getElementById('searchRes'); box.innerHTML = '<div class="muted">搜索中…</div>';
+  const box = document.getElementById('searchRes');
+  box.innerHTML = '<div class="muted">搜索中…</div>';
   const r = await post('search_clients', { q, limit: 50 });
   if(!r.ok){ box.innerHTML = `<div class="muted">搜索失败：${r.msg||''}</div>`; return; }
-  const items = r.items || []; document.getElementById('srCount').textContent = `共 ${items.length} 条`;
+  const items = r.items || [];
+  document.getElementById('srCount').textContent = `共 ${items.length} 条`;
   box.innerHTML = items.map(it=>{
-    const c = it.client || {}; const pkgs = it.packages || []; const sess = it.sessions || [];
+    const c = it.client || {};
+    const pkgs = it.packages || [];
+    const sess = it.sessions || [];
+    const assignedId = c.assigned_coach || c.coach_id || '';
+    const coachObj = (COACHES||[]).find(x=>x.coach_id===assignedId) || {};
+    const assignedLabel = assignedId ? `${coachObj.coach_name||''} (${assignedId})` : '未指定';
     return `
       <div class="client-card">
         <div class="grid-2">
           <div><b>${c.name||''}</b> <span class="muted">(${c.client_id||''})</span></div>
           <div class="muted">电话：${c.phone||''} · 微信：${c.wechat||''} · 邮箱：${c.email||''}</div>
         </div>
-        <details style="margin-top:6px">
-          <summary>套餐 (${pkgs.length})</summary>
+        <div style="margin-top:6px" class="muted">固定教练：<b>${assignedLabel}</b></div>
+        <div class="toolbar" style="margin-top:8px">
+          <button class="btn" onclick="addPackage('${c.client_id}')">添加续课套餐</button>
+          <button class="btn blue" onclick="changeAssignedCoach('${c.client_id}')">更换固定指派教练</button>
+        </div>
+        <details style="margin-top:8px"><summary>套餐 (${pkgs.length})</summary>
           <div class="muted" style="margin-top:4px">
             ${pkgs.map(p=>`• ${p.package_name} [${p.package_id}]：总 ${p.total_hours} / 剩余 ${p.remaining_hours}`).join('<br/>')||'无'}
           </div>
         </details>
-        <details style="margin-top:6px">
-          <summary>课程 (${sess.length})</summary>
+        <details style="margin-top:6px"><summary>课程 (${sess.length})</summary>
           <div class="muted" style="margin-top:4px">
             ${sess.map(s=>`• ${fmtDate(s.date)} ${fmtTime(s.time)} | ${s.coach_name||''} | ${s.status}`).join('<br/>')||'无'}
           </div>
         </details>
-        <div style="margin-top:8px">
-          <button class="btn blue" onclick="addPkg('${c.client_id||''}')">添加新的续课套餐</button>
-        </div>
       </div>`;
   }).join('') || '<div class="muted">未找到匹配客户</div>';
 }
-window.searchClients = searchClients;
-
-// 续课
-async function addPkg(client_id){
-  if(!client_id){ alert('缺少 client_id'); return; }
-  const package_name = prompt('输入套餐名称（如 800/10hr）：'); if(package_name===null) return;
-  const hoursStr = prompt('输入套餐小时数（整数或小数）：'); if(hoursStr===null) return;
-  const total_hours = Number(hoursStr); if(!(total_hours>0)){ alert('小时数必须是正数'); return; }
+async function addPackage(client_id){
+  const package_name = prompt('输入新套餐名称（如 800/10hr）');
+  if(!package_name) return;
+  const total_hours = Number(prompt('输入套餐总小时（如 10）') || 0);
+  if(!(total_hours>0)) return alert('总小时需大于 0');
   const r = await post('add_package', { client_id, package_name, total_hours });
-  if(!r.ok){ alert('创建失败：'+(r.msg||'')); return; }
-  alert(`已添加：${r.package_id}`); searchClients();
+  if(!r.ok) return alert('创建失败：' + (r.msg||''));
+  alert('创建成功：' + r.package_id);
+  searchClients();
 }
-window.addPkg = addPkg;
+async function changeAssignedCoach(client_id){
+  const coach_id = await pickCoach('选择新的固定指派教练');
+  if(!coach_id) return;
+  const r = await post('set_assigned_coach', { client_id, coach_id });
+  if(!r.ok) return alert('更换失败：' + (r.msg||''));
+  alert('已更换固定指派教练');
+  searchClients();
+}
 
-// 重置搜索
-function resetSearch(){ const q = document.getElementById('q'); if(q) q.value=''; const box = document.getElementById('searchRes'); if(box) box.innerHTML=''; const cnt=document.getElementById('srCount'); if(cnt) cnt.textContent=''; }
-window.resetSearch = resetSearch;
-
-// 软刷新：清表单、清搜索、重置页码并刷新教练与列表
-function softRefresh(){ clearNewClientForm(); resetSearch(); page=1; loadCoaches(); loadSessions(); }
-window.softRefresh = softRefresh;
-
-// Session 列表
+// ---- Session 列表 & 操作 ----
 let page=1, pageSize=50, total=0;
 async function loadSessions(delta){
   if (delta) page = Math.max(1, page + delta);
   const r = await post('list_sessions', { page, pageSize });
   if (!r.ok){ alert(r.msg || '加载失败'); return; }
-  total = r.total; pageinfo.textContent = `第 ${page} 页 / 共 ${Math.ceil(total / pageSize)} 页`;
+
+  total = r.total;
+  document.getElementById('pageinfo').textContent = `第 ${page} 页 / 共 ${Math.ceil(total / pageSize)} 页`;
+
   const tb = document.querySelector('#sessTbl tbody'); tb.innerHTML = '';
   const H = r.headers; const idx = Object.fromEntries(H.map((h,i)=>[h,i]));
+
   (r.data||[]).forEach(row=>{
     const status = (row[idx.status]+'') || '';
+    const end = endTime(row[idx.date], row[idx.time], row[idx.duration_hours]);
+    const finished = end ? (new Date().getTime() >= end.getTime()) : false;
+    const canComplete = (status === 'scheduled') && finished;
+
     const tr = document.createElement('tr');
-    const sid = row[idx.session_id];
     tr.innerHTML = `
-      <td>${sid}</td>
+      <td>${row[idx.session_id]}</td>
       <td>${fmtDate(row[idx.date])}</td>
       <td>${fmtTime(row[idx.time])}</td>
       <td>${row[idx.client_id]}</td>
@@ -284,39 +337,31 @@ async function loadSessions(delta){
       <td>${badge(status)}</td>
       <td>${row[idx.notes]||''}</td>
       <td class="row-actions">
-        <button class="btn success" onclick="complete('${sid}')">已完成</button>
-        <button class="btn danger"  onclick="cancelSession('${sid}')">取消</button>
-        <button class="btn blue"    onclick="openCoachModal('${sid}')">换教练</button>
+        <button class="btn success ${canComplete?'':'disabled'}" onclick="${canComplete?`complete('${row[idx.session_id]}')`:'void(0)'}">已完成</button>
+        <button class="btn danger"  onclick="cancelSession('${row[idx.session_id]}')">取消</button>
+        <button class="btn blue"    onclick="sw('${row[idx.session_id]}')">换教练</button>
       </td>`;
     tb.appendChild(tr);
   });
 }
-window.loadSessions = loadSessions;
-
-async function complete(session_id){ const r = await post('complete_session', { session_id }); if (!r.ok) return alert(r.msg || '失败'); loadSessions(); }
-window.complete = complete;
-async function cancelSession(session_id){ if (!confirm('确认取消并删除该Session？(已完成的不可删除)')) return; const r = await post('cancel_session', { session_id }); if (!r.ok) return alert(r.msg || '失败'); loadSessions(); }
-window.cancelSession = cancelSession;
-
-// —— 换教练：弹窗下拉 ——
-let switchingSessionId = '';
-function openCoachModal(session_id){
-  switchingSessionId = session_id;
-  const sel = document.getElementById('coachSelect');
-  sel.innerHTML = '<option value="">选择教练…</option>' + coachesCache.map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('');
-  document.getElementById('coachModal').classList.remove('hidden');
+async function complete(session_id){
+  const r = await post('complete_session', { session_id });
+  if (!r.ok) return alert(r.msg || '失败');
+  loadSessions();
 }
-function closeCoachModal(){ document.getElementById('coachModal').classList.add('hidden'); switchingSessionId=''; }
-async function confirmSwitchCoach(){
-  const coach_id = document.getElementById('coachSelect').value;
-  if(!coach_id){ alert('请选择教练'); return; }
-  const r = await post('switch_coach', { session_id: switchingSessionId, coach_id });
-  if(!r.ok){ alert(r.msg||'失败'); return; }
-  closeCoachModal(); loadSessions();
+async function cancelSession(session_id){
+  if (!confirm('确认取消并删除该Session？(已完成的不可删除)')) return;
+  const r = await post('cancel_session', { session_id });
+  if (!r.ok) return alert(r.msg || '失败');
+  loadSessions();
 }
-window.openCoachModal = openCoachModal;
-window.closeCoachModal = closeCoachModal;
-window.confirmSwitchCoach = confirmSwitchCoach;
+async function sw(session_id){
+  const coach_id = await pickCoach('选择新的授课教练（仅本节课）');
+  if (!coach_id) return;
+  const r = await post('switch_coach', { session_id, coach_id });
+  if (!r.ok) return alert(r.msg || '失败');
+  loadSessions();
+}
 
 // 首次加载
 loadCoaches();
