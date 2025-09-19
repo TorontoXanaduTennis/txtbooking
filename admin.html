@@ -5,39 +5,67 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>管理端 · TXT 订课</title>
 <style>
-  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#f6f7fb;color:#111}
-  .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
-  .card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 6px 18px #00000012;padding:16px;margin-bottom:16px}
-  input,select,button{padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px}
-  button{background:#111;color:#fff;cursor:pointer}
-  table{width:100%;border-collapse:collapse}
-  th,td{padding:8px;border-bottom:1px solid #eee;font-size:14px}
-  .status-pending{background:#FCE7C7}
-  .status-confirmed{background:#CCE5FF}
-  .status-scheduled{background:#E5E7EB}
-  .status-done{background:#D1FAE5}
+  :root{
+    --bg:#f6f7fb; --card:#fff; --text:#111; --muted:#6b7280; --bdr:#e5e7eb;
+    --shadow:0 8px 20px rgba(0,0,0,.08);
+    --success:#10b981; --danger:#ef4444; --primary:#111; --blue:#3b82f6;
+    --row-gap:10px; --radius:14px;
+    --st-pending:#FEF3C7; --st-scheduled:#E5E7EB; --st-done:#D1FAE5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
+  .wrap{max-width:1180px;margin:28px auto;padding:0 16px}
+  h1{font-size:28px;margin:0 0 16px}
+  .card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:18px}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  input,select,button{padding:10px 12px;border:1px solid var(--bdr);border-radius:10px;background:#fff}
+  button{background:var(--primary);color:#fff;cursor:pointer}
+  .btn{padding:8px 12px;border-radius:10px;border:1px solid transparent}
+  .btn.success{background:var(--success)}
+  .btn.danger{background:var(--danger)}
+  .btn.blue{background:var(--blue)}
+  .muted{color:var(--muted)}
+
+  /* 表格美化：使用行间距 + 阴影 + 圆角 + 置顶表头 */
+  .table-wrap{position:relative;overflow:auto;padding-top:6px}
+  table{width:100%;border-collapse:separate;border-spacing:0 var(--row-gap)}
+  thead th{position:sticky;top:0;background:var(--bg);z-index:1;font-weight:600;padding:10px}
+  tbody tr{background:#fff;box-shadow:var(--shadow)}
+  th,td{padding:10px 12px;font-size:14px}
+  tbody tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px}
+  tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
   .row-actions button{margin-right:6px}
-  .red{background:#ef4444}
-  .green{background:#10b981}
-  .blue{background:#3b82f6}
+
+  /* 状态 badge */
+  .badge{padding:2px 10px;border-radius:999px;font-size:12px;display:inline-block}
+  .b-pending{background:var(--st-pending);color:#92400e}
+  .b-scheduled{background:var(--st-scheduled);color:#374151}
+  .b-done{background:var(--st-done);color:#065f46}
+
+  /* 搜索结果卡片 */
+  .client-card{background:#fff;border:1px solid var(--bdr);border-radius:12px;box-shadow:var(--shadow);padding:12px;margin:10px 0}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>管理端 · TXT 订课</h1>
 
+  <!-- 顶部工具栏 -->
   <div class="card">
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <div class="toolbar">
       <div>API: <code id="apiShow"></code></div>
       <input id="adminkey" placeholder="Admin Key(一次保存)" />
-      <button onclick="saveKey()">保存Key</button>
-      <button onclick="loadSessions()">刷新列表</button>
+      <button class="btn" onclick="saveKey()">保存Key</button>
+      <button class="btn" onclick="loadSessions()">刷新列表</button>
     </div>
   </div>
 
+  <!-- 录入新客户 -->
   <div class="card">
     <h3>录入新客户</h3>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+    <div class="grid">
       <input id="c_name"   placeholder="姓名" />
       <input id="c_phone"  placeholder="电话" />
       <input id="c_wechat" placeholder="微信" />
@@ -45,34 +73,53 @@
       <input id="c_pass"   placeholder="登录密码" />
       <input id="p_name"   placeholder="首次 Package 名称(如 800/10hr)" />
       <input id="p_hours"  placeholder="总小时(如 10)" />
-      <input id="coach_id" placeholder="对接教练ID(从 Coach 表)" />
-      <button onclick="createClient()">确认录入</button>
+      <!-- 教练下拉：从后端读取 Coach 表 -->
+      <select id="coach_sel"><option value="">选择教练…</option></select>
+      <button class="btn" onclick="createClient()">确认录入</button>
     </div>
-    <div id="createClientMsg" style="margin-top:8px;color:#10b981"></div>
+    <div id="createClientMsg" style="margin-top:8px;color:var(--success)"></div>
+    <div class="muted" style="margin-top:6px">提示：教练名单来自 Coach 表（通过后端接口 list_coaches）。</div>
   </div>
 
+  <!-- 客户搜索 -->
   <div class="card">
-    <h3>Session 列表（每页50条）</h3>
-    <div>
-      <button onclick="loadSessions(-1)">上一页</button>
-      <span id="pageinfo" style="margin:0 8px"></span>
-      <button onclick="loadSessions(1)">下一页</button>
+    <h3>搜索客户</h3>
+    <div class="toolbar" style="gap:12px">
+      <input id="q" style="min-width:320px" placeholder="输入 client_id / 姓名 / 电话 / 微信 / 邮箱（任意其一匹配）" />
+      <button class="btn blue" onclick="searchClients()">搜索</button>
+      <span id="srCount" class="muted"></span>
     </div>
-    <table id="sessTbl">
-      <thead>
-        <tr>
-          <th>session_id</th><th>date</th><th>time</th><th>client_id</th>
-          <th>coach</th><th>pkg</th><th>duration</th><th>status</th>
-          <th>备注</th><th>操作</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <div id="searchRes" style="margin-top:10px"></div>
+  </div>
+
+  <!-- Session 列表 -->
+  <div class="card">
+    <div class="toolbar" style="justify-content:space-between">
+      <h3 style="margin:0">Session 列表（每页50条）</h3>
+      <div>
+        <button class="btn" onclick="loadSessions(-1)">上一页</button>
+        <span id="pageinfo" style="margin:0 8px"></span>
+        <button class="btn" onclick="loadSessions(1)">下一页</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table id="sessTbl">
+        <thead>
+          <tr>
+            <th>session_id</th><th>date</th><th>time</th><th>client_id</th>
+            <th>coach</th><th>pkg</th><th>duration</th><th>status</th>
+            <th>备注</th><th style="width:230px">操作</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
 <script>
-// === 把你的 Apps Script Web App URL 填在这里 ===
+// === 把你的 Apps Script Web App /exec 地址填在这里 ===
 const API_BASE = 'https://script.google.com/macros/s/AKfycbyl5DkZiRoR5b-mzzzCSgVErJ0hqe3TU8kphcWtSCV7H3Heha_VSlrQ14i7XKeSTovcLw/exec';
 
 document.getElementById('apiShow').textContent = API_BASE;
@@ -85,16 +132,14 @@ function saveKey(){
 }
 window.saveKey = saveKey;
 
-let page=1, pageSize=50, total=0;
-
-// ---- 后端 POST 封装（带容错）----
+// ---- 简单请求(避免 CORS 预检) ----
 async function post(action, payload={}){
   const k = adminKey();
   if (k && !payload.admin_key) payload.admin_key = k;
   try{
     const res = await fetch(API_BASE, {
       method: 'POST',
-      headers: {'Content-Type':'text/plain;charset=utf-8'},
+      headers: {'Content-Type':'text/plain'},
       body: JSON.stringify({ action, ...payload })
     });
     return await res.json();
@@ -104,11 +149,39 @@ async function post(action, payload={}){
   }
 }
 
-// ---- 小提示 ----
-function toast(id, msg){
-  const el = document.getElementById(id);
-  el.textContent = msg;
-  setTimeout(()=>{ el.textContent=''; }, 3000);
+// ---- 格式化日期/时间（适配 Date/ISO 字符串/Sheets 数字时间） ----
+const isDate = v => Object.prototype.toString.call(v)==='[object Date]' && !isNaN(v);
+function parseMaybeDate(x){
+  if (isDate(x)) return x;
+  if (typeof x==='string' && x){ const d=new Date(x); if(!isNaN(d)) return d; }
+  if (typeof x==='number'){ // Google Sheets 以 1899-12-30 为 0
+    const base = Date.UTC(1899,11,30);
+    return new Date(base + x*24*3600*1000);
+  }
+  return null;
+}
+function fmtDate(x){
+  const d = parseMaybeDate(x);
+  return d ? d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}) : (x||'');
+}
+function fmtTime(x){
+  const d = parseMaybeDate(x);
+  return d ? d.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'}) : (x||'');
+}
+function badge(status){
+  if(status==='done') return '<span class="badge b-done">done</span>';
+  if(status==='scheduled') return '<span class="badge b-scheduled">scheduled</span>';
+  if(status==='pending') return '<span class="badge b-pending">pending</span>';
+  return status||'';
+}
+
+// ---- 教练下拉 ----
+async function loadCoaches(){
+  const r = await post('list_coaches', {});
+  const sel = document.getElementById('coach_sel');
+  if (!r.ok) { sel.innerHTML = '<option value="">(读取失败)</option>'; return; }
+  sel.innerHTML = '<option value="">选择教练…</option>' +
+    (r.items||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('');
 }
 
 // ---- 录入新客户 ----
@@ -121,16 +194,16 @@ async function createClient(){
     const password     = document.getElementById('c_pass').value.trim();
     const package_name = document.getElementById('p_name').value.trim();
     const total_hours  = Number(document.getElementById('p_hours').value.trim() || 10);
-    const coach_id     = document.getElementById('coach_id').value.trim();
+    const coach_id     = document.getElementById('coach_sel').value;
 
-    const r = await post('create_client', {
-      name, phone, wechat, email, password, package_name, total_hours, coach_id
-    });
-
+    const r = await post('create_client', { name, phone, wechat, email, password, package_name, total_hours, coach_id });
+    const el = document.getElementById('createClientMsg');
     if (r && r.ok){
-      toast('createClientMsg', `成功，client_id=${r.client_id}, package_id=${r.package_id}`);
+      el.style.color = 'var(--success)';
+      el.textContent = `成功，client_id=${r.client_id}, package_id=${r.package_id}`;
     }else{
-      toast('createClientMsg', '失败：' + (r && r.msg || 'Network error'));
+      el.style.color = 'var(--danger)';
+      el.textContent = '失败：' + (r && r.msg || 'Network error');
     }
   }catch(err){
     console.error(err);
@@ -139,7 +212,45 @@ async function createClient(){
 }
 window.createClient = createClient;
 
-// ---- 列表 & 操作 ----
+// ---- 客户搜索 ----
+async function searchClients(){
+  const q = document.getElementById('q').value.trim();
+  const box = document.getElementById('searchRes');
+  box.innerHTML = '<div class="muted">搜索中…</div>';
+  const r = await post('search_clients', { q, limit: 50 });
+  if(!r.ok){ box.innerHTML = `<div class="muted">搜索失败：${r.msg||''}</div>`; return; }
+  const items = r.items || [];
+  document.getElementById('srCount').textContent = `共 ${items.length} 条`;
+  box.innerHTML = items.map(it=>{
+    const c = it.client || {};
+    const pkgs = it.packages || [];
+    const sess = it.sessions || [];
+    return `
+      <div class="client-card">
+        <div class="grid-2">
+          <div><b>${c.name||''}</b> <span class="muted">(${c.client_id||''})</span></div>
+          <div class="muted">电话：${c.phone||''} · 微信：${c.wechat||''} · 邮箱：${c.email||''}</div>
+        </div>
+        <details style="margin-top:6px">
+          <summary>套餐 (${pkgs.length})</summary>
+          <div class="muted" style="margin-top:4px">
+            ${pkgs.map(p=>`• ${p.package_name} [${p.package_id}]：总 ${p.total_hours} / 剩余 ${p.remaining_hours}`).join('<br/>')||'无'}
+          </div>
+        </details>
+        <details style="margin-top:6px">
+          <summary>课程 (${sess.length})</summary>
+          <div class="muted" style="margin-top:4px">
+            ${sess.map(s=>`• ${fmtDate(s.date)} ${fmtTime(s.time)} | ${s.coach_name||''} | ${s.status}`).join('<br/>')||'无'}
+          </div>
+        </details>
+      </div>
+    `;
+  }).join('') || '<div class="muted">未找到匹配客户</div>';
+}
+window.searchClients = searchClients;
+
+// ---- Session 列表 & 操作 ----
+let page=1, pageSize=50, total=0;
 async function loadSessions(delta){
   if (delta) page = Math.max(1, page + delta);
   const r = await post('list_sessions', { page, pageSize });
@@ -152,27 +263,25 @@ async function loadSessions(delta){
   const tb = document.querySelector('#sessTbl tbody');
   tb.innerHTML = '';
 
-  const H = r.headers;
-  const idx = Object.fromEntries(H.map((h,i)=>[h,i]));
+  const H = r.headers; const idx = Object.fromEntries(H.map((h,i)=>[h,i]));
 
-  r.data.forEach(row=>{
-    const tr = document.createElement('tr');
+  (r.data||[]).forEach(row=>{
     const status = (row[idx.status]+'') || '';
-    tr.className = 'status-' + status;
+    const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${row[idx.session_id]}</td>
-      <td>${row[idx.date]}</td>
-      <td>${row[idx.time]}</td>
+      <td>${fmtDate(row[idx.date])}</td>
+      <td>${fmtTime(row[idx.time])}</td>
       <td>${row[idx.client_id]}</td>
-      <td>${row[idx.coach_name]}(${row[idx.coach_id]})</td>
+      <td>${row[idx.coach_name]} (${row[idx.coach_id]})</td>
       <td>${row[idx.package_id]}</td>
       <td>${row[idx.duration_hours]||1}</td>
-      <td>${status}</td>
+      <td>${badge(status)}</td>
       <td>${row[idx.notes]||''}</td>
       <td class="row-actions">
-        <button class="green" onclick="complete('${row[idx.session_id]}')">已完成</button>
-        <button class="red"   onclick="cancelSession('${row[idx.session_id]}')">取消</button>
-        <button class="blue"  onclick="sw('${row[idx.session_id]}')">换教练</button>
+        <button class="btn success" onclick="complete('${row[idx.session_id]}')">已完成</button>
+        <button class="btn danger"  onclick="cancelSession('${row[idx.session_id]}')">取消</button>
+        <button class="btn blue"    onclick="sw('${row[idx.session_id]}')">换教练</button>
       </td>`;
     tb.appendChild(tr);
   });
@@ -195,6 +304,7 @@ async function cancelSession(session_id){
 window.cancelSession = cancelSession;
 
 async function sw(session_id){
+  // 下拉已在“录入新客户”区域，这里临时输入即可
   const coach_id = prompt('输入新的 coach_id：');
   if (!coach_id) return;
   const r = await post('switch_coach', { session_id, coach_id });
@@ -204,6 +314,7 @@ async function sw(session_id){
 window.sw = sw;
 
 // 首次加载
+loadCoaches();
 loadSessions();
 </script>
 </body>
