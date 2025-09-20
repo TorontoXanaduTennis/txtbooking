@@ -27,13 +27,14 @@
   .btn.orange{background:var(--orange)}
   .btn.gray{background:var(--gray)}
   .muted{color:var(--muted)}
+  .section-title{font-weight:700;margin:8px 0 10px}
 
   /* 表格美化 */
   .table-wrap{position:relative;overflow:auto;padding-top:6px}
   table{width:100%;border-collapse:separate;border-spacing:0 10px}
   thead th{position:sticky;top:0;background:var(--bg);z-index:1;font-weight:600;padding:10px}
   tbody tr{background:#fff;box-shadow:var(--shadow)}
-  th,td{padding:10px 12px;font-size:14px}
+  th,td{padding:10px 12px;font-size:14px;vertical-align:middle}
   tbody tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px}
   tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
   .row-actions button{margin-right:6px}
@@ -103,29 +104,55 @@
     <div id="searchRes" style="margin-top:10px"></div>
   </div>
 
-  <!-- Session 列表 -->
+  <!-- Session 三列表 -->
   <div class="card">
-    <div class="toolbar" style="justify-content:space-between">
-      <h3 style="margin:0">Session 列表（每页50条）</h3>
-      <div>
-        <button class="btn" onclick="loadSessions(-1)">上一页</button>
-        <span id="pageinfo" style="margin:0 8px"></span>
-        <button class="btn" onclick="loadSessions(1)">下一页</button>
+    <h3 style="margin:0 0 8px">Session 列表</h3>
+
+    <div class="section">
+      <div class="section-title">待确认（pending）</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>session_id</th><th>创建时间</th><th>date</th><th>time</th><th>client_id</th>
+              <th>coach</th><th>pkg</th><th>duration</th><th>status</th><th>备注</th><th style="width:240px">操作</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyPending"></tbody>
+        </table>
       </div>
     </div>
 
-    <div class="table-wrap">
-      <table id="sessTbl">
-        <thead>
-          <tr>
-            <th>session_id</th><th>date</th><th>time</th><th>client_id</th>
-            <th>coach</th><th>pkg</th><th>duration</th><th>status</th>
-            <th>备注</th><th style="width:260px">操作</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+    <div class="section" style="margin-top:18px">
+      <div class="section-title">已排期（scheduled）</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>session_id</th><th>开始时间</th><th>date</th><th>time</th><th>client_id</th>
+              <th>coach</th><th>pkg</th><th>duration</th><th>status</th><th>备注</th><th style="width:240px">操作</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyScheduled"></tbody>
+        </table>
+      </div>
     </div>
+
+    <div class="section" style="margin-top:18px">
+      <div class="section-title">已完成（done）</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>session_id</th><th>结束时间</th><th>date</th><th>time</th><th>client_id</th>
+              <th>coach</th><th>pkg</th><th>duration</th><th>status</th><th>备注</th><th style="width:240px">操作</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyDone"></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -176,12 +203,17 @@ function parseMaybeDate(x){
 }
 function fmtDate(x){ const d=parseMaybeDate(x); return d?d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}):(x||''); }
 function fmtTime(x){ const d=parseMaybeDate(x); return d?d.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'}):(x||''); }
-function endTime(dateVal, timeVal, durHours){
-  const d = parseMaybeDate(dateVal);
-  const t = parseMaybeDate(timeVal);
+function startDT(row, idx){
+  const d = parseMaybeDate(row[idx.date]);
+  const t = parseMaybeDate(row[idx.time]);
   if(!d || !t) return null;
-  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
-  return new Date(start.getTime() + Number(durHours||1)*3600*1000);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
+}
+function endDT(row, idx){
+  const st = startDT(row, idx);
+  if(!st) return null;
+  const dur = Number(row[idx.duration_hours]||1);
+  return new Date(st.getTime() + dur*3600*1000);
 }
 function badge(status){
   if(status==='done') return '<span class="badge b-done">done</span>';
@@ -242,8 +274,6 @@ async function createClient(){
     if (r && r.ok){
       el.style.color = 'var(--success)';
       el.textContent = `成功录入：client_id=${r.client_id}，package_id=${r.package_id}`;
-      // 如需自动清空表单，取消下一行注释
-      // clearCreateForm();
     }else{
       el.style.color = 'var(--danger)';
       el.textContent = '失败：' + (r && r.msg || 'Network error');
@@ -312,29 +342,73 @@ async function changeAssignedCoach(client_id){
   searchClients();
 }
 
-/* ---- Session 列表 & 操作 ---- */
-let page=1, pageSize=50, total=0;
-async function loadSessions(delta){
-  if (delta) page = Math.max(1, page + delta);
-  const r = await post('list_sessions', { page, pageSize });
+/* ---- Session 列表（拆三块） & 操作 ---- */
+function idxOf(H, names){
+  for (const n of names){ const i = H.indexOf(n); if (i !== -1) return i; }
+  return -1;
+}
+
+async function loadSessions(){
+  const r = await post('list_sessions', { page:1, pageSize:200 }); // 可按需调大
   if (!r.ok){ alert(r.msg || '加载失败'); return; }
 
-  total = r.total;
-  pageinfo.textContent = `第 ${page} 页 / 共 ${Math.ceil(total / pageSize)} 页`;
-
-  const tb = document.querySelector('#sessTbl tbody'); tb.innerHTML = '';
   const H = r.headers; const idx = Object.fromEntries(H.map((h,i)=>[h,i]));
+  const rows = r.data || [];
 
-  (r.data||[]).forEach(row=>{
+  // 找到创建时间列（尽量兼容不同命名）
+  const idxCreated = idxOf(H, ['created_at','created_time','created','createdAt','createdAtUtc']);
+
+  const now = Date.now();
+
+  const pending = rows.filter(row => String(row[idx.status])==='pending')
+    .sort((a,b)=>{
+      const ca = idxCreated!==-1 ? parseMaybeDate(a[idxCreated]) : startDT(a, idx);
+      const cb = idxCreated!==-1 ? parseMaybeDate(b[idxCreated]) : startDT(b, idx);
+      return (ca?ca.getTime():0) - (cb?cb.getTime():0); // 早→晚
+    });
+
+  const scheduled = rows.filter(row => String(row[idx.status])==='scheduled')
+    .sort((a,b)=>{
+      const sa = startDT(a, idx), sb = startDT(b, idx);
+      const da = sa?Math.abs(sa.getTime()-now):Number.MAX_SAFE_INTEGER;
+      const db = sb?Math.abs(sb.getTime()-now):Number.MAX_SAFE_INTEGER;
+      if (da !== db) return da - db;        // 离现在近→远
+      return (sa?sa.getTime():0) - (sb?sb.getTime():0);
+    });
+
+  const done = rows.filter(row => String(row[idx.status])==='done')
+    .sort((a,b)=>{
+      const ea = endDT(a, idx), eb = endDT(b, idx);
+      return (eb?eb.getTime():0) - (ea?ea.getTime():0); // 新→旧
+    });
+
+  // 渲染三个表
+  renderTable('tbodyPending',   pending,   idx, 'pending');
+  renderTable('tbodyScheduled', scheduled, idx, 'scheduled');
+  renderTable('tbodyDone',      done,      idx, 'done');
+}
+
+function renderTable(tbodyId, rows, idx, listType){
+  const tb = document.getElementById(tbodyId);
+  tb.innerHTML = '';
+  rows.forEach(row=>{
     const status = (row[idx.status]+'') || '';
-    const end = endTime(row[idx.date], row[idx.time], row[idx.duration_hours]);
-    const finished = end ? (new Date().getTime() >= end.getTime()) : false;
-    // 只能 scheduled & 已结束 才能完成
+    const st = startDT(row, idx);
+    const et = endDT(row, idx);
+    const finished = et ? (Date.now() >= et.getTime()) : false;
     const canComplete = (status === 'scheduled') && finished;
+
+    const createdStr = (function(){
+      const i = idxOf(Object.keys(idx), ['created_at','created_time','created','createdAt','createdAtUtc']); // not used
+      return '';
+    })();
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${row[idx.session_id]}</td>
+      <td>${listType==='pending' ? (fmtDate(row.created_at||'')+' '+fmtTime(row.created_at||'')) :
+             listType==='scheduled' ? (st ? (fmtDate(st)+ ' ' + st.toTimeString().slice(0,5)) : '') :
+             listType==='done' ? (et ? (fmtDate(et)+ ' ' + et.toTimeString().slice(0,5)) : '') : ''}</td>
       <td>${fmtDate(row[idx.date])}</td>
       <td>${fmtTime(row[idx.time])}</td>
       <td>${row[idx.client_id]}</td>
@@ -346,11 +420,12 @@ async function loadSessions(delta){
       <td class="row-actions">
         <button class="btn success ${canComplete?'':'disabled'}" onclick="${canComplete?`complete('${row[idx.session_id]}')`:'void(0)'}">已完成</button>
         <button class="btn danger"  onclick="cancelSession('${row[idx.session_id]}')">取消</button>
-        <button class="btn blue"    onclick="sw('${row[idx.session_id]}')">换教练</button>
+        <button class="btn blue"    onclick="sw('${row[idx.session_id]}','${status}')">换教练</button>
       </td>`;
     tb.appendChild(tr);
   });
 }
+
 async function complete(session_id){
   const r = await post('complete_session', { session_id });
   if (!r.ok) return alert(r.msg || '失败');
@@ -362,7 +437,18 @@ async function cancelSession(session_id){
   if (!r.ok) return alert(r.msg || '失败');
   loadSessions();
 }
-async function sw(session_id){
+
+// —— 关键修改：已完成的课换教练需要二次确认并输入“确认更换教练”
+async function sw(session_id, status){
+  if (status === 'done'){
+    const yes = confirm('这节课已完成，是否确认要更改上课教练？');
+    if (!yes) return;
+    const text = prompt('为继续，请输入：确认更换教练');
+    if (!text || text.trim() !== '确认更换教练'){
+      alert('未输入正确的确认文本，操作已取消。');
+      return;
+    }
+  }
   const coach_id = await pickCoach('选择新的授课教练（仅本节课）');
   if (!coach_id) return;
   const r = await post('switch_coach', { session_id, coach_id });
