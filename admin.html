@@ -8,7 +8,7 @@
   :root{
     --bg:#f6f7fb; --card:#fff; --text:#111; --muted:#6b7280; --bdr:#e5e7eb;
     --shadow:0 8px 20px rgba(0,0,0,.08);
-    --success:#10b981; --danger:#ef4444; --primary:#111; --blue:#2563eb; --orange:#f59e0b; --gray:#6b7280;
+    --success:#10b981; --danger:#ef4444; --primary:#111; --blue:#2563eb; --orange:#f59e0b; --gray:#6b7280; --deep:#374151;
     --row-gap:10px; --radius:14px;
     --st-pending:#FEF3C7; --st-scheduled:#E5E7EB; --st-done:#D1FAE5;
   }
@@ -28,6 +28,31 @@
   .btn.gray{background:var(--gray)}
   .muted{color:var(--muted)}
   .section-title{font-weight:700;margin:8px 0 10px}
+
+  /* —— 三个子列表容器：深灰描边 + 圆角 —— */
+  .section{
+    border:2px solid var(--deep);
+    border-radius:16px;
+    overflow:hidden;
+    background:#fff;
+  }
+  .section-inner{padding:12px 12px 4px}
+
+  /* —— 非直线花纹分隔线（深灰） —— */
+  .pattern{
+    height:12px;
+    background:
+      repeating-linear-gradient(135deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px),
+      repeating-linear-gradient(225deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px);
+    opacity:.5;
+  }
+  .divider{
+    height:12px; margin:12px 0;
+    background:
+      repeating-linear-gradient(135deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px),
+      repeating-linear-gradient(225deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px);
+    border-radius:6px; opacity:.45;
+  }
 
   /* 表格美化 */
   .table-wrap{position:relative;overflow:auto;padding-top:6px}
@@ -108,51 +133,93 @@
   <div class="card">
     <h3 style="margin:0 0 8px">Session 列表</h3>
 
+    <!-- PENDING -->
     <div class="section">
-      <div class="section-title">待确认（pending）</div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>session_id</th><th>创建时间</th><th>date</th><th>time</th><th>client_id</th>
-              <th>coach</th><th>pkg</th><th>duration</th><th>status</th><th>备注</th><th style="width:240px">操作</th>
-            </tr>
-          </thead>
-          <tbody id="tbodyPending"></tbody>
-        </table>
+      <div class="pattern"></div>
+      <div class="section-inner">
+        <div class="section-title">待确认（pending）</div>
+
+        <div class="muted" style="margin-bottom:6px">10 天内</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>session_id</th><th>创建时间</th><th>date</th><th>time</th><th>client_id</th>
+                <th>coach</th><th>pkg</th><th>duration</th><th>status</th><th>备注</th><th style="width:240px">操作</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyPendingSoon"></tbody>
+          </table>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="muted" style="margin-bottom:6px">超过 10 天</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>session_id</th><th>创建时间</th><th>date</th><th>time</th><th>client_id</th>
+                <th>coach</th><th>pkg</th><th>duration</th><th>status</th><th>备注</th><th style="width:240px">操作</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyPendingLater"></tbody>
+          </table>
+        </div>
       </div>
+      <div class="pattern"></div>
     </div>
 
-    <div class="section" style="margin-top:18px">
-      <div class="section-title">已排期（scheduled）</div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>session_id</th><th>开始时间</th><th>date</th><th>time</th><th>client_id</th>
-              <th>coach</th><th>pkg</th><th>duration</th><th>status</th><th>备注</th><th style="width:240px">操作</th>
-            </tr>
-          </thead>
-          <tbody id="tbodyScheduled"></tbody>
-        </table>
+    <div style="height:16px"></div>
+
+    <!-- SCHEDULED -->
+    <div class="section">
+      <div class="pattern"></div>
+      <div class="section-inner">
+        <div class="section-title">已排期（scheduled）</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>session_id</th><th>开始时间</th><th>date</th><th>time</th><th>client_id</th>
+                <th>coach</th><th>pkg</th><th>duration</th><th>status</th><th>备注</th><th style="width:240px">操作</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyScheduled"></tbody>
+          </table>
+        </div>
       </div>
+      <div class="pattern"></div>
     </div>
 
-    <div class="section" style="margin-top:18px">
-      <div class="section-title">已完成（done）</div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>session_id</th><th>结束时间</th><th>date</th><th>time</th><th>client_id</th>
-              <th>coach</th><th>pkg</th><th>duration</th><th>status</th><th>备注</th><th style="width:240px">操作</th>
-            </tr>
-          </thead>
-          <tbody id="tbodyDone"></tbody>
-        </table>
-      </div>
-    </div>
+    <div style="height:16px"></div>
 
+    <!-- DONE -->
+    <div class="section">
+      <div class="pattern"></div>
+      <div class="section-inner">
+        <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span>已完成（done）</span>
+          <span class="toolbar" style="gap:8px">
+            <button class="btn gray" id="donePrev" onclick="pageDone(-1)">上一页</button>
+            <span id="donePageInfo" class="muted"></span>
+            <button class="btn gray" id="doneNext" onclick="pageDone(1)">下一页</button>
+          </span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>session_id</th><th>结束时间</th><th>date</th><th>time</th><th>client_id</th>
+                <th>coach</th><th>pkg</th><th>duration</th><th>status</th><th>备注</th><th style="width:240px">操作</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyDone"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="pattern"></div>
+    </div>
   </div>
 </div>
 
@@ -348,67 +415,126 @@ function idxOf(H, names){
   return -1;
 }
 
+let DONE_ALL = []; let donePage=1; const donePageSize=50;
+function pageDone(delta){
+  const totalPages = Math.max(1, Math.ceil(DONE_ALL.length/donePageSize));
+  donePage = Math.min(totalPages, Math.max(1, donePage + delta));
+  renderDonePaged();
+}
+
 async function loadSessions(){
-  const r = await post('list_sessions', { page:1, pageSize:200 }); // 可按需调大
+  const r = await post('list_sessions', { page:1, pageSize:10000 }); // 拉全量；分页仅对 done
   if (!r.ok){ alert(r.msg || '加载失败'); return; }
 
   const H = r.headers; const idx = Object.fromEntries(H.map((h,i)=>[h,i]));
   const rows = r.data || [];
 
-  // 找到创建时间列（尽量兼容不同命名）
-  const idxCreated = idxOf(H, ['created_at','created_time','created','createdAt','createdAtUtc']);
+  // 创建时间列（尽量兼容不同命名）
+  const createdIdx = idxOf(r.headers, ['created_at','created_time','created','createdAt','createdAtUtc']);
 
   const now = Date.now();
+  const tenDaysMs = 10*24*3600*1000;
 
-  const pending = rows.filter(row => String(row[idx.status])==='pending')
+  // —— 待确认：先按创建时间早→晚，再分 10 天内 / 10 天后（用 startDT 与现在差判断）——
+  const pendings = rows.filter(row => String(row[idx.status])==='pending')
     .sort((a,b)=>{
-      const ca = idxCreated!==-1 ? parseMaybeDate(a[idxCreated]) : startDT(a, idx);
-      const cb = idxCreated!==-1 ? parseMaybeDate(b[idxCreated]) : startDT(b, idx);
-      return (ca?ca.getTime():0) - (cb?cb.getTime():0); // 早→晚
+      const ca = createdIdx!==-1 ? parseMaybeDate(a[createdIdx]) : startDT(a, idx);
+      const cb = createdIdx!==-1 ? parseMaybeDate(b[createdIdx]) : startDT(b, idx);
+      return (ca?ca.getTime():0) - (cb?cb.getTime():0);
     });
+  const pendingSoon  = pendings.filter(row=>{
+    const st=startDT(row, idx); return !st || (st.getTime()-now)<=tenDaysMs;
+  });
+  const pendingLater = pendings.filter(row=>{
+    const st=startDT(row, idx); return st && (st.getTime()-now)>tenDaysMs;
+  });
 
+  // —— 已排期：离当前时间最近→最远 —— 
   const scheduled = rows.filter(row => String(row[idx.status])==='scheduled')
     .sort((a,b)=>{
-      const sa = startDT(a, idx), sb = startDT(b, idx);
+      const sa=startDT(a, idx), sb=startDT(b, idx);
       const da = sa?Math.abs(sa.getTime()-now):Number.MAX_SAFE_INTEGER;
       const db = sb?Math.abs(sb.getTime()-now):Number.MAX_SAFE_INTEGER;
-      if (da !== db) return da - db;        // 离现在近→远
+      if (da !== db) return da - db;
       return (sa?sa.getTime():0) - (sb?sb.getTime():0);
     });
 
-  const done = rows.filter(row => String(row[idx.status])==='done')
+  // —— 已完成：新→旧（结束时间倒序） —— 
+  DONE_ALL = rows.filter(row => String(row[idx.status])==='done')
     .sort((a,b)=>{
-      const ea = endDT(a, idx), eb = endDT(b, idx);
-      return (eb?eb.getTime():0) - (ea?ea.getTime():0); // 新→旧
+      const ea=endDT(a, idx), eb=endDT(b, idx);
+      return (eb?eb.getTime():0) - (ea?ea.getTime():0);
     });
 
-  // 渲染三个表
-  renderTable('tbodyPending',   pending,   idx, 'pending');
-  renderTable('tbodyScheduled', scheduled, idx, 'scheduled');
-  renderTable('tbodyDone',      done,      idx, 'done');
+  renderPendingGroup('tbodyPendingSoon',  pendingSoon,  idx, createdIdx);
+  renderPendingGroup('tbodyPendingLater', pendingLater, idx, createdIdx);
+  renderTable('tbodyScheduled', scheduled, idx, 'scheduled', createdIdx);
+  donePage = 1; renderDonePaged(idx, createdIdx);
 }
 
-function renderTable(tbodyId, rows, idx, listType){
+function renderDonePaged(idx, createdIdx){
+  const totalPages = Math.max(1, Math.ceil(DONE_ALL.length/donePageSize));
+  const s = (donePage-1)*donePageSize, e = s+donePageSize;
+  const pageRows = DONE_ALL.slice(s,e);
+  renderTable('tbodyDone', pageRows, CURRENT_IDX || {}, 'done', createdIdx);
+  document.getElementById('donePageInfo').textContent = `第 ${donePage} / 共 ${totalPages} 页（每页 50）`;
+  document.getElementById('donePrev').disabled = donePage<=1;
+  document.getElementById('doneNext').disabled = donePage>=totalPages;
+}
+let CURRENT_IDX = null;
+
+function renderPendingGroup(tbodyId, rows, idx, createdIdx){
+  CURRENT_IDX = idx;
   const tb = document.getElementById(tbodyId);
-  tb.innerHTML = '';
+  tb.innerHTML='';
+  rows.forEach(row=>{
+    const status = (row[idx.status]+'') || '';
+    const et = endDT(row, idx);
+    const finished = et ? (Date.now() >= et.getTime()) : false;
+    const canComplete = (status === 'scheduled') && finished;
+    const created = createdIdx!==-1 ? parseMaybeDate(row[createdIdx]) : null;
+    const createdStr = created ? (fmtDate(created)+' '+created.toTimeString().slice(0,5)) : '-';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${row[idx.session_id]}</td>
+      <td>${createdStr}</td>
+      <td>${fmtDate(row[idx.date])}</td>
+      <td>${fmtTime(row[idx.time])}</td>
+      <td>${row[idx.client_id]}</td>
+      <td>${row[idx.coach_name]} (${row[idx.coach_id]})</td>
+      <td>${row[idx.package_id]}</td>
+      <td>${row[idx.duration_hours]||1}</td>
+      <td>${badge(status)}</td>
+      <td>${row[idx.notes]||''}</td>
+      <td class="row-actions">
+        <button class="btn success ${canComplete?'':'disabled'}" onclick="${canComplete?`complete('${row[idx.session_id]}')`:'void(0)'}">已完成</button>
+        <button class="btn danger"  onclick="cancelSession('${row[idx.session_id]}')">取消</button>
+        <button class="btn blue"    onclick="sw('${row[idx.session_id]}','${status}')">换教练</button>
+      </td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function renderTable(tbodyId, rows, idx, listType, createdIdx){
+  CURRENT_IDX = idx;
+  const tb = document.getElementById(tbodyId);
+  tb.innerHTML='';
   rows.forEach(row=>{
     const status = (row[idx.status]+'') || '';
     const st = startDT(row, idx);
     const et = endDT(row, idx);
     const finished = et ? (Date.now() >= et.getTime()) : false;
     const canComplete = (status === 'scheduled') && finished;
-
-    const createdStr = (function(){
-      const i = idxOf(Object.keys(idx), ['created_at','created_time','created','createdAt','createdAtUtc']); // not used
-      return '';
-    })();
+    const created = createdIdx!==-1 ? parseMaybeDate(row[createdIdx]) : null;
+    const headCell =
+      listType==='scheduled' ? (st ? (fmtDate(st)+ ' ' + st.toTimeString().slice(0,5)) : '-') :
+      listType==='done'      ? (et ? (fmtDate(et)+ ' ' + et.toTimeString().slice(0,5)) : '-') :
+      (created ? (fmtDate(created)+' '+created.toTimeString().slice(0,5)) : '-');
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${row[idx.session_id]}</td>
-      <td>${listType==='pending' ? (fmtDate(row.created_at||'')+' '+fmtTime(row.created_at||'')) :
-             listType==='scheduled' ? (st ? (fmtDate(st)+ ' ' + st.toTimeString().slice(0,5)) : '') :
-             listType==='done' ? (et ? (fmtDate(et)+ ' ' + et.toTimeString().slice(0,5)) : '') : ''}</td>
+      <td>${headCell}</td>
       <td>${fmtDate(row[idx.date])}</td>
       <td>${fmtTime(row[idx.time])}</td>
       <td>${row[idx.client_id]}</td>
@@ -438,7 +564,7 @@ async function cancelSession(session_id){
   loadSessions();
 }
 
-// —— 关键修改：已完成的课换教练需要二次确认并输入“确认更换教练”
+// —— 已完成课换教练：二次确认并输入“确认更换教练” —— 
 async function sw(session_id, status){
   if (status === 'done'){
     const yes = confirm('这节课已完成，是否确认要更改上课教练？');
