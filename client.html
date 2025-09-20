@@ -8,8 +8,9 @@
   :root{
     --bg:#f6f7fb; --card:#fff; --text:#111; --muted:#6b7280; --bdr:#e5e7eb;
     --shadow:0 10px 28px rgba(0,0,0,.08);
-    --primary:#111; --green:#10b981; --red:#ef4444; --blue:#2563eb; --gray:#6b7280;
+    --primary:#111; --green:#10b981; --red:#ef4444; --blue:#2563eb; --gray:#6b7280; --deep:#374151;
     --radius:14px;
+    --st-pending:#FEF3C7; --st-scheduled:#E5E7EB; --st-done:#D1FAE5;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
@@ -23,23 +24,44 @@
   .btn.blue{background:var(--blue)}
   .btn.gray{background:var(--gray)}
   .btn.red{background:var(--red)}
-  .muted{color:var(--muted)}
-  .pill{display:inline-block;padding:4px 10px;border:1px solid var(--bdr);border-radius:999px;background:#fff}
-  .num-green{color:var(--green);font-weight:700}
-  .num-red{color:var(--red);font-weight:700}
+  .btn.ok{background:var(--green)}
+  .btn.lock{background:#86efac;color:#064e3b} /* done锁定后的灰绿色 */
 
-  /* 表格：固定列宽 + 横向滚动，避免挤压 */
+  .muted{color:var(--muted)}
+  .pill{display:inline-block;padding:6px 12px;border:1px solid var(--bdr);border-radius:999px;background:#fff}
+
+  /* 三块列表外观 */
+  .section{border:2px solid var(--deep);border-radius:16px;background:#fff;overflow:hidden}
+  .section-inner{padding:12px}
+  .pattern{height:10px;background:
+      repeating-linear-gradient(135deg,#4b5563 0 8px,rgba(75,85,99,0) 8px 16px),
+      repeating-linear-gradient(225deg,#4b5563 0 8px,rgba(75,85,99,0) 8px 16px);opacity:.45}
+
+  /* 表格（固定列宽+横向滚动） */
   .table-wrap{position:relative;overflow:auto;padding-top:6px}
-  table{min-width:1200px;width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0 10px}
+  table{min-width:1000px;width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0 10px}
   thead th{position:sticky;top:0;background:var(--bg);z-index:1;font-weight:600;padding:10px}
   tbody tr{background:#fff;box-shadow:var(--shadow)}
   th,td{padding:10px 12px;font-size:14px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   tbody tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px}
   tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
   .row-input{width:100%}
+  .w-date{width:160px} .w-time{width:90px} .w-dur{width:80px} .w-coach{width:140px}
+  .w-status{width:100px} .w-note,.w-fb{width:260px} .w-act{width:90px} .w-id{width:180px}
 
-  .w-id{width:180px}.w-date{width:120px}.w-time{width:90px}.w-dur{width:90px}
-  .w-coach{width:140px}.w-status{width:110px}.w-note,.w-fb{width:260px}.w-act{width:74px}
+  /* 状态底色（行） */
+  .status-pending{background:var(--st-pending)}
+  .status-scheduled{background:var(--st-scheduled)}
+  .status-done{background:var(--st-done)}
+
+  /* 进度条 */
+  .progress-wrap{margin-top:8px;background:#e5e7eb;border-radius:999px;box-shadow:inset 0 2px 6px rgba(0,0,0,.12);height:12px}
+  .progress-bar{height:100%;border-radius:999px;background:linear-gradient(90deg,#34d399,#10b981);box-shadow:0 2px 6px rgba(16,185,129,.35)}
+  .num-green{color:var(--green);font-weight:700}
+  .num-gray{color:var(--gray);font-weight:700}
+
+  .hint{color:var(--green);margin-top:6px;font-size:13px}
+  .disabled{opacity:.55;pointer-events:none}
 </style>
 </head>
 <body>
@@ -63,18 +85,28 @@
     <div id="userBar" style="display:none;align-items:center;justify-content:space-between" class="toolbar">
       <div id="userInfo" style="color:var(--green)"></div>
       <div class="toolbar">
-        <button class="btn" onclick="refreshDashboard()">刷新页面</button>
+        <button class="btn" onclick="reloadAfterLogin()">刷新页面</button>
         <button class="btn red" onclick="logout()">退出登录</button>
       </div>
     </div>
   </div>
 
-  <!-- 预约区 -->
-  <div id="dash" class="card" style="display:none">
+  <!-- 套餐 -->
+  <div id="pkgCard" class="card" style="display:none">
     <h3>我的套餐</h3>
     <div id="pkgs" class="muted">（登录后显示）</div>
+  </div>
 
-    <h3 style="margin-top:16px">预约上课</h3>
+  <!-- 课程进度 -->
+  <div id="progressCard" class="card" style="display:none">
+    <h3>我的课程进度</h3>
+    <div id="progressText" class="muted"></div>
+    <div class="progress-wrap"><div id="progressBar" class="progress-bar" style="width:0%"></div></div>
+  </div>
+
+  <!-- 预约区 -->
+  <div id="dash" class="card" style="display:none">
+    <h3>预约上课</h3>
     <div class="toolbar" style="flex-wrap:wrap;gap:10px">
       <select id="pkgSel" title="选择套餐"></select>
       <input id="date" type="date" title="上课日期" />
@@ -96,35 +128,100 @@
     <div id="bookMsg" class="muted" style="margin-top:6px"></div>
   </div>
 
-  <!-- 上课记录 -->
-  <div id="sess" class="card" style="display:none">
-    <h3>我的上课记录</h3>
-    <div class="table-wrap">
-      <table id="sessTbl">
-        <thead>
-          <tr>
-            <th class="w-id">session_id</th>
-            <th class="w-date">date</th>
-            <th class="w-time">time</th>
-            <th class="w-dur">duration</th>
-            <th class="w-coach">coach</th>
-            <th class="w-status">status</th>
-            <th class="w-note">备注</th>
-            <th class="w-fb">反馈</th>
-            <th class="w-act">保存</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+  <!-- 即将到来的课程（scheduled） -->
+  <div id="secUpcoming" class="section" style="display:none">
+    <div class="pattern"></div>
+    <div class="section-inner">
+      <h3>即将到来的课程</h3>
+
+      <div class="muted" style="margin:6px 0">10 天内</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="w-date">date</th><th class="w-time">time</th><th class="w-dur">duration</th><th class="w-coach">coach</th>
+              <th class="w-status">status</th><th class="w-note">备注</th><th class="w-fb">反馈</th><th class="w-act">提交</th><th class="w-id">session_id</th>
+            </tr>
+          </thead>
+          <tbody id="tbUpcomingSoon"></tbody>
+        </table>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="muted" style="margin:6px 0">超过 10 天</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="w-date">date</th><th class="w-time">time</th><th class="w-dur">duration</th><th class="w-coach">coach</th>
+              <th class="w-status">status</th><th class="w-note">备注</th><th class="w-fb">反馈</th><th class="w-act">提交</th><th class="w-id">session_id</th>
+            </tr>
+          </thead>
+          <tbody id="tbUpcomingLater"></tbody>
+        </table>
+      </div>
     </div>
+    <div class="pattern"></div>
+  </div>
+
+  <div style="height:16px"></div>
+
+  <!-- 待确认课程（pending） -->
+  <div id="secPending" class="section" style="display:none">
+    <div class="pattern"></div>
+    <div class="section-inner">
+      <h3>待确认课程</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="w-date">date</th><th class="w-time">time</th><th class="w-dur">duration</th><th class="w-coach">coach</th>
+              <th class="w-status">status</th><th class="w-note">备注</th><th class="w-fb">反馈</th><th class="w-act">提交</th><th class="w-id">session_id</th>
+            </tr>
+          </thead>
+          <tbody id="tbPending"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="pattern"></div>
+  </div>
+
+  <div style="height:16px"></div>
+
+  <!-- 已完成课程（done，10条/页） -->
+  <div id="secDone" class="section" style="display:none">
+    <div class="pattern"></div>
+    <div class="section-inner">
+      <h3 style="display:flex;justify-content:space-between;align-items:center">
+        <span>已完成课程</span>
+        <span class="toolbar">
+          <button class="btn gray" id="donePrev" onclick="pageDone(-1)">上一页</button>
+          <span id="donePageInfo" class="muted"></span>
+          <button class="btn gray" id="doneNext" onclick="pageDone(1)">下一页</button>
+        </span>
+      </h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="w-date">date</th><th class="w-time">time</th><th class="w-dur">duration</th><th class="w-coach">coach</th>
+              <th class="w-status">status</th><th class="w-note">备注</th><th class="w-fb">反馈</th><th class="w-act">提交</th><th class="w-id">session_id</th>
+            </tr>
+          </thead>
+          <tbody id="tbDone"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="pattern"></div>
   </div>
 </div>
 
 <script>
-// === Apps Script /exec ===
+/* === 把你的 Apps Script Web App /exec 地址填在这里 === */
 const API_BASE = 'https://script.google.com/macros/s/AKfycbzvN9lgnxywjnVTw5E39DSfsWH09dsCE3bwOUbrVP5vbjoBom7Oh_wFHOKlHpkxixW8Ew/exec';
 
-/* -------- 基础网络 -------- */
+/* —— 简单 POST（text/plain 避免预检） —— */
 async function post(action, payload = {}) {
   try {
     const res = await fetch(API_BASE, {
@@ -140,53 +237,53 @@ async function post(action, payload = {}) {
   }
 }
 
-/* -------- 日期/时间工具 -------- */
+/* ======= 日期/时间工具 ======= */
 const isDate = v => Object.prototype.toString.call(v)==='[object Date]' && !isNaN(v);
 function parseMaybeDate(x){
   if (x==null || x==='') return null;
   if (isDate(x)) return x;
-  if (typeof x==='number'){ const base = Date.UTC(1899,11,30); return new Date(base + x*86400000); }
+  if (typeof x==='number'){ const base=Date.UTC(1899,11,30); return new Date(base + x*86400000); }
   if (typeof x==='string'){
     if (/^\d{1,2}:\d{2}/.test(x)){ const [h,m]=x.split(':').map(Number); const d=new Date(); d.setHours(h,m||0,0,0); return d; }
     const d = new Date(x); if(!isNaN(d)) return d;
   }
   return null;
 }
-function fmtDate(x){ const d=parseMaybeDate(x); return d?d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}):(x||''); }
-function fmtTime(x){ const d=parseMaybeDate(x); return d?d.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'}):(x||''); }
-function getStartDT(s){
-  const d = parseMaybeDate(s.date);
-  const t = parseMaybeDate(s.time);
+function weekdayCN(d){ return ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()]; }
+function fmtDate(x){ const d=parseMaybeDate(x); return d?`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}（${weekdayCN(d)}）`:(x||''); }
+function fmtTime(x){ const d=parseMaybeDate(x); return d?d.toTimeString().slice(0,5):(x||''); }
+function startDT(s){
+  const d = parseMaybeDate(s.date), t = parseMaybeDate(s.time);
   if(!d || !t) return null;
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
 }
-function getEndDT(s){
-  const st = getStartDT(s);
-  if(!st) return null;
-  return new Date(st.getTime() + Number(s.duration_hours||1)*3600*1000);
-}
 
-/* -------- 本地存储：会话与凭据 -------- */
-let client = null;
+/* ======= 登录/状态 ======= */
+let client=null; let PACKS=[]; let SESS=[];
+
 function saveSession(u){ localStorage.setItem('TXT_CLIENT', JSON.stringify(u||{})); }
 function readSession(){ try{ return JSON.parse(localStorage.getItem('TXT_CLIENT')||'{}'); }catch(e){return{}} }
-
-function saveAuth(a){ localStorage.setItem('TXT_CLIENT_AUTH', JSON.stringify(a||{})); }
-function readAuth(){ try{ return JSON.parse(localStorage.getItem('TXT_CLIENT_AUTH')||'{}'); }catch(e){return{}} }
-
-/* -------- UI 切换 -------- */
 function setLoginUI(logged){
   loginForm.style.display = logged ? 'none' : 'block';
   userBar.style.display   = logged ? 'flex' : 'none';
+  pkgCard.style.display   = logged ? 'block': 'none';
+  progressCard.style.display = logged ? 'block' : 'none';
+  dash.style.display      = logged ? 'block': 'none';
+  secUpcoming.style.display = logged ? 'block' : 'none';
+  secPending.style.display  = logged ? 'block' : 'none';
+  secDone.style.display     = logged ? 'block' : 'none';
 }
 function logout(){
-  client=null; saveSession(null); saveAuth(null);
-  setLoginUI(false);
-  dash.style.display='none'; sess.style.display='none'; bookMsg.textContent='';
+  client=null; saveSession(null); setLoginUI(false); bookMsg.textContent='';
   ['name','email','phone','password'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
 }
+async function reloadAfterLogin(){
+  const cache = readSession();
+  if (!cache || (!cache.email && !cache.phone)) return;
+  const r = await post('login_client', { email: cache.email||'', phone: cache.phone||'', password: '' });
+  if (r.ok) await afterLogin(r); else alert(r.msg||'刷新失败');
+}
 
-/* -------- 登录 -------- */
 async function login(){
   const btn = document.getElementById('loginBtn'); btn.disabled = true;
   try{
@@ -200,115 +297,59 @@ async function login(){
       const a=String(r.client.name).trim().toLowerCase(), b=name.toLowerCase().trim();
       if (a!==b){ alert('姓名与账号不匹配'); return; }
     }
-    client = r.client;
-    saveSession({client_id:client.client_id, email:client.email, phone:client.phone, name:client.name});
-    saveAuth({email, phone, password}); // 保存凭据用于“刷新页面”
-    await renderDashboard(r, /*resetForm=*/true);
+    saveSession({client_id:r.client.client_id, email:r.client.email||email, phone:r.client.phone||phone, name:r.client.name});
+    await afterLogin(r);
   } finally { btn.disabled = false; }
 }
 
-/* -------- 刷新按钮：拉服务器数据并重置预约区 -------- */
-async function refreshDashboard(){
-  if(!client){ alert('请先登录'); return; }
-  const auth = readAuth();
-  const email = auth.email || client.email || '';
-  const phone = auth.phone || client.phone || '';
-  const password = auth.password || '';
-  if ((!email && !phone) || !password){
-    alert('无法刷新：缺少本地登录凭据，请退出后重新登录。');
-    return;
-  }
-  const r = await post('login_client', { email, phone, password });
-  if(!r.ok){ alert(r.msg || '刷新失败'); return; }
-  await renderDashboard(r, /*resetForm=*/true);
+function renderProgress(){
+  // 完成 = sum(total - remaining)； 待上 = sum(remaining)
+  const done = PACKS.reduce((s,p)=>s+(Number(p.total_hours||0)-Number(p.remaining_hours||0)),0);
+  const remain = PACKS.reduce((s,p)=>s+Number(p.remaining_hours||0),0);
+  const total = done + remain;
+  progressText.innerHTML = `已完成 <span class="num-green">${done}</span> 小时 · 待上 <span class="num-gray">${remain}</span> 小时`;
+  const pct = total>0 ? Math.min(100, Math.max(0, Math.round((done/total)*100))) : 0;
+  progressBar.style.width = pct + '%';
 }
 
-/* -------- 渲染整个仪表盘（可选重置预约区） -------- */
-async function renderDashboard(data, resetForm){
-  const packs = data.packages || [];
-  const sessions = data.sessions || [];
-  client = data.client || client;
+async function afterLogin(data){
+  client = data.client; PACKS = data.packages||[]; SESS = data.sessions||[];
   userInfo.textContent = `${client.name}（${client.client_id}）已登录`;
   setLoginUI(true);
 
-  // 我的套餐（数字上色）
-  pkgs.innerHTML = packs.map(p =>
-    `• ${p.package_name} [${p.package_id}]：总 <span class="num-green">${p.total_hours}</span> 小时 / 剩余 <span class="num-red">${p.remaining_hours}</span> 小时`
-  ).join('<br/>') || '<span class="muted">暂无套餐</span>';
+  // 套餐
+  pkgs.innerHTML =
+    (PACKS||[]).map(p =>
+      `• ${p.package_name} [${p.package_id}]：总 <span class="num-green">${p.total_hours}</span> 小时 / 剩余 <span style="color:#ef4444;font-weight:700">${p.remaining_hours}</span> 小时`
+    ).join('<br/>') || '<span class="muted">暂无套餐</span>';
 
-  // 固定教练展示
-  const coachLabel = (client.coach_name ? `${client.coach_name} ` : '') + (client.coach_id ? `(${client.coach_id})` : '');
-  coachPill.textContent = coachLabel || '未指定教练';
-  coachPill.dataset.coachId = client.coach_id || '';
+  // 进度
+  renderProgress();
 
   // 套餐下拉
-  pkgSel.innerHTML = packs.map(p => `<option value="${p.package_id}">${p.package_name} [${p.package_id}]</option>`).join('');
+  pkgSel.innerHTML = (PACKS||[]).map(p=>`<option value="${p.package_id}">${p.package_name} [${p.package_id}]</option>`).join('');
 
-  // 日期不可选过去 + 预约区（可选重置）
+  // 固定教练胶囊
+  const coachLabel = (client.coach_name ? `${client.coach_name} ` : '') + (client.coach_id ? `(${client.coach_id})` : '');
+  coachPill.textContent = `您的教练：${coachLabel||'未指定教练'}`;
+  coachPill.dataset.coachId = client.coach_id || '';
+
+  // 日期不可选过去，默认今天
   const today = new Date(); const y=today.getFullYear(), m=String(today.getMonth()+1).padStart(2,'0'), d=String(today.getDate()).padStart(2,'0');
-  date.min = `${y}-${m}-${d}`;
-  if (resetForm){
-    date.value = date.min;
-    if (hourSel.options.length === 0){ for(let h=8; h<=23; h++){ const v=String(h).padStart(2,'0'); hourSel.add(new Option(v,v)); } }
-    const now=new Date(); let H=Math.max(8, now.getHours()); let M=now.getMinutes()<30?'30':'00'; if (M==='00') H=Math.min(23,H+1);
-    hourSel.value=String(Math.min(Math.max(H,8),23)).padStart(2,'0'); minSel.value=M;
-    durSel.value='1';
-    notesEl.value='';
-  }else{
-    if (hourSel.options.length === 0){ for(let h=8; h<=23; h++){ const v=String(h).padStart(2,'0'); hourSel.add(new Option(v,v)); } }
-    if (!date.value) date.value = date.min;
-  }
+  date.min = `${y}-${m}-${d}`; if (!date.value) date.value = date.min;
 
-  renderSessions(sessions);
-  dash.style.display='block'; sess.style.display='block';
+  // 小时 8–23 + 默认下一个半点
+  if (hourSel.options.length === 0){ for(let h=8; h<=23; h++){ const v=String(h).padStart(2,'0'); hourSel.add(new Option(v,v)); } }
+  const now=new Date(); let H=Math.max(8, now.getHours()); let M=now.getMinutes()<30?'30':'00'; if (M==='00') H=Math.min(23,H+1);
+  hourSel.value=String(Math.min(Math.max(H,8),23)).padStart(2,'0'); minSel.value=M;
+
+  // 渲染 3 块
+  renderUpcoming();  // scheduled
+  renderPending();   // pending
+  prepareDone();     // done with pagination
 }
 
-/* -------- 渲染课程表 / 保存备注 -------- */
-function durationLabel(v){ const n=Number(v||1); return (Number.isInteger(n)?n:n.toString())+' hr'; }
-
-function sortSessions(list){
-  const rank = s => (s.status==='pending'?0 : s.status==='scheduled'?1 : 2);
-  return (list||[]).slice().sort((a,b)=>{
-    const ra = rank(a), rb = rank(b);
-    if (ra !== rb) return ra - rb;
-    const sa = getStartDT(a), sb = getStartDT(b);
-    if (ra === 2){ // done: 新到旧
-      const ea = getEndDT(a), eb = getEndDT(b);
-      // 若无结束时间，用开始时间兜底
-      return (eb?eb:sb) - (ea?ea:sa);
-    }
-    // 其他（pending/scheduled）：早到晚
-    return (sa||0) - (sb||0);
-  });
-}
-
-function renderSessions(list){
-  const tb = document.querySelector('#sessTbl tbody'); tb.innerHTML='';
-  const data = sortSessions(list);
-  data.forEach(s=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="w-id">${s.session_id}</td>
-      <td class="w-date">${fmtDate(s.date)}</td>
-      <td class="w-time">${fmtTime(s.time)}</td>
-      <td class="w-dur">${durationLabel(s.duration_hours)}</td>
-      <td class="w-coach">${s.coach_name||''}</td>
-      <td class="w-status">${s.status||''}</td>
-      <td class="w-note"><input class="row-input note" data-id="${s.session_id}" value="${(s.notes||'').replace(/"/g,'&quot;')}"></td>
-      <td class="w-fb"><input class="row-input fb" data-id="${s.session_id}" value="${(s.feedback||'').replace(/"/g,'&quot;')}"></td>
-      <td class="w-act"><button class="btn" onclick="saveRow('${s.session_id}')">保存</button></td>
-    `;
-    tb.appendChild(tr);
-  });
-}
-async function saveRow(id){
-  const notes = document.querySelector(`.note[data-id='${id}']`).value;
-  const feedback = document.querySelector(`.fb[data-id='${id}']`).value;
-  const r = await post('update_session_notes', { session_id:id, notes, feedback });
-  if(!r.ok) alert(r.msg || '保存失败');
-}
-
-/* -------- 创建预约 -------- */
+/* ======= 预约 ======= */
 function composeTimeStr(){ return `${hourSel.value||'08'}:${minSel.value||'00'}`; }
 function isPastSelection(dateStr, timeStr){ const sel=new Date(`${dateStr}T${timeStr}:00`); return sel.getTime() < Date.now() - 60*1000; }
 async function createSession(){
@@ -321,10 +362,123 @@ async function createSession(){
   if (isPastSelection(dateStr, timeStr)){ alert('不能选择已过去的时间'); return; }
   const r = await post('create_session', { package_id, client_id: client.client_id, coach_id, date: dateStr, time: timeStr, duration_hours, notes });
   if(!r.ok){ bookMsg.style.color='var(--red)'; bookMsg.textContent='预约失败：' + (r.msg||'Unknown error'); }
-  else{ bookMsg.style.color='var(--green)'; bookMsg.textContent='预约成功，等待教练确认'; }
+  else{ bookMsg.style.color='var(--green)'; bookMsg.textContent='预约成功，等待教练确认'; reloadAfterLogin(); }
 }
 
-/* -------- DOM 引用 -------- */
+/* ======= 列表渲染 ======= */
+const TEN = 10*24*3600*1000;
+const DONE_LOCKS = new Set(JSON.parse(localStorage.getItem('TXT_DONE_LOCKS')||'[]'));
+function saveLocks(){ localStorage.setItem('TXT_DONE_LOCKS', JSON.stringify([...DONE_LOCKS])); }
+
+function rowHTML(s, locked){
+  const sid = s.session_id;
+  const note = (s.notes||'').replace(/"/g,'&quot;');
+  const fb   = (s.feedback||'').replace(/"/g,'&quot;');
+  const dis = locked ? 'disabled' : '';
+  return `
+    <td class="w-date">${fmtDate(s.date)}</td>
+    <td class="w-time">${fmtTime(s.time)}</td>
+    <td class="w-dur">${s.duration_hours||1} hr</td>
+    <td class="w-coach">${s.coach_name||''}</td>
+    <td class="w-status">${s.status||''}</td>
+    <td class="w-note"><input class="row-input note" ${dis} data-id="${sid}" value="${note}"></td>
+    <td class="w-fb"><input class="row-input fb" ${dis} data-id="${sid}" value="${fb}"></td>
+    <td class="w-act"><button class="btn ${locked?'lock':''}" ${locked?'disabled':''} onclick="submitRow('${sid}','${s.status}')">${locked?'已提交':'提交'}</button></td>
+    <td class="w-id">${sid}</td>
+  `;
+}
+
+function renderUpcoming(){
+  const soonTB = document.getElementById('tbUpcomingSoon');
+  const laterTB= document.getElementById('tbUpcomingLater');
+  soonTB.innerHTML = ''; laterTB.innerHTML = '';
+  const now = Date.now();
+
+  const list = (SESS||[]).filter(x=>x.status==='scheduled')
+    .sort((a,b)=>{
+      const sa=startDT(a), sb=startDT(b);
+      const da = sa?Math.abs(sa.getTime()-now):Number.MAX_SAFE_INTEGER;
+      const db = sb?Math.abs(sb.getTime()-now):Number.MAX_SAFE_INTEGER;
+      if (da!==db) return da-db; return (sa?sa.getTime():0)-(sb?sb.getTime():0);
+    });
+
+  list.forEach(s=>{
+    const st=startDT(s); const isSoon=!st||(st.getTime()-now)<=TEN;
+    const tr=document.createElement('tr'); tr.innerHTML=rowHTML(s,false);
+    (isSoon?soonTB:laterTB).appendChild(tr);
+  });
+
+  secUpcoming.style.display='block';
+}
+
+function renderPending(){
+  const tb = document.getElementById('tbPending'); tb.innerHTML='';
+  const createdKey = ['created_at','createdAt','created','created_time'].find(k=>SESS.some(s=>s[k]!=null));
+  const list = (SESS||[]).filter(x=>x.status==='pending')
+    .sort((a,b)=>{
+      const ca = createdKey ? parseMaybeDate(a[createdKey]) : startDT(a);
+      const cb = createdKey ? parseMaybeDate(b[createdKey]) : startDT(b);
+      return (ca?ca.getTime():0) - (cb?cb.getTime():0);
+    });
+  list.forEach(s=>{ const tr=document.createElement('tr'); tr.innerHTML=rowHTML(s,false); tb.appendChild(tr); });
+  secPending.style.display='block';
+}
+
+/* —— 已完成（分页 10 条/页） —— */
+let DONE_LIST=[]; let donePage=1; const donePageSize=10;
+function prepareDone(){
+  DONE_LIST = (SESS||[]).filter(x=>x.status==='done')
+    .sort((a,b)=>{ const sa=startDT(a), sb=startDT(b); return (sb?sb.getTime():0)-(sa?sa.getTime():0); });
+  donePage=1; renderDonePaged();
+}
+function pageDone(delta){
+  const totalPages=Math.max(1,Math.ceil(DONE_LIST.length/donePageSize));
+  donePage=Math.min(totalPages,Math.max(1,donePage+delta));
+  renderDonePaged();
+}
+function renderDonePaged(){
+  const totalPages=Math.max(1,Math.ceil(DONE_LIST.length/donePageSize));
+  const s=(donePage-1)*donePageSize, e=s+donePageSize;
+  const page = DONE_LIST.slice(s,e);
+
+  const tb=document.getElementById('tbDone'); tb.innerHTML='';
+  page.forEach(s=>{
+    const locked = DONE_LOCKS.has(s.session_id);
+    const tr=document.createElement('tr'); tr.innerHTML=rowHTML(s,locked); tb.appendChild(tr);
+  });
+
+  donePageInfo.textContent = `第 ${donePage} / 共 ${totalPages} 页（每页 10）`;
+  donePrev.disabled = donePage<=1; doneNext.disabled = donePage>=totalPages;
+  secDone.style.display='block';
+}
+
+/* ======= 行提交（更新备注/反馈） ======= */
+async function submitRow(id, status){
+  const noteEl = document.querySelector(`.note[data-id='${id}']`);
+  const fbEl   = document.querySelector(`.fb[data-id='${id}']`);
+  const btn    = document.querySelector(`button.btn[onclick*="${id}"]`);
+  const notes = noteEl ? noteEl.value : '';
+  const feedback = fbEl ? fbEl.value : '';
+
+  btn.disabled = true;
+  const r = await post('update_session_notes', { session_id:id, notes, feedback });
+  btn.disabled = false;
+
+  if(!r.ok){ btn.textContent='提交失败'; btn.classList.remove('ok'); btn.classList.add('red'); setTimeout(()=>{btn.textContent='提交';btn.classList.remove('red')},1200); return; }
+
+  // 成功提示
+  btn.textContent='提交成功'; btn.classList.add('ok'); setTimeout(()=>{btn.textContent= (status==='done'?'已提交':'提交'); btn.classList.remove('ok')},1200);
+
+  // done：锁定
+  if (status==='done'){
+    DONE_LOCKS.add(id); saveLocks();
+    if (noteEl) { noteEl.disabled=true; noteEl.classList.add('disabled'); }
+    if (fbEl)   { fbEl.disabled=true; fbEl.classList.add('disabled'); }
+    btn.classList.add('lock'); btn.disabled=true;
+  }
+}
+
+/* ======= 简化的元素引用 ======= */
 const nameEl = document.getElementById('name');
 const emailEl = document.getElementById('email');
 const phoneEl = document.getElementById('phone');
@@ -339,17 +493,23 @@ const notesEl = document.getElementById('notes');
 const loginForm = document.getElementById('loginForm');
 const userBar   = document.getElementById('userBar');
 const pkgs      = document.getElementById('pkgs');
+const pkgCard   = document.getElementById('pkgCard');
+const progressCard = document.getElementById('progressCard');
+const progressText = document.getElementById('progressText');
+const progressBar  = document.getElementById('progressBar');
 const dash      = document.getElementById('dash');
-const sess      = document.getElementById('sess');
+const secUpcoming = document.getElementById('secUpcoming');
+const secPending  = document.getElementById('secPending');
+const secDone     = document.getElementById('secDone');
 const bookMsg   = document.getElementById('bookMsg');
 const userInfo  = document.getElementById('userInfo');
 
-/* -------- 启动：用本地凭据自动登录 -------- */
+/* ======= 启动：尝试自动恢复登录 ======= */
 (async function init(){
-  const auth = readAuth();
-  if ((auth.email || auth.phone) && auth.password){
-    const rel = await post('login_client', { email: auth.email||'', phone: auth.phone||'', password: auth.password||'' });
-    if (rel.ok){ await renderDashboard(rel, /*resetForm=*/true); return; }
+  const cache = readSession();
+  if (cache && (cache.email || cache.phone)){
+    const rel = await post('login_client', { email: cache.email||'', phone: cache.phone||'', password: '' });
+    if (rel.ok){ await afterLogin(rel); return; }
   }
   setLoginUI(false);
 })();
