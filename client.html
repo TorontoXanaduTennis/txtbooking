@@ -447,36 +447,80 @@ function renderDonePaged(){
 }
 
 /* ==== 兼容提交备注/反馈（多 action/字段名组合） ==== */
+// === 超级兼容：备注/反馈提交 ===
 async function updateNotesCompat(base){
+  // 1) 候选动作名（把常见命名全覆盖）
   const actions = [
-    'update_session_notes','update_session','save_session_notes','set_session_notes','edit_session_notes',
-    'update_session_feedback','update_notes','update_feedback',
-    'client_update_session','client_update_notes','update_client_session',
-    'mutate_session','patch_session'
+    // 纯字段类
+    'update_session_notes','update_session_feedback','update_notes','update_feedback',
+    // 会同时更新多个字段
+    'update_session','update_session_v2','update_session_fields','update_session_meta',
+    'save_session','set_session','set_session_fields','update_session_info',
+    'update_client_session','client_update_session','client_update_notes',
+    'client_set_session','client_save_session',
+    // 备用命名
+    'mutate_session','patch_session','edit_session_notes','set_session_notes','save_session_notes'
   ];
-  const idKeys = ['session_id','id'];
-  const noteKeys = ['notes','client_notes','note'];
-  const fbKeys = ['feedback','client_feedback','fb',''];
 
+  // 2) id / notes / feedback 的候选键名（后端可能叫法不一）
+  const idKeys   = ['session_id','id','sid'];
+  const noteKeys = ['notes','client_notes','note','remark'];
+  const fbKeys   = ['feedback','client_feedback','fb',''];
+
+  // 3) 负载结构生成器（平铺 & 嵌套的多形态）
+  const shapes = [
+    // a) 平铺：id + notes + feedback
+    (p, idk, nk, fk) => Object.assign({ [idk]:p.session_id, [nk]:p.notes }, fk?{[fk]:p.feedback}:{})
+    ,
+    // b) fields: {notes,feedback}
+    (p, idk, nk, fk) => {
+      const fields = Object.assign({[nk]:p.notes}, fk?{[fk]:p.feedback}:{});
+      return { [idk]:p.session_id, fields };
+    },
+    // c) data: {...}
+    (p, idk, nk, fk) => {
+      const data = Object.assign({[idk]:p.session_id, [nk]:p.notes}, fk?{[fk]:p.feedback}:{});
+      return { data };
+    },
+    // d) updates: {...}
+    (p, idk, nk, fk) => {
+      const updates = Object.assign({[nk]:p.notes}, fk?{[fk]:p.feedback}:{});
+      return { [idk]:p.session_id, updates };
+    },
+    // e) patch: {...}
+    (p, idk, nk, fk) => {
+      const patch = Object.assign({[nk]:p.notes}, fk?{[fk]:p.feedback}:{});
+      return { [idk]:p.session_id, patch };
+    },
+    // f) session: {...}
+    (p, idk, nk, fk) => {
+      const session = Object.assign({[idk]:p.session_id, [nk]:p.notes}, fk?{[fk]:p.feedback}:{});
+      return { session };
+    }
+  ];
+
+  // 4) 先走“纯字段动作名”+“平铺负载”，再扩展到嵌套负载
   for (const act of actions){
     for (const idk of idKeys){
       for (const nk of noteKeys){
         for (const fk of fbKeys){
-          const payload = { action:act, source:'client_ui' };
-          payload[idk] = base.session_id;
-          payload[nk]  = base.notes;
-          if (fk) payload[fk] = base.feedback;
-
-          const r = await post(act, payload);
-          console.log('[submit try]', act, {idk, nk, fk}, r);
-          if (r && r.ok) return r;
+          for (const build of shapes){
+            const payload = build(base, idk, nk, fk);
+            // 附加来源，方便你在 GAS 端筛查日志
+            payload.action = act;
+            payload.source = 'client_ui';
+            const r = await post(act, payload);
+            console.log('[submit try]', act, {idk, nk, fk, shape:build.name||'shape'}, r);
+            if (r && r.ok) return r;
+          }
         }
       }
     }
   }
-  return {ok:false, msg:'All tries failed'};
+  return { ok:false, msg:'All tries failed' };
 }
 
+// === “提交”按钮（保持已完成课程行的锁定行为不变） ===
 async function submitRow(id, status){
   const noteEl = document.querySelector(`.note[data-id='${id}']`);
   const fbEl   = document.querySelector(`.fb[data-id='${id}']`);
@@ -489,18 +533,21 @@ async function submitRow(id, status){
   btn.disabled = false;
 
   if(!r.ok){
-    btn.textContent='提交失败'; btn.classList.remove('ok'); btn.classList.add('red');
-    setTimeout(()=>{btn.textContent='提交';btn.classList.remove('red')},1200);
+    btn.textContent='提交失败';
+    btn.classList.remove('ok'); btn.classList.add('red');
+    setTimeout(()=>{btn.textContent=(status==='done'?'已提交':'提交');btn.classList.remove('red')},1400);
     return;
   }
 
-  btn.textContent='提交成功'; btn.classList.add('ok');
-  setTimeout(()=>{btn.textContent= (status==='done'?'已提交':'提交'); btn.classList.remove('ok')},1200);
+  btn.textContent='提交成功';
+  btn.classList.add('ok');
+  setTimeout(()=>{btn.textContent=(status==='done'?'已提交':'提交');btn.classList.remove('ok')},1000);
 
+  // 已完成 → 锁定（按钮变灰绿色、输入禁用且保留值）
   if (status==='done'){
     DONE_LOCKS.add(id); saveLocks();
     if (noteEl) { noteEl.disabled=true; noteEl.classList.add('disabled'); }
-    if (fbEl)   { fbEl.disabled=true; fbEl.classList.add('disabled'); }
+    if (fbEl)   { fbEl.disabled=true;  fbEl.classList.add('disabled'); }
     btn.classList.add('lock'); btn.disabled=true;
   }
 }
