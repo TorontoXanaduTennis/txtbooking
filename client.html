@@ -25,8 +25,7 @@
   .btn.gray{background:var(--gray)}
   .btn.red{background:var(--red)}
   .btn.ok{background:var(--green)}
-  .btn.lock{background:#86efac;color:#064e3b} /* done锁定后的灰绿色 */
-
+  .btn.lock{background:#86efac;color:#064e3b}
   .muted{color:var(--muted)}
   .pill{display:inline-block;padding:6px 12px;border:1px solid var(--bdr);border-radius:999px;background:#fff}
 
@@ -52,6 +51,7 @@
   .num-green{color:var(--green);font-weight:700}
   .num-gray{color:var(--gray);font-weight:700}
 
+  .renew-row{display:flex;justify-content:flex-end;margin-top:10px}
   .disabled{opacity:.55;pointer-events:none}
 </style>
 </head>
@@ -59,7 +59,7 @@
 <div class="wrap">
   <h1>客户端 · TXT 订课</h1>
 
-  <!-- 登录 / 用户条 -->
+  <!-- 登录 -->
   <div class="card" id="loginCard">
     <div id="loginForm">
       <h3>登录</h3>
@@ -88,11 +88,14 @@
     <div id="pkgs" class="muted">（登录后显示）</div>
   </div>
 
-  <!-- 课程进度 -->
+  <!-- 课程进度 + 我要续课 -->
   <div id="progressCard" class="card" style="display:none">
     <h3>我的课程进度</h3>
     <div id="progressText" class="muted"></div>
     <div class="progress-wrap"><div id="progressBar" class="progress-bar" style="width:0%"></div></div>
+    <div class="renew-row">
+      <button class="btn blue" onclick="requestRenew()">我要续课</button>
+    </div>
   </div>
 
   <!-- 预约 -->
@@ -155,7 +158,7 @@
 
   <div style="height:16px"></div>
 
-  <!-- 待确认课程（pending） -->
+  <!-- 待确认（pending） -->
   <div id="secPending" class="section" style="display:none">
     <div class="pattern"></div>
     <div class="section-inner">
@@ -177,7 +180,7 @@
 
   <div style="height:16px"></div>
 
-  <!-- 已完成课程（done，10条/页） -->
+  <!-- 已完成（done，10条/页） -->
   <div id="secDone" class="section" style="display:none">
     <div class="pattern"></div>
     <div class="section-inner">
@@ -209,27 +212,24 @@
 /* === Apps Script /exec === */
 const API_BASE = 'https://script.google.com/macros/s/AKfycbzvN9lgnxywjnVTw5E39DSfsWH09dsCE3bwOUbrVP5vbjoBom7Oh_wFHOKlHpkxixW8Ew/exec';
 
-/* ---------- 工具：本地会话 ---------- */
+/* ==== 本地会话 ==== */
 function saveSession(u){ localStorage.setItem('TXT_CLIENT', JSON.stringify(u||{})); }
 function readSession(){ try{ return JSON.parse(localStorage.getItem('TXT_CLIENT')||'{}'); }catch(e){return{}} }
 
-/* ---------- 统一 POST（自动带上 client_key） ---------- */
+/* ==== 统一 POST（自动附带全部凭证）==== */
 async function post(action, payload = {}) {
   try {
-    // 自动附带 client_key（= 登录密码），避免 invalid credential
     const cache = readSession();
-    if (action !== 'login_client' && cache && cache.password && !('client_key' in payload)) {
-      payload.client_key = cache.password;
+    if (action !== 'login_client' && cache){
+      if (!('client_id' in payload) && cache.client_id) payload.client_id = cache.client_id;
+      if (!('client_key' in payload) && cache.password)  payload.client_key = cache.password;
+      if (!('password'  in payload) && cache.password)  payload.password  = cache.password; // 兼容某些后端字段
+      if (!('email'     in payload) && cache.email)     payload.email     = cache.email;
+      if (!('phone'     in payload) && cache.phone)     payload.phone     = cache.phone;
     }
-    // 某些接口需要 client_id（比如备注更新/预约），这里也自动补上
-    if (!('client_id' in payload) && cache && cache.client_id &&
-        (action === 'update_session_notes' || action === 'create_session')) {
-      payload.client_id = cache.client_id;
-    }
-
     const res = await fetch(API_BASE, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' }, // 避免 CORS 预检
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action, ...payload })
     });
     return await res.json();
@@ -239,7 +239,7 @@ async function post(action, payload = {}) {
   }
 }
 
-/* ---------- 日期/时间 ---------- */
+/* ==== 日期/时间 ==== */
 const isDate = v => Object.prototype.toString.call(v)==='[object Date]' && !isNaN(v);
 function parseMaybeDate(x){
   if (x==null || x==='') return null;
@@ -260,7 +260,7 @@ function startDT(s){
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
 }
 
-/* ---------- 登录/状态 ---------- */
+/* ==== 登录/状态 ==== */
 let client=null; let PACKS=[]; let SESS=[];
 const TEN = 10*24*3600*1000;
 const DONE_LOCKS = new Set(JSON.parse(localStorage.getItem('TXT_DONE_LOCKS')||'[]'));
@@ -280,10 +280,8 @@ function logout(){
   client=null; saveSession(null); setLoginUI(false); bookMsg.textContent='';
   ['name','email','phone','password'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
 }
-
 async function reloadAfterLogin(){
   const cache = readSession();
-  // 必须带 password，否则服务端会判定 invalid credential
   if (!cache || (!cache.email && !cache.phone) || !cache.password){ alert('请先登录'); return; }
   const r = await post('login_client', { email: cache.email||'', phone: cache.phone||'', password: cache.password });
   if (r.ok) await afterLogin(r); else alert(r.msg||'刷新失败');
@@ -302,7 +300,6 @@ async function login(){
       const a=String(r.client.name).trim().toLowerCase(), b=name.toLowerCase().trim();
       if (a!==b){ alert('姓名与账号不匹配'); return; }
     }
-    // 保存密码，供刷新 / 提交使用
     saveSession({client_id:r.client.client_id, email:r.client.email||email, phone:r.client.phone||phone, name:r.client.name, password});
     await afterLogin(r);
   } finally { btn.disabled = false; }
@@ -316,42 +313,41 @@ function renderProgress(){
   const pct = total>0 ? Math.min(100, Math.max(0, Math.round((done/total)*100))) : 0;
   progressBar.style.width = pct + '%';
 }
+function requestRenew(){
+  alert('请直接与TXT小客服联系进行续课\\n微信号：TorontoXanaduTennis\\n邮箱：info@torontoxanadutennis.com');
+}
 
 async function afterLogin(data){
   client = data.client; PACKS = data.packages||[]; SESS = data.sessions||[];
   userInfo.textContent = `${client.name}（${client.client_id}）已登录`;
   setLoginUI(true);
 
-  // 套餐
   pkgs.innerHTML =
     (PACKS||[]).map(p =>
       `• ${p.package_name} [${p.package_id}]：总 <span class="num-green">${p.total_hours}</span> 小时 / 剩余 <span style="color:#ef4444;font-weight:700">${p.remaining_hours}</span> 小时`
     ).join('<br/>') || '<span class="muted">暂无套餐</span>';
 
-  // 进度
   renderProgress();
 
-  // 套餐下拉
   pkgSel.innerHTML = (PACKS||[]).map(p=>`<option value="${p.package_id}">${p.package_name} [${p.package_id}]</option>`).join('');
 
-  // 教练胶囊：仅名字
+  // 只显示教练名字
   coachPill.textContent = `您的教练：${client.coach_name || '未指定教练'}`;
   coachPill.dataset.coachId = client.coach_id || '';
 
-  // 日期限制与默认时间
   const today = new Date(); const y=today.getFullYear(), m=String(today.getMonth()+1).padStart(2,'0'), d=String(today.getDate()).padStart(2,'0');
   date.min = `${y}-${m}-${d}`; if (!date.value) date.value = date.min;
+
   if (hourSel.options.length === 0){ for(let h=8; h<=23; h++){ const v=String(h).padStart(2,'0'); hourSel.add(new Option(v,v)); } }
   const now=new Date(); let H=Math.max(8, now.getHours()); let M=now.getMinutes()<30?'30':'00'; if (M==='00') H=Math.min(23,H+1);
   hourSel.value=String(Math.min(Math.max(H,8),23)).padStart(2,'0'); minSel.value=M;
 
-  // 三块
   renderUpcoming();
   renderPending();
   prepareDone();
 }
 
-/* ---------- 预约 ---------- */
+/* ==== 预约 ==== */
 function composeTimeStr(){ return `${hourSel.value||'08'}:${minSel.value||'00'}`; }
 function isPastSelection(dateStr, timeStr){ const sel=new Date(`${dateStr}T${timeStr}:00`); return sel.getTime() < Date.now() - 60*1000; }
 async function createSession(){
@@ -367,7 +363,7 @@ async function createSession(){
   else{ bookMsg.style.color='var(--green)'; bookMsg.textContent='预约成功，等待教练确认'; reloadAfterLogin(); }
 }
 
-/* ---------- 行模板 & 渲染 ---------- */
+/* ==== 行模板 & 渲染 ==== */
 function rowHTML(s, locked){
   const sid = s.session_id;
   const note = (s.notes||'').replace(/"/g,'&quot;');
@@ -422,7 +418,7 @@ function renderPending(){
   secPending.style.display='block';
 }
 
-/* ---------- 已完成（分页 10 条/页） ---------- */
+/* ==== 已完成（分页 10 条/页） ==== */
 let DONE_LIST=[]; let donePage=1; const donePageSize=10;
 function prepareDone(){
   DONE_LIST = (SESS||[]).filter(x=>x.status==='done')
@@ -450,7 +446,7 @@ function renderDonePaged(){
   secDone.style.display='block';
 }
 
-/* ---------- 提交备注/反馈 ---------- */
+/* ==== 提交备注/反馈 ==== */
 async function submitRow(id, status){
   const noteEl = document.querySelector(`.note[data-id='${id}']`);
   const fbEl   = document.querySelector(`.fb[data-id='${id}']`);
@@ -468,11 +464,9 @@ async function submitRow(id, status){
     return;
   }
 
-  // 成功提示
   btn.textContent='提交成功'; btn.classList.add('ok');
   setTimeout(()=>{btn.textContent= (status==='done'?'已提交':'提交'); btn.classList.remove('ok')},1200);
 
-  // done：锁定
   if (status==='done'){
     DONE_LOCKS.add(id); saveLocks();
     if (noteEl) { noteEl.disabled=true; noteEl.classList.add('disabled'); }
@@ -481,7 +475,7 @@ async function submitRow(id, status){
   }
 }
 
-/* ---------- 简化的元素引用 ---------- */
+/* ==== 元素引用 ==== */
 const nameEl = document.getElementById('name');
 const emailEl = document.getElementById('email');
 const phoneEl = document.getElementById('phone');
@@ -507,7 +501,7 @@ const secDone     = document.getElementById('secDone');
 const bookMsg   = document.getElementById('bookMsg');
 const userInfo  = document.getElementById('userInfo');
 
-/* ---------- 启动：尝试自动恢复登录 ---------- */
+/* ==== 启动：尝试自动恢复登录 ==== */
 (async function init(){
   const cache = readSession();
   if (cache && (cache.email || cache.phone) && cache.password){
