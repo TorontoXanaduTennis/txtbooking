@@ -10,7 +10,6 @@
     --shadow:0 10px 28px rgba(0,0,0,.08);
     --primary:#111; --green:#10b981; --red:#ef4444; --blue:#2563eb; --gray:#6b7280; --deep:#374151;
     --radius:14px;
-    --st-pending:#FEF3C7; --st-scheduled:#E5E7EB; --st-done:#D1FAE5;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
@@ -50,7 +49,6 @@
   .progress-bar{height:100%;border-radius:999px;background:linear-gradient(90deg,#34d399,#10b981);box-shadow:0 2px 6px rgba(16,185,129,.35)}
   .num-green{color:var(--green);font-weight:700}
   .num-gray{color:var(--gray);font-weight:700}
-
   .renew-row{display:flex;justify-content:flex-end;margin-top:10px}
   .disabled{opacity:.55;pointer-events:none}
 </style>
@@ -223,13 +221,13 @@ async function post(action, payload = {}) {
     if (action !== 'login_client' && cache){
       if (!('client_id' in payload) && cache.client_id) payload.client_id = cache.client_id;
       if (!('client_key' in payload) && cache.password)  payload.client_key = cache.password;
-      if (!('password'  in payload) && cache.password)  payload.password  = cache.password; // 兼容某些后端字段
+      if (!('password'  in payload) && cache.password)  payload.password  = cache.password; // 某些后端用这个字段
       if (!('email'     in payload) && cache.email)     payload.email     = cache.email;
       if (!('phone'     in payload) && cache.phone)     payload.phone     = cache.phone;
     }
     const res = await fetch(API_BASE, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
+      headers: { 'Content-Type': 'text/plain' }, // 避免预检
       body: JSON.stringify({ action, ...payload })
     });
     return await res.json();
@@ -314,7 +312,8 @@ function renderProgress(){
   progressBar.style.width = pct + '%';
 }
 function requestRenew(){
-  alert('请直接与TXT小客服联系进行续课\\n微信号：TorontoXanaduTennis\\n邮箱：info@torontoxanadutennis.com');
+  // 按你给的两行格式准确展示
+  alert('微信号：TorontoXanaduTennis\n邮箱：info@torontoxanadutennis.com');
 }
 
 async function afterLogin(data){
@@ -446,7 +445,23 @@ function renderDonePaged(){
   secDone.style.display='block';
 }
 
-/* ==== 提交备注/反馈 ==== */
+/* ==== 兼容提交备注/反馈（多 action 多字段尝试） ==== */
+async function updateNotesCompat(base){
+  const tries = [
+    {action:'update_session_notes', extra:{}},
+    {action:'update_session',       extra:{}},
+    {action:'save_session_notes',   extra:{}},
+    // 字段名变体（有的后端用 client_notes / client_feedback）
+    {action:'update_session_notes', extra:{client_notes:base.notes, client_feedback:base.feedback}},
+    {action:'update_session',       extra:{client_notes:base.notes, client_feedback:base.feedback}},
+  ];
+  for (const t of tries){
+    const r = await post(t.action, {...base, ...t.extra, source:'client_ui'});
+    if (r && r.ok) return r;
+  }
+  return {ok:false, msg:'兼容尝试失败'};
+}
+
 async function submitRow(id, status){
   const noteEl = document.querySelector(`.note[data-id='${id}']`);
   const fbEl   = document.querySelector(`.fb[data-id='${id}']`);
@@ -455,7 +470,7 @@ async function submitRow(id, status){
   const feedback = fbEl ? fbEl.value : '';
 
   btn.disabled = true;
-  const r = await post('update_session_notes', { session_id:id, notes, feedback });
+  const r = await updateNotesCompat({ session_id:id, notes, feedback });
   btn.disabled = false;
 
   if(!r.ok){
