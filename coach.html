@@ -24,7 +24,6 @@
   <h1>教练端 · TXT 订课</h1>
 
   <div class="card">
-    <!-- ✅ 已移除 API 显示 -->
     <h3>登录（coach_id + coach_email）</h3>
     <input id="cid" placeholder="coach_id" />
     <input id="cem" placeholder="coach_email" />
@@ -73,28 +72,15 @@ let coach = null;
 
 // ======= 日期/时间格式化工具 =======
 const weekdayCN = ['周日','周一','周二','周三','周四','周五','周六'];
-
-/** 判断可被 Date 正确解析 */
 function isValidDate(d){ return d instanceof Date && !isNaN(d.getTime()); }
 
-/** 解析后仅保留本地日期 YYYY-MM-DD，并附带（周X） */
 function formatDateWithWeek(x){
   if(!x) return '';
-  // 1) 优先 ISO 字符串 / 时间戳
   let d;
-  if(typeof x === 'number'){
-    d = new Date(x);
-  } else if(typeof x === 'string'){
-    // 有些后端会返回 "2025-09-19T04:00:00.000Z"
-    // 也可能是纯日期 "2025-09-19"
-    // 也可能是 Google Sheets 序列号（不在此处理为日期）
-    d = new Date(x);
-  } else if(x instanceof Date){
-    d = x;
-  }
+  if(typeof x === 'number') d = new Date(x);
+  else if(typeof x === 'string') d = new Date(x);
+  else if(x instanceof Date) d = x;
   if(!isValidDate(d)) return String(x);
-
-  // 按本地时区取年月日
   const y = d.getFullYear();
   const m = String(d.getMonth()+1).padStart(2,'0');
   const day = String(d.getDate()).padStart(2,'0');
@@ -102,34 +88,72 @@ function formatDateWithWeek(x){
   return `${y}-${m}-${day}（${wk}）`;
 }
 
-/** 解析后仅保留本地时间 HH:mm
- * 兼容三种情况：
- * - 纯时间的“1899-12-30T13:30:00.000Z”（Google Sheets 的 time-epoch）
- * - 正常 ISO 带日期的时间戳
- * - "13:30" 这类纯字符串
- */
 function formatTimeHHmm(x){
   if(!x) return '';
-  // 直接就是 "HH:mm" 的字符串
   if(typeof x === 'string' && /^\d{1,2}:\d{2}(:\d{2})?$/.test(x.trim())){
     return x.trim().slice(0,5);
   }
-
   let d;
-  if(typeof x === 'number'){
-    d = new Date(x);
-  } else if(typeof x === 'string'){
-    d = new Date(x);
-  } else if(x instanceof Date){
-    d = x;
-  }
+  if(typeof x === 'number') d = new Date(x);
+  else if(typeof x === 'string') d = new Date(x);
+  else if(x instanceof Date) d = x;
   if(!isValidDate(d)) return String(x);
-
-  // 如果是 1899-12-30 这种基准，仅取当天的时分
-  // 不论是哪天，永远只显示本地时区的时:分
   const hh = String(d.getHours()).padStart(2,'0');
   const mm = String(d.getMinutes()).padStart(2,'0');
   return `${hh}:${mm}`;
+}
+
+// ======= 客户姓名缓存与拉取 =======
+const clientNameCache = new Map(); // id -> full_name
+
+function fillClientNamesFromMap(mapObj){
+  if(mapObj && typeof mapObj === 'object'){
+    for(const [id, name] of Object.entries(mapObj)){
+      if(id && name) clientNameCache.set(String(id), String(name));
+    }
+  }
+}
+
+/** 批量获取缺失的 client name，优先用后端批量接口，其次逐个查询 */
+async function hydrateMissingClientNames(missingIds){
+  const ids = [...new Set(missingIds.filter(Boolean).map(String))].filter(id=>!clientNameCache.has(id));
+  if(ids.length === 0) return;
+
+  // 1) 优先尝试批量接口：client_names
+  try{
+    const r = await post('client_names', { ids });
+    if(r && r.ok && r.map){
+      fillClientNamesFromMap(r.map);
+      return;
+    }
+  }catch(e){ /* 忽略，转入逐个查询 */ }
+
+  // 2) 逐个查询：client_name_by_id
+  const chunk = async (arr, size=5)=>{
+    for(let i=0;i<arr.length;i+=size){
+      const group = arr.slice(i,i+size);
+      await Promise.all(group.map(async id=>{
+        if(clientNameCache.has(id)) return;
+        try{
+          const r = await post('client_name_by_id', { id });
+          if(r && r.ok && r.name){
+            clientNameCache.set(id, String(r.name));
+          }
+        }catch(e){}
+      }));
+    }
+  };
+  await chunk(ids, 5);
+}
+
+/** 从 session 记录中读取客户名（带缓存与回退） */
+function displayClientName(s){
+  const direct = s.client_name || s.client_full_name || s.client || '';
+  if(direct) return direct;
+  const id = String(s.client_id || s.clientId || s.clientID || '').trim();
+  if(!id) return '';
+  if(clientNameCache.has(id)) return clientNameCache.get(id);
+  return id; // 先占位 id，待补全后二次渲染
 }
 
 // —— 登录 ——
@@ -145,8 +169,16 @@ async function login(){
     coach = r.coach;
     document.getElementById('info').textContent = `${coach.coach_name} (${coach.coach_id}) 已登录`;
     localStorage.setItem('TXT_COACH', JSON.stringify({ coach_id, coach_email }));
-    render(r.sessions || []);
+
+    if(r.clientMap) fillClientNamesFromMap(r.clientMap);
+
+    const sessions = r.sessions || [];
     document.getElementById('sess').style.display = 'block';
+    render(sessions);
+
+    const missingIds = sessions.map(s => s.client_id || s.clientId || s.clientID).filter(Boolean);
+    await hydrateMissingClientNames(missingIds);
+    render(sessions); // 二次渲染补齐姓名
   } finally {
     btn.disabled = false;
   }
@@ -160,7 +192,15 @@ async function refresh(){
   const { coach_id, coach_email } = JSON.parse(saved);
   const r = await post('login_coach', { coach_id, coach_email });
   if(!r.ok) return alert(r.msg || '刷新失败');
-  render(r.sessions || []);
+
+  if(r.clientMap) fillClientNamesFromMap(r.clientMap);
+
+  const sessions = r.sessions || [];
+  render(sessions);
+
+  const missingIds = sessions.map(s => s.client_id || s.clientId || s.clientID).filter(Boolean);
+  await hydrateMissingClientNames(missingIds);
+  render(sessions);
 }
 window.refresh = refresh;
 
@@ -172,7 +212,7 @@ function render(list){
     tr.className = 'status-'+(s.status||'');
     const dateDisp = formatDateWithWeek(s.date || s.session_date);
     const timeDisp = formatTimeHHmm(s.time || s.session_time);
-    const clientName = s.client_name || s.client_full_name || s.client || s.clientId || s.client_id || '';
+    const clientName = displayClientName(s);
 
     tr.innerHTML = `
       <td>${s.session_id || ''}</td>
@@ -195,6 +235,27 @@ async function confirmSess(id){
   refresh();
 }
 window.confirmSess = confirmSess;
+
+// —— 自动恢复登录 —— 
+(function autoLogin(){
+  const saved = localStorage.getItem('TXT_COACH');
+  if(!saved) return;
+  const { coach_id, coach_email } = JSON.parse(saved);
+  if(coach_id && coach_email){
+    post('login_coach', { coach_id, coach_email }).then(async r=>{
+      if(!r || !r.ok) return;
+      coach = r.coach;
+      document.getElementById('info').textContent = `${coach.coach_name} (${coach.coach_id}) 已登录`;
+      document.getElementById('sess').style.display = 'block';
+      if(r.clientMap) fillClientNamesFromMap(r.clientMap);
+      const sessions = r.sessions || [];
+      render(sessions);
+      const missingIds = sessions.map(s => s.client_id || s.clientId || s.clientID).filter(Boolean);
+      await hydrateMissingClientNames(missingIds);
+      render(sessions);
+    });
+  }
+})();
 </script>
 </body>
 </html>
