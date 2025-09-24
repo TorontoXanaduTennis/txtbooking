@@ -15,14 +15,21 @@
   table{width:100%;border-collapse:collapse}
   th,td{padding:8px;border-bottom:1px solid #eee;font-size:14px;vertical-align:middle}
   th{font-weight:600;color:#374151;background:#fafafa}
-  .status-pending{background:#FCE7C733}   /* 淡橙底 */
-  .status-scheduled{background:#E5E7EB66} /* 淡灰底 */
-  .status-done{background:#D1FAE566}      /* 淡绿底 */
+
+  /* === 状态底色（更醒目） === */
+  .status-pending{background:#FED7AA}     /* 亮橙 */
+  .status-scheduled{background:#BBF7D0}   /* 亮绿 */
+  .status-done{background:#E5E7EB}        /* 灰 */
+
   .muted{color:#6b7280}
   .warn-orange{color:#d97706;font-weight:600;margin-left:6px}
   .warn-red{color:#dc2626;font-weight:700;margin-left:6px}
   .op-row{display:flex;gap:8px;flex-wrap:wrap}
   .btn-secondary{background:#fff;color:#111;border:1px solid #e5e7eb}
+
+  /* 分页 */
+  .pager{display:flex;align-items:center;gap:10px;justify-content:flex-end;margin-top:8px}
+  .pager button{background:#fff;color:#111;border:1px solid #e5e7eb}
 </style>
 
 <!-- ===== FullCalendar CSS（含回退） ===== -->
@@ -100,7 +107,6 @@
       </div>
     </div>
 
-    <!-- 选择显示哪些日历（包含只读） -->
     <div id="gcal-picker" class="card" style="padding:10px;margin:12px 0;display:none;">
       <div class="row">
         <div class="help">选择要显示的日历（可多选；只读也可显示）：</div>
@@ -121,10 +127,10 @@
     </div>
   </div>
 
-  <!-- ===== 我的课程 ===== -->
-  <div id="sess" class="card" style="display:none">
-    <h3>我的课程</h3>
-    <table id="tbl"><thead>
+  <!-- ===== 即将到来的课程 ===== -->
+  <div id="upcoming" class="card" style="display:none">
+    <h3>即将到来的课程</h3>
+    <table id="tblUpcoming"><thead>
       <tr>
         <th>session_id</th>
         <th>日期（周）</th>
@@ -136,21 +142,39 @@
       </tr>
     </thead><tbody></tbody></table>
   </div>
+
+  <!-- ===== 我已完成的课程（分页） ===== -->
+  <div id="done" class="card" style="display:none">
+    <h3>我已完成的课程</h3>
+    <table id="tblDone"><thead>
+      <tr>
+        <th>session_id</th>
+        <th>日期（周）</th>
+        <th>时间</th>
+        <th>客户</th>
+        <th>时长(h)</th>
+        <th>状态</th>
+      </tr>
+    </thead><tbody></tbody></table>
+    <div class="pager">
+      <button id="donePrev">上一页</button>
+      <span id="doneInfo" class="muted">1 / 1</span>
+      <button id="doneNext">下一页</button>
+    </div>
+  </div>
 </div>
 
 <script>
 /* =========================
    1) 你的 Apps Script API
 ========================= */
-// === 把你的 Apps Script Web App /exec 地址填在这里 ===
 const API_BASE = 'https://script.google.com/macros/s/AKfycbz8KsBS6wH3vUjtAQ5A-dLWRWKlzYlgvvYIIkQYGD23Ue3Vk7FSHII1d8ko8s2oKL33Zw/exec';
 
-// —— 封装 POST：使用 text/plain 避免 CORS 预检（OPTIONS）——
 async function post(action, payload = {}) {
   try {
     const res = await fetch(API_BASE, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' }, // simple request
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action, ...payload })
     });
     return await res.json();
@@ -162,6 +186,8 @@ async function post(action, payload = {}) {
 }
 
 let coach = null;
+const DONE_PAGE_SIZE = 10;
+let DONE_PAGE = 1;
 
 // ======= 时间/日期工具 =======
 const weekdayCN = ['周日','周一','周二','周三','周四','周五','周六'];
@@ -195,13 +221,13 @@ function formatTimeHHmm(x){
 }
 /** 组合出课程开始/结束时间（本地时区） */
 function sessionStartEnd(s){
-  // 解析日期、时间
-  const d = (typeof s.date==='string'||s.date instanceof Date)? new Date(s.date) :
-            (typeof s.session_date==='string'||s.session_date instanceof Date)? new Date(s.session_date) : null;
-  const t = (typeof s.time==='string'||s.time instanceof Date)? new Date(`1970-01-01T${formatTimeHHmm(s.time)}:00`) :
-            (typeof s.session_time==='string'||s.session_time instanceof Date)? new Date(`1970-01-01T${formatTimeHHmm(s.session_time)}:00`) : null;
-  if(!d || isNaN(d) || !t || isNaN(t)) return {start:null,end:null};
-  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
+  const d = s.date || s.session_date;
+  const t = formatTimeHHmm(s.time || s.session_time);
+  if(!d || !t) return {start:null,end:null};
+  const dd = new Date(d);
+  if(isNaN(dd)) return {start:null,end:null};
+  const [H,M] = t.split(':').map(Number);
+  const start = new Date(dd.getFullYear(), dd.getMonth(), dd.getDate(), H||0, M||0, 0, 0);
   const durH = Number(s.duration_hours ?? s.duration ?? 1) || 1;
   const end   = new Date(start.getTime() + durH * 3600 * 1000);
   return {start,end};
@@ -263,12 +289,13 @@ async function login(){
     if(r.clientMap) fillClientNamesFromMap(r.clientMap);
 
     const sessions = r.sessions || [];
-    document.getElementById('sess').style.display = 'block';
-    render(sessions);
+    document.getElementById('upcoming').style.display = 'block';
+    document.getElementById('done').style.display = 'block';
+    renderAll(sessions);
 
     const missingIds = sessions.map(s => s.client_id || s.clientId || s.clientID).filter(Boolean);
     await hydrateMissingClientNames(missingIds);
-    render(sessions);
+    renderAll(sessions);
   } finally {
     btn.disabled = false;
   }
@@ -286,17 +313,46 @@ async function refresh(){
   if(r.clientMap) fillClientNamesFromMap(r.clientMap);
 
   const sessions = r.sessions || [];
-  render(sessions);
+  renderAll(sessions);
 
   const missingIds = sessions.map(s => s.client_id || s.clientId || s.clientID).filter(Boolean);
   await hydrateMissingClientNames(missingIds);
-  render(sessions);
+  renderAll(sessions);
 }
 window.refresh = refresh;
 
-// —— 渲染课程表（含 48h/24h 警示 + 添加到日历） ——
-function render(list){
-  const tb = document.querySelector('#tbl tbody'); tb.innerHTML='';
+// ======= 主渲染：分表 + 排序 + 分页 =======
+function renderAll(list){
+  const now = new Date();
+
+  // 拆分
+  const withStart = list.map(s => ({...s, ...sessionStartEnd(s)}));
+  const upcoming = withStart.filter(x=>{
+    // 未来（或今天未开始）且状态 pending / scheduled
+    return x.start && x.start.getTime() >= (now.getTime() - 60*1000) &&
+           (x.status==='pending' || x.status==='scheduled');
+  });
+  const done = withStart
+    .filter(x=>x.status==='done' && x.start);
+
+  // 排序：即将到来的
+  // 先 pending: 老 → 新；再 scheduled: 近 → 远
+  const pendings = upcoming.filter(x=>x.status==='pending')
+                           .sort((a,b)=>a.start-b.start);
+  const scheduled = upcoming.filter(x=>x.status!=='pending') // scheduled
+                            .sort((a,b)=>a.start-b.start);
+  const upcomingSorted = [...pendings, ...scheduled];
+
+  // 排序：已完成（新 → 旧）
+  const doneSorted = done.sort((a,b)=>b.start - a.start);
+
+  renderUpcoming(upcomingSorted);
+  renderDone(doneSorted, DONE_PAGE);
+}
+
+// —— 即将到来的（含 48h/24h 警示 + 添加到日历） ——
+function renderUpcoming(list){
+  const tb = document.querySelector('#tblUpcoming tbody'); tb.innerHTML='';
   const now = new Date();
 
   list.forEach(s=>{
@@ -307,10 +363,9 @@ function render(list){
     const clientName = displayClientName(s);
     const pkgName = s.package_name || s.package || s.pkg_name || s.pkg || s.package_id || '';
 
-    const {start,end} = sessionStartEnd(s);
     let warnHTML = '';
-    if (s.status === 'pending' && start && start.getTime() > now.getTime()){
-      const hours = (start.getTime() - now.getTime())/3600000;
+    if (s.status === 'pending' && s.start && s.start > now){
+      const hours = (s.start - now)/3600000;
       if (hours <= 24){
         warnHTML = `<span class="warn-red">即将逾期未确认，请尽快处理！</span>`;
       } else if (hours <= 48){
@@ -319,6 +374,7 @@ function render(list){
     }
 
     const titleForCalendar = `${coach?.coach_name||''}-${coach?.coach_id||''}-${clientName}-${pkgName}`.replace(/\s+/g,' ').trim();
+    const addBtn = `<button class="btn-secondary" onclick='addToMyCalendar(${JSON.stringify({id:s.session_id||'',title:titleForCalendar}).replace(/'/g,"&#39;")}, "${dateDisp}", "${timeDisp}", "${s.duration_hours ?? s.duration ?? 1}")'>添加到我的日历</button>`;
 
     tr.innerHTML = `
       <td>${s.session_id || ''}</td>
@@ -330,11 +386,46 @@ function render(list){
       <td>
         <div class="op-row">
           ${s.status==='pending' ? `<button class="btn-secondary" onclick="confirmSess('${s.session_id}')">确认</button>` : ''}
-          <button class="btn-secondary" onclick='addToMyCalendar(${JSON.stringify({id:s.session_id||'',title:titleForCalendar}).replace(/'/g,"&#39;")}, "${dateDisp}", "${timeDisp}", "${s.duration_hours ?? s.duration ?? 1}")'>添加到我的日历</button>
+          ${addBtn}
         </div>
       </td>`;
     tb.appendChild(tr);
   });
+}
+
+// —— 已完成（分页：最新 → 最旧，每页 10 条） ——
+function renderDone(list, page){
+  const total = list.length;
+  const pages = Math.max(1, Math.ceil(total / DONE_PAGE_SIZE));
+  DONE_PAGE = Math.min(Math.max(1, page), pages);
+
+  const start = (DONE_PAGE-1)*DONE_PAGE_SIZE;
+  const slice = list.slice(start, start + DONE_PAGE_SIZE);
+
+  const tb = document.querySelector('#tblDone tbody'); tb.innerHTML='';
+  slice.forEach(s=>{
+    const tr = document.createElement('tr');
+    tr.className = 'status-done';
+    const dateDisp = formatDateWithWeek(s.date || s.session_date);
+    const timeDisp = formatTimeHHmm(s.time || s.session_time);
+    const clientName = displayClientName(s);
+    tr.innerHTML = `
+      <td>${s.session_id || ''}</td>
+      <td>${dateDisp}</td>
+      <td>${timeDisp}</td>
+      <td>${clientName}</td>
+      <td>${s.duration_hours ?? s.duration ?? 1}</td>
+      <td>${s.status || ''}</td>`;
+    tb.appendChild(tr);
+  });
+
+  document.getElementById('doneInfo').textContent = `${DONE_PAGE} / ${pages}`;
+  document.getElementById('donePrev').disabled = DONE_PAGE<=1;
+  document.getElementById('doneNext').disabled = DONE_PAGE>=pages;
+
+  // 绑定翻页
+  document.getElementById('donePrev').onclick = ()=>{ renderDone(list, DONE_PAGE-1); };
+  document.getElementById('doneNext').onclick = ()=>{ renderDone(list, DONE_PAGE+1); };
 }
 
 // —— 确认预约（pending -> scheduled） ——
@@ -346,32 +437,24 @@ async function confirmSess(id){
 }
 window.confirmSess = confirmSess;
 
-/* ===== “添加到我的日历” 实现 =====
-   使用下方嵌入的 Google Calendar 登录状态与写入逻辑。
-*/
+/* ===== “添加到我的日历” 实现 ===== */
 function addToMyCalendar(meta, dateDisp, timeDisp, durHours){
   if (!gcalIsSignedIn()){
     alert('日历未登录，请用 Google 账号登录你的日历后进行操作');
     return;
   }
-  // 解析开始时间
-  const dateStr = (dateDisp||'').slice(0,10); // YYYY-MM-DD（去掉（周X））
+  const dateStr = (dateDisp||'').slice(0,10);
   const startISO = `${dateStr}T${timeDisp}:00`;
   const start = new Date(startISO);
   const end   = new Date(start.getTime() + (Number(durHours)||1)*3600*1000);
 
-  // 确保写入目标为 primary
-  gcalEnsurePrimaryWriteTarget();
+  gcalEnsurePrimaryWriteTarget(); // 若不是 primary，强制切换
 
   gcalInsertEventToPrimary({
     summary: meta.title || '课程',
     start, end
-  }).then(()=>{
-    alert('已添加到你的 Google 日历（primary）。');
-  }).catch(err=>{
-    console.error(err);
-    alert('写入失败：' + (err?.result?.error?.message || err?.message || '未知错误'));
-  });
+  }).then(()=>{ alert('已添加到你的 Google 日历（primary）。'); })
+    .catch(err=>{ console.error(err); alert('写入失败：' + (err?.result?.error?.message || err?.message || '未知错误')); });
 }
 window.addToMyCalendar = addToMyCalendar;
 
@@ -385,13 +468,14 @@ window.addToMyCalendar = addToMyCalendar;
       if(!r || !r.ok) return;
       coach = r.coach;
       document.getElementById('info').textContent = `${coach.coach_name} (${coach.coach_id}) 已登录`;
-      document.getElementById('sess').style.display = 'block';
+      document.getElementById('upcoming').style.display = 'block';
+      document.getElementById('done').style.display = 'block';
       if(r.clientMap) fillClientNamesFromMap(r.clientMap);
       const sessions = r.sessions || [];
-      render(sessions);
+      renderAll(sessions);
       const missingIds = sessions.map(s => s.client_id || s.clientId || s.clientID).filter(Boolean);
       await hydrateMissingClientNames(missingIds);
-      render(sessions);
+      renderAll(sessions);
     });
   }
 })();
@@ -401,13 +485,9 @@ window.addToMyCalendar = addToMyCalendar;
 /* =========================
    2) Google Calendar 嵌入
 ========================= */
-  // 你的 Web Client ID（更换成你自己的）
   const GCAL_CLIENT_ID = "126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com";
-  // Scope（读取所有可见 + 写事件）
   const GCAL_SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events";
-  // 展示时区
   const GCAL_TZ = "America/Toronto";
-  // 抓取窗口缓冲
   const GCAL_FETCH_BUFFER_MS = 36 * 60 * 60 * 1000;
 
   let gcal_tokenClient, gcal_accessToken=null, gapiReady=false, gisReady=false, gcal_calendar;
@@ -444,18 +524,17 @@ window.addToMyCalendar = addToMyCalendar;
     document.getElementById('gcal-picker').style.display='none';
     if(gcal_calendar) gcal_calendar.destroy();
   });}
-  // 绑定按钮
   document.getElementById('gcal-signin').onclick=gcalSignIn;
   document.getElementById('gcal-signout').onclick=gcalSignOut;
   document.getElementById('gcal-refreshBtn').onclick=()=>{ if(gcal_calendar) gcal_calendar.refetchEvents(); };
   document.getElementById('gcal-status').textContent='未登录';
 
-  // === 对外暴露的工具：供“添加到我的日历”使用 ===
+  // === 对外工具：供“添加到我的日历”使用 ===
   function gcalIsSignedIn(){ return !!gcal_accessToken; }
   function gcalPrimaryId(){
     const primary = calendarListCache.find(c=>c.primary);
     return primary ? primary.id : 'primary';
-  }
+    }
   function gcalEnsurePrimaryWriteTarget(){
     const primaryId = gcalPrimaryId();
     if (writeCalendarId !== primaryId){
@@ -486,7 +565,6 @@ window.addToMyCalendar = addToMyCalendar;
       const res=await gapi.client.calendar.calendarList.list({maxResults:250});
       calendarListCache=(res.result.items||[]);
 
-      // 写入目标（只列可写）
       const writeSel=document.getElementById('gcal-writeCal'); writeSel.innerHTML='';
       const writable=calendarListCache.filter(c=>c.accessRole==='owner'||c.accessRole==='writer');
       for(const cal of writable){
@@ -596,7 +674,6 @@ window.addToMyCalendar = addToMyCalendar;
         };
         try{
           const res=await gapi.client.calendar.events.insert({calendarId:gcalPrimaryId(), resource});
-          // 同步到视图（仅当该日历在显示列表里）
           const meta=calendarListCache.find(x=>x.id===gcalPrimaryId());
           const color=meta?.backgroundColor;
           if(showCalendarIds.has(gcalPrimaryId())){
@@ -644,7 +721,6 @@ window.addToMyCalendar = addToMyCalendar;
     gcal_calendar.render();
   }
 
-  // 不覆盖页面其它 onload
   window.addEventListener('load', ()=>{
     if(window.gapi) gapiLoaded();
     if(window.google) gisLoaded();
