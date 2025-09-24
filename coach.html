@@ -12,6 +12,7 @@
   button{background:#111;color:#fff;cursor:pointer}
   table{width:100%;border-collapse:collapse}
   th,td{padding:8px;border-bottom:1px solid #eee;font-size:14px}
+  th{font-weight:600;color:#374151;background:#fafafa}
   .status-pending{background:#FCE7C7}
   .status-scheduled{background:#E5E7EB}
   .status-done{background:#D1FAE5}
@@ -23,7 +24,7 @@
   <h1>教练端 · TXT 订课</h1>
 
   <div class="card">
-    <div class="muted" style="margin-bottom:8px">API: <code id="apiShow"></code></div>
+    <!-- ✅ 已移除 API 显示 -->
     <h3>登录（coach_id + coach_email）</h3>
     <input id="cid" placeholder="coach_id" />
     <input id="cem" placeholder="coach_email" />
@@ -35,7 +36,15 @@
   <div id="sess" class="card" style="display:none">
     <h3>我的课程</h3>
     <table id="tbl"><thead>
-      <tr><th>session_id</th><th>date</th><th>time</th><th>client</th><th>duration</th><th>status</th><th>操作</th></tr>
+      <tr>
+        <th>session_id</th>
+        <th>日期（周）</th>
+        <th>时间</th>
+        <th>客户</th>
+        <th>时长(h)</th>
+        <th>状态</th>
+        <th>操作</th>
+      </tr>
     </thead><tbody></tbody></table>
   </div>
 </div>
@@ -44,14 +53,12 @@
 // === 把你的 Apps Script Web App /exec 地址填在这里 ===
 const API_BASE = 'https://script.google.com/macros/s/AKfycbyP6rGXeGSws25A5pmp_ELCiSyyVs-lss5E3IpaT45EFVUzzyKZ-y9eGWO_YIdjj9w8QA/exec';
 
-document.getElementById('apiShow').textContent = API_BASE;
-
 // —— 封装 POST：使用 text/plain 避免 CORS 预检（OPTIONS）——
 async function post(action, payload = {}) {
   try {
     const res = await fetch(API_BASE, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' }, // 关键：simple request，避免预检
+      headers: { 'Content-Type': 'text/plain' }, // simple request
       body: JSON.stringify({ action, ...payload })
     });
     return await res.json();
@@ -63,6 +70,67 @@ async function post(action, payload = {}) {
 }
 
 let coach = null;
+
+// ======= 日期/时间格式化工具 =======
+const weekdayCN = ['周日','周一','周二','周三','周四','周五','周六'];
+
+/** 判断可被 Date 正确解析 */
+function isValidDate(d){ return d instanceof Date && !isNaN(d.getTime()); }
+
+/** 解析后仅保留本地日期 YYYY-MM-DD，并附带（周X） */
+function formatDateWithWeek(x){
+  if(!x) return '';
+  // 1) 优先 ISO 字符串 / 时间戳
+  let d;
+  if(typeof x === 'number'){
+    d = new Date(x);
+  } else if(typeof x === 'string'){
+    // 有些后端会返回 "2025-09-19T04:00:00.000Z"
+    // 也可能是纯日期 "2025-09-19"
+    // 也可能是 Google Sheets 序列号（不在此处理为日期）
+    d = new Date(x);
+  } else if(x instanceof Date){
+    d = x;
+  }
+  if(!isValidDate(d)) return String(x);
+
+  // 按本地时区取年月日
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  const wk = weekdayCN[d.getDay()];
+  return `${y}-${m}-${day}（${wk}）`;
+}
+
+/** 解析后仅保留本地时间 HH:mm
+ * 兼容三种情况：
+ * - 纯时间的“1899-12-30T13:30:00.000Z”（Google Sheets 的 time-epoch）
+ * - 正常 ISO 带日期的时间戳
+ * - "13:30" 这类纯字符串
+ */
+function formatTimeHHmm(x){
+  if(!x) return '';
+  // 直接就是 "HH:mm" 的字符串
+  if(typeof x === 'string' && /^\d{1,2}:\d{2}(:\d{2})?$/.test(x.trim())){
+    return x.trim().slice(0,5);
+  }
+
+  let d;
+  if(typeof x === 'number'){
+    d = new Date(x);
+  } else if(typeof x === 'string'){
+    d = new Date(x);
+  } else if(x instanceof Date){
+    d = x;
+  }
+  if(!isValidDate(d)) return String(x);
+
+  // 如果是 1899-12-30 这种基准，仅取当天的时分
+  // 不论是哪天，永远只显示本地时区的时:分
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  return `${hh}:${mm}`;
+}
 
 // —— 登录 ——
 async function login(){
@@ -102,13 +170,17 @@ function render(list){
   list.forEach(s=>{
     const tr = document.createElement('tr');
     tr.className = 'status-'+(s.status||'');
+    const dateDisp = formatDateWithWeek(s.date || s.session_date);
+    const timeDisp = formatTimeHHmm(s.time || s.session_time);
+    const clientName = s.client_name || s.client_full_name || s.client || s.clientId || s.client_id || '';
+
     tr.innerHTML = `
-      <td>${s.session_id}</td>
-      <td>${s.date||''}</td>
-      <td>${s.time||''}</td>
-      <td>${s.client_id}</td>
-      <td>${s.duration_hours||1}</td>
-      <td>${s.status||''}</td>
+      <td>${s.session_id || ''}</td>
+      <td>${dateDisp}</td>
+      <td>${timeDisp}</td>
+      <td>${clientName}</td>
+      <td>${s.duration_hours ?? s.duration ?? 1}</td>
+      <td>${s.status || ''}</td>
       <td>${s.status==='pending'
         ? `<button onclick="confirmSess('${s.session_id}')">确认</button>` : ''}</td>`;
     tb.appendChild(tr);
