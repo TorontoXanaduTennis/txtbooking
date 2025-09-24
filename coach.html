@@ -13,12 +13,16 @@
   input,button{padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px}
   button{background:#111;color:#fff;cursor:pointer}
   table{width:100%;border-collapse:collapse}
-  th,td{padding:8px;border-bottom:1px solid #eee;font-size:14px}
+  th,td{padding:8px;border-bottom:1px solid #eee;font-size:14px;vertical-align:middle}
   th{font-weight:600;color:#374151;background:#fafafa}
-  .status-pending{background:#FCE7C7}
-  .status-scheduled{background:#E5E7EB}
-  .status-done{background:#D1FAE5}
+  .status-pending{background:#FCE7C733}   /* 淡橙底 */
+  .status-scheduled{background:#E5E7EB66} /* 淡灰底 */
+  .status-done{background:#D1FAE566}      /* 淡绿底 */
   .muted{color:#6b7280}
+  .warn-orange{color:#d97706;font-weight:600;margin-left:6px}
+  .warn-red{color:#dc2626;font-weight:700;margin-left:6px}
+  .op-row{display:flex;gap:8px;flex-wrap:wrap}
+  .btn-secondary{background:#fff;color:#111;border:1px solid #e5e7eb}
 </style>
 
 <!-- ===== FullCalendar CSS（含回退） ===== -->
@@ -159,10 +163,9 @@ async function post(action, payload = {}) {
 
 let coach = null;
 
-// ======= 日期/时间格式化工具 =======
+// ======= 时间/日期工具 =======
 const weekdayCN = ['周日','周一','周二','周三','周四','周五','周六'];
 function isValidDate(d){ return d instanceof Date && !isNaN(d.getTime()); }
-
 function formatDateWithWeek(x){
   if(!x) return '';
   let d;
@@ -176,7 +179,6 @@ function formatDateWithWeek(x){
   const wk = weekdayCN[d.getDay()];
   return `${y}-${m}-${day}（${wk}）`;
 }
-
 function formatTimeHHmm(x){
   if(!x) return '';
   if(typeof x === 'string' && /^\d{1,2}:\d{2}(:\d{2})?$/.test(x.trim())){
@@ -190,6 +192,19 @@ function formatTimeHHmm(x){
   const hh = String(d.getHours()).padStart(2,'0');
   const mm = String(d.getMinutes()).padStart(2,'0');
   return `${hh}:${mm}`;
+}
+/** 组合出课程开始/结束时间（本地时区） */
+function sessionStartEnd(s){
+  // 解析日期、时间
+  const d = (typeof s.date==='string'||s.date instanceof Date)? new Date(s.date) :
+            (typeof s.session_date==='string'||s.session_date instanceof Date)? new Date(s.session_date) : null;
+  const t = (typeof s.time==='string'||s.time instanceof Date)? new Date(`1970-01-01T${formatTimeHHmm(s.time)}:00`) :
+            (typeof s.session_time==='string'||s.session_time instanceof Date)? new Date(`1970-01-01T${formatTimeHHmm(s.session_time)}:00`) : null;
+  if(!d || isNaN(d) || !t || isNaN(t)) return {start:null,end:null};
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
+  const durH = Number(s.duration_hours ?? s.duration ?? 1) || 1;
+  const end   = new Date(start.getTime() + durH * 3600 * 1000);
+  return {start,end};
 }
 
 // ======= 客户姓名缓存与拉取 =======
@@ -279,15 +294,31 @@ async function refresh(){
 }
 window.refresh = refresh;
 
-// —— 渲染课程表 ——
+// —— 渲染课程表（含 48h/24h 警示 + 添加到日历） ——
 function render(list){
   const tb = document.querySelector('#tbl tbody'); tb.innerHTML='';
+  const now = new Date();
+
   list.forEach(s=>{
     const tr = document.createElement('tr');
     tr.className = 'status-'+(s.status||'');
     const dateDisp = formatDateWithWeek(s.date || s.session_date);
     const timeDisp = formatTimeHHmm(s.time || s.session_time);
     const clientName = displayClientName(s);
+    const pkgName = s.package_name || s.package || s.pkg_name || s.pkg || s.package_id || '';
+
+    const {start,end} = sessionStartEnd(s);
+    let warnHTML = '';
+    if (s.status === 'pending' && start && start.getTime() > now.getTime()){
+      const hours = (start.getTime() - now.getTime())/3600000;
+      if (hours <= 24){
+        warnHTML = `<span class="warn-red">即将逾期未确认，请尽快处理！</span>`;
+      } else if (hours <= 48){
+        warnHTML = `<span class="warn-orange">请尽快确认此课程！</span>`;
+      }
+    }
+
+    const titleForCalendar = `${coach?.coach_name||''}-${coach?.coach_id||''}-${clientName}-${pkgName}`.replace(/\s+/g,' ').trim();
 
     tr.innerHTML = `
       <td>${s.session_id || ''}</td>
@@ -295,9 +326,13 @@ function render(list){
       <td>${timeDisp}</td>
       <td>${clientName}</td>
       <td>${s.duration_hours ?? s.duration ?? 1}</td>
-      <td>${s.status || ''}</td>
-      <td>${s.status==='pending'
-        ? `<button onclick="confirmSess('${s.session_id}')">确认</button>` : ''}</td>`;
+      <td>${(s.status || '')} ${warnHTML}</td>
+      <td>
+        <div class="op-row">
+          ${s.status==='pending' ? `<button class="btn-secondary" onclick="confirmSess('${s.session_id}')">确认</button>` : ''}
+          <button class="btn-secondary" onclick='addToMyCalendar(${JSON.stringify({id:s.session_id||'',title:titleForCalendar}).replace(/'/g,"&#39;")}, "${dateDisp}", "${timeDisp}", "${s.duration_hours ?? s.duration ?? 1}")'>添加到我的日历</button>
+        </div>
+      </td>`;
     tb.appendChild(tr);
   });
 }
@@ -310,6 +345,35 @@ async function confirmSess(id){
   refresh();
 }
 window.confirmSess = confirmSess;
+
+/* ===== “添加到我的日历” 实现 =====
+   使用下方嵌入的 Google Calendar 登录状态与写入逻辑。
+*/
+function addToMyCalendar(meta, dateDisp, timeDisp, durHours){
+  if (!gcalIsSignedIn()){
+    alert('日历未登录，请用 Google 账号登录你的日历后进行操作');
+    return;
+  }
+  // 解析开始时间
+  const dateStr = (dateDisp||'').slice(0,10); // YYYY-MM-DD（去掉（周X））
+  const startISO = `${dateStr}T${timeDisp}:00`;
+  const start = new Date(startISO);
+  const end   = new Date(start.getTime() + (Number(durHours)||1)*3600*1000);
+
+  // 确保写入目标为 primary
+  gcalEnsurePrimaryWriteTarget();
+
+  gcalInsertEventToPrimary({
+    summary: meta.title || '课程',
+    start, end
+  }).then(()=>{
+    alert('已添加到你的 Google 日历（primary）。');
+  }).catch(err=>{
+    console.error(err);
+    alert('写入失败：' + (err?.result?.error?.message || err?.message || '未知错误'));
+  });
+}
+window.addToMyCalendar = addToMyCalendar;
 
 // —— 自动恢复登录 —— 
 (function autoLogin(){
@@ -380,10 +444,37 @@ window.confirmSess = confirmSess;
     document.getElementById('gcal-picker').style.display='none';
     if(gcal_calendar) gcal_calendar.destroy();
   });}
+  // 绑定按钮
   document.getElementById('gcal-signin').onclick=gcalSignIn;
   document.getElementById('gcal-signout').onclick=gcalSignOut;
   document.getElementById('gcal-refreshBtn').onclick=()=>{ if(gcal_calendar) gcal_calendar.refetchEvents(); };
   document.getElementById('gcal-status').textContent='未登录';
+
+  // === 对外暴露的工具：供“添加到我的日历”使用 ===
+  function gcalIsSignedIn(){ return !!gcal_accessToken; }
+  function gcalPrimaryId(){
+    const primary = calendarListCache.find(c=>c.primary);
+    return primary ? primary.id : 'primary';
+  }
+  function gcalEnsurePrimaryWriteTarget(){
+    const primaryId = gcalPrimaryId();
+    if (writeCalendarId !== primaryId){
+      writeCalendarId = primaryId;
+      const sel = document.getElementById('gcal-writeCal');
+      if (sel && [...sel.options].some(o=>o.value===primaryId)) sel.value = primaryId;
+      document.getElementById('gcal-currCal').textContent = writeCalendarId;
+    }
+  }
+  async function gcalInsertEventToPrimary({summary,start,end,allDay=false}){
+    if(!gcalIsSignedIn()) throw new Error('calendar not signed in');
+    const resource = {
+      summary,
+      start: allDay ? {date: start.toISOString().slice(0,10)} : {dateTime: start.toISOString(), timeZone: GCAL_TZ},
+      end:   allDay ? {date: end.toISOString().slice(0,10)}   : {dateTime: end.toISOString(),   timeZone: GCAL_TZ}
+    };
+    const res = await gapi.client.calendar.events.insert({calendarId: gcalPrimaryId(), resource});
+    return res.result;
+  }
 
   async function gcalOnSignedIn(){
     document.getElementById('gcal-signin').style.display='none';
@@ -504,19 +595,19 @@ window.confirmSess = confirmSess;
           end:  isAllDay?{date:selInfo.endStr}:{dateTime:selInfo.endStr,timeZone:GCAL_TZ},
         };
         try{
-          const res=await gapi.client.calendar.events.insert({calendarId:writeCalendarId, resource});
-          const ev=res.result;
-          const meta=calendarListCache.find(x=>x.id===writeCalendarId);
+          const res=await gapi.client.calendar.events.insert({calendarId:gcalPrimaryId(), resource});
+          // 同步到视图（仅当该日历在显示列表里）
+          const meta=calendarListCache.find(x=>x.id===gcalPrimaryId());
           const color=meta?.backgroundColor;
-          if(showCalendarIds.has(writeCalendarId)){
+          if(showCalendarIds.has(gcalPrimaryId())){
             gcal_calendar.addEvent({
-              id:(ev.id||Math.random().toString(36).slice(2))+'::'+writeCalendarId,
-              title:ev.summary||'(无标题)',
-              start:ev.start.dateTime||ev.start.date,
-              end:ev.end?.dateTime||ev.end?.date,
-              allDay:!!ev.start.date,
+              id:(res.result.id||Math.random().toString(36).slice(2))+'::'+gcalPrimaryId(),
+              title:res.result.summary||'(无标题)',
+              start:res.result.start.dateTime||res.result.start.date,
+              end:res.result.end?.dateTime||res.result.end?.date,
+              allDay:!!res.result.start.date,
               backgroundColor:color, borderColor:color,
-              extendedProps:{calendarId:writeCalendarId, eventId:ev.id, canEdit:true}
+              extendedProps:{calendarId:gcalPrimaryId(), eventId:res.result.id, canEdit:true}
             });
           }
         }catch(e){ gcalShowDiag(e); alert('创建失败：'+(e.result?.error?.message||e.message)); }
