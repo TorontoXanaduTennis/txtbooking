@@ -29,9 +29,11 @@
   .muted{color:var(--muted)}
   .section-title{font-weight:700;margin:8px 0 10px}
 
+  /* —— 三个子列表容器：深灰描边 + 圆角 —— */
   .section{border:2px solid var(--deep);border-radius:16px;overflow:hidden;background:#fff;}
   .section-inner{padding:12px 12px 4px}
 
+  /* —— 非直线花纹分隔线（深灰） —— */
   .pattern{
     height:12px;
     background:
@@ -47,6 +49,7 @@
     border-radius:6px; opacity:.45;
   }
 
+  /* 表格美化 */
   .table-wrap{position:relative;overflow:auto;padding-top:6px}
   table{width:100%;border-collapse:separate;border-spacing:0 10px}
   thead th{position:sticky;top:0;background:var(--bg);z-index:1;font-weight:600;padding:10px}
@@ -57,20 +60,23 @@
   .row-actions button{margin-right:6px}
   .disabled{opacity:.45;pointer-events:none}
 
+  /* 状态 badge */
   .badge{padding:2px 10px;border-radius:999px;font-size:12px;display:inline-block}
   .b-pending{background:var(--st-pending);color:#92400e}
   .b-scheduled{background:var(--st-scheduled);color:#374151}
   .b-done{background:var(--st-done);color:#065f46}
 
+  /* 搜索结果卡片 */
   .client-card{background:#fff;border:1px solid var(--bdr);border-radius:12px;box-shadow:var(--shadow);padding:12px;margin:10px 0}
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 
+  /* 弹窗 */
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center}
   .dialog{background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:16px;min-width:320px}
   .dialog .actions{margin-top:10px;display:flex;gap:8px;justify-content:flex-end}
 
-  /* 日历作用域 */
+  /* ===== 日历（作用域） ===== */
   :root { --gcal-border:#e5e7eb; --gcal-bg:#f8fafc; --gcal-text:#111827; --gcal-muted:#6b7280; }
   #gcal-wrap * { box-sizing: border-box; }
   #gcal-wrap .bar{display:flex;gap:8px;align-items:center}
@@ -91,6 +97,7 @@
   #gcal-diag pre{white-space:pre-wrap;word-break:break-word;margin:6px 0 0;font-size:12px;color:var(--gcal-muted)}
 </style>
 
+<!-- FullCalendar CSS（含回退链） -->
 <link id="gcal-fc-css" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.min.css" rel="stylesheet" />
 <script>
   (function ensureFullCalendarCSS(){
@@ -110,6 +117,7 @@
     setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) swap(); }, 5000);
   })();
 </script>
+<!-- FullCalendar & Google API -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.global.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js"></script>
@@ -119,6 +127,7 @@
 <div class="wrap">
   <h1>管理端 · TXT 订课</h1>
 
+  <!-- 顶部工具栏 -->
   <div class="card">
     <div class="toolbar">
       <input id="adminkey" placeholder="Admin Key(一次保存)" />
@@ -128,6 +137,7 @@
     </div>
   </div>
 
+  <!-- 录入新客户 -->
   <div class="card">
     <h3>录入新客户</h3>
     <div class="grid">
@@ -148,6 +158,7 @@
     <div class="muted" style="margin-top:6px">提示：教练名单来自 Coach 表（list_coaches）。</div>
   </div>
 
+  <!-- 搜索客户 -->
   <div class="card">
     <h3>搜索客户</h3>
     <div class="toolbar" style="gap:12px">
@@ -159,7 +170,7 @@
     <div id="searchRes" style="margin-top:10px"></div>
   </div>
 
-  <!-- Google 日历（搜索客户之后、Session 之前） -->
+  <!-- ===== Google 日历卡片（嵌入：位置在 Session 列表上面） ===== -->
   <div class="card" id="gcal-wrap">
     <div class="bar">
       <strong>球馆日历</strong>
@@ -191,7 +202,7 @@
     </div>
   </div>
 
-  <!-- Session 列表 -->
+  <!-- Session 三列表 -->
   <div class="card">
     <h3 style="margin:0 0 8px">Session 列表</h3>
 
@@ -300,7 +311,9 @@ function saveKey(){
   alert('已保存');
 }
 function softReset(){
-  clearCreateForm(); resetSearch(); loadSessions();
+  clearCreateForm();
+  resetSearch();
+  loadSessions();
 }
 
 /* ---- 请求封装（text/plain 避免预检） ---- */
@@ -320,26 +333,15 @@ async function post(action, payload={}){
   }
 }
 
-/* ---- 日期/时间工具（增强创建时间解析） ---- */
+/* ---- 日期/时间工具 ---- */
 const isDate = v => Object.prototype.toString.call(v)==='[object Date]' && !isNaN(v);
 function parseMaybeDate(x){
   if (x==null || x==='') return null;
-  if (x instanceof Date && !isNaN(x)) return x;
-  if (typeof x==='number'){
-    if (x < 1e11){ const base=Date.UTC(1899,11,30); return new Date(base + x*86400000); }
-    return new Date(x);
-  }
+  if (isDate(x)) return x;
+  if (typeof x==='number'){ const base=Date.UTC(1899,11,30); return new Date(base + x*86400000); }
   if (typeof x==='string'){
-    const s=x.trim();
-    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)){
-      const [h,m]=s.split(':').map(Number); const d=new Date(); d.setHours(h||0,m||0,0,0); return d;
-    }
-    if (/^\d{10,13}$/.test(s)){
-      const n=Number(s); return new Date(s.length===10?n*1000:n);
-    }
-    const m1=s.match(/^(\d{4}[\/-]\d{1,2}[\/-]\d{1,2})[ T](\d{1,2}:\d{2}(:\d{2})?)$/);
-    if (m1){ const ds=m1[1].replace(/\//g,'-'); return new Date(ds+'T'+m1[2]); }
-    const d = new Date(s); if(!isNaN(d)) return d;
+    if (/^\d{1,2}:\d{2}/.test(x)){ const [h,m]=x.split(':').map(Number); const d=new Date(); d.setHours(h,m||0,0,0); return d; }
+    const d = new Date(x); if(!isNaN(d)) return d;
   }
   return null;
 }
@@ -364,7 +366,7 @@ function badge(status){
   return status||'';
 }
 
-/* ---- 教练清单 ---- */
+/* ---- 教练清单（缓存） ---- */
 let COACHES = [];
 async function loadCoaches(){
   const r = await post('list_coaches', {});
@@ -374,10 +376,8 @@ async function loadCoaches(){
     (COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('');
 }
 
-/* ---- 客户/套餐 名称缓存 ---- */
+/* ---- 客户姓名缓存，用于 session 列表展示 client 全名(id) ---- */
 const CLIENT_NAME_CACHE = new Map(); // client_id -> full_name
-const PKG_NAME_CACHE = new Map();    // package_id -> package_name
-
 async function ensureClientNames(ids){
   const missing = [...new Set(ids.filter(Boolean))].filter(id=>!CLIENT_NAME_CACHE.has(String(id)));
   if (!missing.length) return;
@@ -388,6 +388,7 @@ async function ensureClientNames(ids){
       return;
     }
   }catch(e){}
+  // 兜底逐个获取（如果后端支持）
   for (const id of missing){
     try{
       const rr = await post('client_name_by_id', { id });
@@ -401,35 +402,7 @@ function clientLabel(id){
   return nm ? `${nm} (${sid})` : (sid ? `(${sid})` : '');
 }
 
-async function ensurePackageNames(ids){
-  const miss = [...new Set(ids.filter(Boolean).map(String))].filter(id=>!PKG_NAME_CACHE.has(id));
-  if (!miss.length) return;
-  try{
-    const r = await post('package_names', { ids: miss });
-    if (r && r.ok && r.map){
-      for (const [pid, pname] of Object.entries(r.map)){
-        if (pid) PKG_NAME_CACHE.set(String(pid), String(pname||''));
-      }
-      return;
-    }
-  }catch(e){}
-  for (const pid of miss){
-    try{
-      const rr = await post('package_name_by_id', { id: pid });
-      if (rr && rr.ok) PKG_NAME_CACHE.set(String(pid), String(rr.name||''));
-    }catch(e){}
-  }
-}
-function packageNameFromRow(row, idx){
-  const byField = (k)=> (idx[k]!=null && row[idx[k]]) ? String(row[idx[k]]) : '';
-  const byName = byField('package_name') || byField('package') || byField('pkg_name') || byField('pkg');
-  if (byName) return byName;
-  const pid = String(row[idx.package_id]||'').trim();
-  if (!pid) return '';
-  const cached = PKG_NAME_CACHE.get(pid);
-  return cached || pid;
-}
-
+/* ---- 选择教练弹窗 ---- */
 function pickCoach(title='选择教练'){
   return new Promise(resolve=>{
     const ov = document.createElement('div'); ov.className='overlay';
@@ -496,6 +469,7 @@ async function searchClients(){
     const coachObj = (COACHES||[]).find(x=>x.coach_id===assignedId) || {};
     const assignedLabel = assignedId ? `${coachObj.coach_name||''} (${assignedId})` : '未指定';
 
+    // 缓存姓名
     if (c.client_id && c.name){ CLIENT_NAME_CACHE.set(String(c.client_id), String(c.name)); }
 
     return `
@@ -541,8 +515,11 @@ async function changeAssignedCoach(client_id){
   searchClients();
 }
 
-/* ---- Session 列表 ---- */
-function idxOf(H, names){ for (const n of names){ const i = H.indexOf(n); if (i !== -1) return i; } return -1; }
+/* ---- Session 列表（拆三块） & 操作 ---- */
+function idxOf(H, names){
+  for (const n of names){ const i = H.indexOf(n); if (i !== -1) return i; }
+  return -1;
+}
 
 let DONE_ALL = []; let donePage=1; const donePageSize=50;
 function pageDone(delta){
@@ -551,7 +528,8 @@ function pageDone(delta){
   renderDonePaged();
 }
 
-let CURRENT_IDX = null; let CURRENT_HEADERS = null;
+let CURRENT_IDX = null;
+let CURRENT_HEADERS = null;
 
 async function loadSessions(){
   const r = await post('list_sessions', { page:1, pageSize:10000 });
@@ -562,17 +540,25 @@ async function loadSessions(){
   const rows = r.data || [];
 
   const createdIdx = idxOf(r.headers, ['created_at','created_time','created','createdAt','createdAtUtc']);
-  const now = Date.now(), tenDaysMs = 10*24*3600*1000;
 
+  const now = Date.now();
+  const tenDaysMs = 10*24*3600*1000;
+
+  // 待确认：按创建时间早→晚，再分 10 天内 / 10 天后
   const pendings = rows.filter(row => String(row[idx.status])==='pending')
     .sort((a,b)=>{
       const ca = createdIdx!==-1 ? parseMaybeDate(a[createdIdx]) : startDT(a, idx);
       const cb = createdIdx!==-1 ? parseMaybeDate(b[createdIdx]) : startDT(b, idx);
       return (ca?ca.getTime():0) - (cb?cb.getTime():0);
     });
-  const pendingSoon  = pendings.filter(row=>{ const st=startDT(row, idx); return !st || (st.getTime()-now)<=tenDaysMs; });
-  const pendingLater = pendings.filter(row=>{ const st=startDT(row, idx); return st && (st.getTime()-now)>tenDaysMs; });
+  const pendingSoon  = pendings.filter(row=>{
+    const st=startDT(row, idx); return !st || (st.getTime()-now)<=tenDaysMs;
+  });
+  const pendingLater = pendings.filter(row=>{
+    const st=startDT(row, idx); return st && (st.getTime()-now)>tenDaysMs;
+  });
 
+  // 已排期：离当前时间最近→最远
   const scheduled = rows.filter(row => String(row[idx.status])==='scheduled')
     .sort((a,b)=>{
       const sa=startDT(a, idx), sb=startDT(b, idx);
@@ -582,22 +568,18 @@ async function loadSessions(){
       return (sa?sa.getTime():0) - (sb?sb.getTime():0);
     });
 
+  // 已完成：新→旧（结束时间倒序）
   DONE_ALL = rows.filter(row => String(row[idx.status])==='done')
     .sort((a,b)=>{
       const ea=endDT(a, idx), eb=endDT(b, idx);
       return (eb?eb.getTime():0) - (ea?ea.getTime():0);
     });
 
-  // 预取 client / package 名称
+  // 预取 client name 用于三表展示
   const clientIdIdx = idxOf(H, ['client_id','clientId','clientID']);
   if (clientIdIdx!==-1){
-    const allClientIds = rows.map(rw=>rw[clientIdIdx]).filter(Boolean);
-    await ensureClientNames(allClientIds);
-  }
-  const pkgIdIdx = idxOf(H, ['package_id','packageId','pkg_id']);
-  if (pkgIdIdx !== -1){
-    const allPkgIds = rows.map(rw=>rw[pkgIdIdx]).filter(Boolean);
-    await ensurePackageNames(allPkgIds);
+    const allIds = rows.map(rw=>rw[clientIdIdx]).filter(Boolean);
+    await ensureClientNames(allIds);
   }
 
   renderPendingGroup('tbodyPendingSoon',  pendingSoon,  idx, createdIdx);
@@ -616,53 +598,23 @@ function renderDonePaged(idx, createdIdx){
   document.getElementById('doneNext').disabled = donePage>=totalPages;
 }
 
+function packageNameFromRow(row, idx){
+  const cand = ['package_name','package','pkg_name','pkg'];
+  for (const k of cand){ if (idx[k]!=null && row[idx[k]]) return row[idx[k]]; }
+  return row[idx.package_id] || ''; // 回退
+}
+
 function coachLabelFromRow(row, idx){
   const cid = row[idx.coach_id]; const cname = row[idx.coach_name];
   return (cname?cname:'') + (cid?` (${cid})`:'');
 }
+
 function createdTimeStr(row, createdIdx){
   if (createdIdx===-1) return '-';
   const d = parseMaybeDate(row[createdIdx]); if(!d) return '-';
   const dt = d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'});
   const tm = d.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'});
   return `${dt} ${tm}`;
-}
-
-/* ---- 已写入日历的本地标记 ---- */
-function addedKey(sessionId, calId){ return `SESSION_CAL_ADDED::${sessionId}::${calId}`; }
-function markAdded(sessionId, calId, calName){ try{ localStorage.setItem(addedKey(sessionId, calId), calName||''); }catch(e){} }
-function getAddedName(sessionId, calId){ try{ return localStorage.getItem(addedKey(sessionId, calId)); }catch(e){ return null; } }
-
-function buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel){
-  const sid = row[idx.session_id];
-  const st = startDT(row, idx);
-  const et = endDT(row, idx);
-  const finished = et ? (Date.now() >= et.getTime()) : false;
-  const canComplete = (status === 'scheduled') && finished;
-
-  const currCalId = writeCalendarId;
-  const addedToName = sid ? getAddedName(sid, currCalId) : null;
-
-  let addBtn = '';
-  if (addedToName){
-    addBtn = `<span class="muted">已添加到球馆${addedToName}</span>`;
-  }else{
-    addBtn = `<button class="btn gray" onclick='addToFacilityCalendar(${JSON.stringify({
-      session_id:sid,
-      date:fmtDate(row[idx.date]),
-      time:fmtTime(row[idx.time]),
-      dur:(row[idx.duration_hours]||1),
-      clientLabel:clientStr,
-      pkgName,
-      coachLabel
-    }).replace(/'/g,"&#39;")})'>添加到球馆日历</button>`;
-  }
-
-  const completeBtn = `<button class="btn success ${canComplete?'':'disabled'}" onclick="${canComplete?`complete('${sid}')`:'void(0)'}">已完成</button>`;
-  const cancelBtn   = `<button class="btn danger"  onclick="cancelSession('${sid}')">取消</button>`;
-  const switchBtn   = `<button class="btn blue"    onclick="sw('${sid}','${status}')">换教练</button>`;
-
-  return `${completeBtn} ${cancelBtn} ${switchBtn} ${addBtn}`;
 }
 
 function renderPendingGroup(tbodyId, rows, idx, createdIdx){
@@ -731,6 +683,30 @@ function renderTable(tbodyId, rows, idx, listType, createdIdx){
   });
 }
 
+function buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel){
+  const sid = row[idx.session_id];
+  const st = startDT(row, idx);
+  const et = endDT(row, idx);
+  const finished = et ? (Date.now() >= et.getTime()) : false;
+  const canComplete = (status === 'scheduled') && finished;
+
+  const addBtn = `<button class="btn gray" onclick='addToFacilityCalendar(${JSON.stringify({
+    session_id:sid,
+    date:fmtDate(row[idx.date]),
+    time:fmtTime(row[idx.time]),
+    dur:(row[idx.duration_hours]||1),
+    clientLabel:clientStr,
+    pkgName,
+    coachLabel
+  }).replace(/'/g,"&#39;")})'>添加到球馆日历</button>`;
+
+  const completeBtn = `<button class="btn success ${canComplete?'':'disabled'}" onclick="${canComplete?`complete('${sid}')`:'void(0)'}">已完成</button>`;
+  const cancelBtn   = `<button class="btn danger"  onclick="cancelSession('${sid}')">取消</button>`;
+  const switchBtn   = `<button class="btn blue"    onclick="sw('${sid}','${status}')">换教练</button>`;
+
+  return `${completeBtn} ${cancelBtn} ${switchBtn} ${addBtn}`;
+}
+
 async function complete(session_id){
   const r = await post('complete_session', { session_id });
   if (!r.ok) return alert(r.msg || '失败');
@@ -759,7 +735,7 @@ async function sw(session_id, status){
   loadSessions();
 }
 
-/* ===== Google Calendar 嵌入 ===== */
+/* ===== Google Calendar 嵌入（与教练端一致，但“添加到球馆日历”写入当前选中目标，不强制切 primary） ===== */
 const GCAL_CLIENT_ID = "126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com";
 const GCAL_SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events";
 const GCAL_TZ = "America/Toronto";
@@ -775,12 +751,18 @@ function gcalShowDiag(obj){
   try{ p.textContent=(typeof obj==='string')?obj:JSON.stringify(obj,null,2); }
   catch(e){ p.textContent=String(obj); }
 }
-function gapiLoaded(){ gapi.load('client', async ()=>{ await gapi.client.init({discoveryDocs:["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"]}); gapiReady=true; }); }
+
+function gapiLoaded(){ gapi.load('client', async ()=>{
+  await gapi.client.init({discoveryDocs:["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"]});
+  gapiReady=true;
+});}
+window.gapiLoaded=gapiLoaded;
+
 function gisLoaded(){ gcal_tokenClient=google.accounts.oauth2.initTokenClient({
   client_id:GCAL_CLIENT_ID, scope:GCAL_SCOPES,
   callback:(resp)=>{ if(resp&&resp.access_token){ gcal_accessToken=resp.access_token; gapi.client.setToken({access_token:gcal_accessToken}); gcalOnSignedIn(); } else { gcalShowDiag({oauth_callback_resp:resp}); } }
 }); gisReady=true; }
-window.gapiLoaded=gapiLoaded; window.gisLoaded=gisLoaded;
+window.gisLoaded=gisLoaded;
 
 async function gcalSignIn(){ if(!gapiReady||!gisReady) return; gcal_tokenClient.requestAccessToken({prompt:'consent'}); }
 function gcalSignOut(){ if(!gcal_accessToken) return; google.accounts.oauth2.revoke(gcal_accessToken,()=>{
@@ -799,7 +781,10 @@ document.getElementById('gcal-refreshBtn').onclick=()=>{ if(gcal_calendar) gcal_
 document.getElementById('gcal-status').textContent='未登录';
 
 function gcalIsSignedIn(){ return !!gcal_accessToken; }
-function currentWriteCalSummary(){ const meta=calendarListCache.find(c=>c.id===writeCalendarId); return meta ? meta.summary : writeCalendarId; }
+function currentWriteCalSummary(){
+  const meta = calendarListCache.find(c=>c.id===writeCalendarId);
+  return meta ? meta.summary : writeCalendarId;
+}
 
 async function gcalOnSignedIn(){
   document.getElementById('gcal-signin').style.display='none';
@@ -818,6 +803,7 @@ async function gcalOnSignedIn(){
       opt.value=cal.id; opt.textContent=cal.summary+(cal.primary?" (primary)":"");
       writeSel.appendChild(opt);
     }
+    // 默认：primary；不强制切换
     const primary=writable.find(c=>c.primary);
     writeCalendarId=primary?primary.id:(writable[0]?.id||'primary');
     writeSel.value=writeCalendarId;
@@ -825,6 +811,7 @@ async function gcalOnSignedIn(){
     writeSel.style.display='';
     writeSel.onchange=()=>{ writeCalendarId=writeSel.value; document.getElementById('gcal-currCal').textContent=writeCalendarId; };
 
+    // 多选显示（默认全选）
     const picker=document.getElementById('gcal-picker');
     const listDiv=document.getElementById('gcal-calList');
     const legend=document.getElementById('gcal-legend');
@@ -867,7 +854,7 @@ function gcalRenderCalendar(){
     selectable:true,
     editable:true,
     nowIndicator:true,
-    eventMaxStack:50,
+    eventMaxStack: 50,
     headerToolbar:{ left:'prev,next today', center:'title', right:'dayGridMonth,timeGridWeek,timeGridDay' },
 
     events: async (info, success, failure)=>{
@@ -878,7 +865,8 @@ function gcalRenderCalendar(){
 
         const fetchOne=async(cid)=>{
           const res=await gapi.client.calendar.events.list({
-            calendarId:cid, timeMin:timeMinISO, timeMax:timeMaxISO,
+            calendarId:cid,
+            timeMin:timeMinISO, timeMax:timeMaxISO,
             singleEvents:true, orderBy:'startTime', showDeleted:false, maxResults:2500,
           });
           const meta=calendarListCache.find(x=>x.id===cid);
@@ -971,23 +959,26 @@ window.addEventListener('load', ()=>{
   if(window.google) gisLoaded();
 });
 
-/* ====== Admin：添加到球馆日历（写入当前选择的写入目标） ====== */
+/* ====== Admin 特有：添加到球馆日历（写入“当前写入目标”，不强制切 primary） ====== */
 async function addToFacilityCalendar(meta){
   if (!gcalIsSignedIn()){
     alert('日历未登录，请先在上方使用 Google 登录。');
     return;
   }
-  const dateStr = (meta.date||'').replace(/\//g,'-');
+  // 解析 start / end
+  const dateStr = (meta.date||'').replace(/\//g,'-'); // 适配 2025/09/25 或 2025-09-25
   const startISO = `${dateStr}T${meta.time||'00:00'}:00`;
   const start = new Date(startISO);
   const end   = new Date(start.getTime() + (Number(meta.dur)||1)*3600*1000);
 
+  // 取当前写入目标的名称
   const calName = currentWriteCalSummary();
+
   // 标题：教练名字-教练id-客户全名-写入目标日历的名称
   const title = `${(meta.coachLabel||'').trim()}-${(meta.clientLabel||'').replace(/\s+/g,' ').trim()}-${calName}`.replace(/\s+/g,' ').trim();
 
   try{
-    await gapi.client.calendar.events.insert({
+    const res = await gapi.client.calendar.events.insert({
       calendarId: writeCalendarId,
       resource:{
         summary:title,
@@ -995,8 +986,6 @@ async function addToFacilityCalendar(meta){
         end:{dateTime:end.toISOString(), timeZone:GCAL_TZ}
       }
     });
-    // 标记本条 session 已写入当前日历
-    markAdded(meta.session_id, writeCalendarId, calName);
     alert('已添加到当前写入目标日历：' + calName);
     if(gcal_calendar) gcal_calendar.refetchEvents();
   }catch(err){
