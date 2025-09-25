@@ -20,6 +20,7 @@
   .status-pending{background:#FED7AA}     /* 更亮橙 */
   .status-scheduled{background:#BBF7D0}   /* 更亮绿 */
   .status-done{background:#E5E7EB}        /* 灰 */
+  .status-coach_proposed{background:#FEF3C7} /* 待学员提交新时间（淡黄，可选） */
 
   .muted{color:#6b7280}
   .warn-orange{color:#d97706;font-weight:600;margin-left:6px}
@@ -373,7 +374,7 @@ function renderAll(list){
   // 拆分
   const withStart = list.map(s => ({...s, ...sessionStartEnd(s)}));
   const upcoming = withStart.filter(x=>{
-    // 未来（或今天未开始）且状态 pending / scheduled
+    // 未来（或今天未开始）且状态 pending / scheduled / coach_proposed
     return x.start && x.start.getTime() >= (now.getTime() - 60*1000) &&
            (x.status==='pending' || x.status==='scheduled' || x.status==='coach_proposed');
   });
@@ -415,16 +416,24 @@ function renderUpcoming(list){
       }
     }
 
+    // 操作列：按状态拼装
+    let opsHTML = '';
     const titleForCalendar = `${coach?.coach_name||''}-${coach?.coach_id||''}-${clientName}-${pkgName}`.replace(/\s+/g,' ').trim();
-    const addBtn = `<button class="btn-secondary" onclick='addToMyCalendar(${JSON.stringify({id:s.session_id||'',title:titleForCalendar}).replace(/'/g,"&#39;")}, "${dateDisp}", "${timeDisp}", "${s.duration_hours ?? s.duration ?? 1}")'>添加到我的日历</button>`;
 
-    const changeBtn = s.status==='pending'
-      ? `<button class="btn-secondary" onclick='openRescheduleDialog(${JSON.stringify(s).replace(/'/g,"&#39;")})'>改时间</button>`
-      : '';
-
-    const confirmBtn = s.status==='pending'
-      ? `<button class="btn-secondary" onclick="confirmSess('${s.session_id}')">确认</button>`
-      : '';
+    if (s.status === 'pending') {
+      const addBtn = `<button class="btn-secondary" onclick='addToMyCalendar(${JSON.stringify({id:s.session_id||'',title:titleForCalendar}).replace(/'/g,"&#39;")}, "${dateDisp}", "${timeDisp}", "${s.duration_hours ?? s.duration ?? 1}")'>添加到我的日历</button>`;
+      const changeBtn = `<button class="btn-secondary" onclick='openRescheduleDialog(${JSON.stringify(s).replace(/'/g,"&#39;")})'>改时间</button>`;
+      const confirmBtn = `<button class="btn-secondary" onclick="confirmSess('${s.session_id}')">确认</button>`;
+      opsHTML = `<div class="op-row">${confirmBtn}${changeBtn}${addBtn}</div>`;
+    } else if (s.status === 'scheduled') {
+      const addBtn = `<button class="btn-secondary" onclick='addToMyCalendar(${JSON.stringify({id:s.session_id||'',title:titleForCalendar}).replace(/'/g,"&#39;")}, "${dateDisp}", "${timeDisp}", "${s.duration_hours ?? s.duration ?? 1}")'>添加到我的日历</button>`;
+      opsHTML = `<div class="op-row">${addBtn}</div>`;
+    } else if (s.status === 'coach_proposed') {
+      // 需求：proposed 后面不显示任何按钮，只显示提示文本
+      opsHTML = `<span class="muted">等待学员提交新时间</span>`;
+    } else {
+      opsHTML = '';
+    }
 
     tr.innerHTML = `
       <td>${s.session_id || ''}</td>
@@ -433,13 +442,7 @@ function renderUpcoming(list){
       <td>${clientName}</td>
       <td>${s.duration_hours ?? s.duration ?? 1}</td>
       <td>${(s.status || '')} ${warnHTML}</td>
-      <td>
-        <div class="op-row">
-          ${confirmBtn}
-          ${changeBtn}
-          ${addBtn}
-        </div>
-      </td>`;
+      <td>${opsHTML}</td>`;
     tb.appendChild(tr);
   });
 }
