@@ -35,7 +35,7 @@
       repeating-linear-gradient(135deg,#4b5563 0 8px,rgba(75,85,99,0) 8px 16px),
       repeating-linear-gradient(225deg,#4b5563 0 8px,rgba(75,85,99,0) 8px 16px);opacity:.45}
 
-  /* 表格：更紧凑、自动列宽 */
+  /* 表格更紧凑 */
   .table-wrap{position:relative;overflow:auto}
   table{width:100%;table-layout:auto;border-collapse:separate;border-spacing:0 8px}
   thead th{position:sticky;top:0;background:var(--bg);z-index:1;font-weight:600;padding:6px 8px;font-size:13px;white-space:nowrap}
@@ -52,18 +52,15 @@
   .w-opts{min-width:220px}
 
   .progress-wrap{margin-top:6px;background:#e5e7eb;border-radius:999px;box-shadow:inset 0 2px 6px rgba(0,0,0,.12);height:10px}
-  .progress-bar{height:100%;border-radius:999px;background:linear-gradient(90deg,#34d399,#10b981);box-shadow:0 2px 6px rgba(16,185,129,.35)}
+  .progress-bar{height:100%;border-radius:999px;background:linear-gradient(90deg,#34d399,#10b981)}
   .num-green{color:var(--green);font-weight:700}
-  .num-gray{color:var(--gray);font-weight:700}
+  .num-gray{color:#6b7280;font-weight:700}
   .renew-row{display:flex;justify-content:flex-end;margin-top:8px}
   .disabled{opacity:.55;pointer-events:none}
 
-  /* 折叠头部 */
-  .sec-head{display:flex;align-items:center;gap:8px;justify-content:space-between}
+  /* 列表选择面板 */
   .toggles{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .toggles label{display:flex;gap:6px;align-items:center;font-size:12px;color:#374151}
-
-  /* 待改时间提示行更紧凑可见 */
   .opt-multi{width:100%; min-width:220px}
 </style>
 </head>
@@ -71,29 +68,16 @@
 <div class="wrap">
   <h1>客户端 · TXT 订课</h1>
 
-  <!-- 显示/隐藏开关 -->
-  <div class="card">
-    <div class="sec-head">
-      <div class="muted">选择需要显示的列表：</div>
-      <div class="toggles">
-        <label><input type="checkbox" id="tgResch" checked> 待改时间</label>
-        <label><input type="checkbox" id="tgUpcoming" checked> 即将到来的课程</label>
-        <label><input type="checkbox" id="tgPending" checked> 待确认课程</label>
-        <label><input type="checkbox" id="tgDone" checked> 已完成课程</label>
-      </div>
-    </div>
-  </div>
-
-  <!-- 登录 -->
+  <!-- 登录：单列四排 -->
   <div class="card" id="loginCard">
     <div id="loginForm">
       <h3>登录</h3>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;max-width:420px">
         <input id="name"  autocomplete="name"        placeholder="姓名（必填）" />
         <input id="email" autocomplete="email"       placeholder="邮箱（与电话二选一）" />
         <input id="phone" autocomplete="tel"         placeholder="电话（与邮箱二选一）" />
         <input id="password" autocomplete="current-password" placeholder="登录密码（必填）" type="password" />
-        <button id="loginBtn" class="btn blue" onclick="login()" style="grid-column:1/2">登录</button>
+        <button id="loginBtn" class="btn blue" onclick="login()">登录</button>
       </div>
       <div class="muted" style="margin-top:6px;font-size:12px">必须输入：<b>姓名</b> + <b>邮箱或电话</b> + <b>登录密码</b>。</div>
     </div>
@@ -147,7 +131,24 @@
     <div id="bookMsg" class="muted" style="margin-top:6px"></div>
   </div>
 
-  <!-- ====== 待改时间（放在最前） ====== -->
+  <!-- ✅ 列表选择面板（登录后显示；位置：预约下方、待确认上方；默认全不选） -->
+  <div id="toggleCard" class="card" style="display:none">
+    <div class="toolbar" style="justify-content:space-between;gap:12px">
+      <div class="muted">选择要显示的列表：</div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tgResch"> 待改时间</label>
+        <label><input type="checkbox" id="tgUpcoming"> 即将到来的课程</label>
+        <label><input type="checkbox" id="tgPending"> 待确认课程</label>
+        <label><input type="checkbox" id="tgDone"> 已完成课程</label>
+      </div>
+      <div class="toolbar" style="margin-left:auto">
+        <button class="btn gray" id="btnAll">全选</button>
+        <button class="btn gray" id="btnNone">全不选</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 待改时间（放最前） ====== -->
   <div id="secResch" class="section" style="display:none">
     <div class="pattern"></div>
     <div class="section-inner">
@@ -275,7 +276,7 @@ async function post(action, payload = {}) {
     }
     const res = await fetch(API_BASE, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' }, // 避免预检
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action, ...payload })
     });
     const txt = await res.text();
@@ -318,17 +319,22 @@ function setLoginUI(logged){
   userBar.style.display   = logged ? 'flex' : 'none';
   pkgCard.style.display   = logged ? 'block': 'none';
   progressCard.style.display = logged ? 'block' : 'none';
-  dash.style.display      = logged ? 'block': 'none';
+  dash.style.display      = logged ? 'block' : 'none';
 
-  // 由 toggle 控制显示
-  secResch.style.display    = logged && tgResch.checked ? 'block' : 'none';
-  secUpcoming.style.display = logged && tgUpcoming.checked ? 'block' : 'none';
-  secPending.style.display  = logged && tgPending.checked ? 'block' : 'none';
-  secDone.style.display     = logged && tgDone.checked ? 'block' : 'none';
+  // 列表选择面板：登录后才显示
+  toggleCard.style.display = logged ? 'block' : 'none';
+
+  // 根据复选框控制列表显隐（默认都不勾选）
+  secResch.style.display    = (logged && tgResch.checked) ? 'block' : 'none';
+  secUpcoming.style.display = (logged && tgUpcoming.checked) ? 'block' : 'none';
+  secPending.style.display  = (logged && tgPending.checked) ? 'block' : 'none';
+  secDone.style.display     = (logged && tgDone.checked) ? 'block' : 'none';
 }
 function logout(){
   client=null; saveSession(null); setLoginUI(false); bookMsg.textContent='';
   ['name','email','phone','password'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  // 清空所有勾选
+  [tgResch,tgUpcoming,tgPending,tgDone].forEach(el=>el.checked=false);
 }
 async function reloadAfterLogin(){
   const cache = readSession();
@@ -381,7 +387,6 @@ async function afterLogin(data){
 
   pkgSel.innerHTML = (PACKS||[]).map(p=>`<option value="${p.package_id}">${p.package_name} [${p.package_id}]</option>`).join('');
 
-  // 只显示教练名字
   coachPill.textContent = `您的教练：${client.coach_name || '未指定教练'}`;
   coachPill.dataset.coachId = client.coach_id || '';
 
@@ -414,7 +419,7 @@ async function createSession(){
   else{ bookMsg.style.color='var(--green)'; bookMsg.textContent='预约成功，等待教练确认'; reloadAfterLogin(); }
 }
 
-/* ==== 待改时间 渲染 ==== */
+/* ==== 待改时间 ==== */
 function renderReschedules(){
   const tb = document.getElementById('tbResch'); tb.innerHTML='';
   const getOrig = (sid)=>{
@@ -426,27 +431,19 @@ function renderReschedules(){
 
   (RESCH||[]).forEach(p=>{
     const orig = getOrig(String(p.session_id||''));
-    // 组装选项
-    const opts=[];
-    for(let i=1;i<=5;i++){
-      const d = p['opt'+i+'_date'], t = p['opt'+i+'_time'];
-      if (d && t) opts.push({i, label:`${fmtDate(d)} ${fmtTime(t)}`});
-    }
-    const tr = document.createElement('tr');
-
-    // 多选下拉（显示全部，不遮挡）
+    const opts=[]; for(let i=1;i<=5;i++){ const d=p['opt'+i+'_date'], t=p['opt'+i+'_time']; if(d&&t) opts.push({i,label:`${fmtDate(d)} ${fmtTime(t)}`}); }
     const size = Math.max(2, Math.min(8, opts.length));
     const selId = `sel-${p.proposal_id}`;
-    const selectHTML = `
-      <select id="${selId}" class="opt-multi" multiple size="${size}" title="可多选">
-        ${opts.map(o=>`<option value="${o.i}">${o.label}</option>`).join('')}
-      </select>
-    `;
 
+    const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="w-id">${p.proposal_id||''}</td>
       <td>${p.reason||''}</td>
-      <td class="w-opts">${selectHTML}</td>
+      <td class="w-opts">
+        <select id="${selId}" class="opt-multi" multiple size="${size}" title="可多选">
+          ${opts.map(o=>`<option value="${o.i}">${o.label}</option>`).join('')}
+        </select>
+      </td>
       <td class="w-date">${orig.when}</td>
       <td class="w-id">${orig.sid}</td>
       <td><button class="btn" onclick="submitResch('${p.proposal_id}')">提交所选</button></td>
@@ -454,8 +451,7 @@ function renderReschedules(){
     tb.appendChild(tr);
   });
 
-  // 显示控制
-  secResch.style.display = tgResch.checked ? 'block' : 'none';
+  secResch.style.display = (tgResch.checked) ? 'block' : 'none';
 }
 
 async function submitResch(pid){
@@ -468,7 +464,7 @@ async function submitResch(pid){
   alert('提交成功，已生成新的待确认课程'); reloadAfterLogin();
 }
 
-/* ==== 行模板 & 渲染（其余列表保持紧凑） ==== */
+/* ==== 其余列表 ==== */
 function rowHTML(s, locked){
   const sid = s.session_id;
   const note = (s.notes||'').replace(/"/g,'&quot;');
@@ -551,7 +547,7 @@ function renderDonePaged(){
   secDone.style.display = tgDone.checked ? 'block' : 'none';
 }
 
-/* ==== 兼容提交备注/反馈（多 action/字段名组合） ==== */
+/* ==== 兼容提交备注/反馈 ==== */
 async function updateNotesCompat(base){
   const actions = [
     'update_session_notes','update_session_feedback','update_notes','update_feedback',
@@ -564,7 +560,6 @@ async function updateNotesCompat(base){
   const idKeys   = ['session_id','id','sid'];
   const noteKeys = ['notes','client_notes','note','remark'];
   const fbKeys   = ['feedback','client_feedback','fb',''];
-
   const shapes = [
     (p, idk, nk, fk) => Object.assign({ [idk]:p.session_id, [nk]:p.notes }, fk?{[fk]:p.feedback}:{})
     ,
@@ -579,15 +574,13 @@ async function updateNotesCompat(base){
     (p, idk, nk, fk) => { const session = Object.assign({[idk]:p.session_id, [nk]:p.notes}, fk?{[fk]:p.feedback}:{});
       return { session }; }
   ];
-
   for (const act of actions){
     for (const idk of idKeys){
       for (const nk of noteKeys){
         for (const fk of fbKeys){
           for (const build of shapes){
             const payload = build(base, idk, nk, fk);
-            payload.action = act;
-            payload.source = 'client_ui';
+            payload.action = act; payload.source = 'client_ui';
             const r = await post(act, payload);
             if (r && r.ok) return r;
           }
@@ -628,7 +621,7 @@ async function submitRow(id, status){
   }
 }
 
-/* ==== 元素引用 ==== */
+/* ==== 元素引用 & 事件 ==== */
 const nameEl = document.getElementById('name');
 const emailEl = document.getElementById('email');
 const phoneEl = document.getElementById('phone');
@@ -654,12 +647,15 @@ const secPending  = document.getElementById('secPending');
 const secDone     = document.getElementById('secDone');
 const bookMsg   = document.getElementById('bookMsg');
 const userInfo  = document.getElementById('userInfo');
+const toggleCard= document.getElementById('toggleCard');
 const tgResch   = document.getElementById('tgResch');
 const tgUpcoming= document.getElementById('tgUpcoming');
 const tgPending = document.getElementById('tgPending');
 const tgDone    = document.getElementById('tgDone');
+const btnAll    = document.getElementById('btnAll');
+const btnNone   = document.getElementById('btnNone');
 
-/* 切换显示 */
+/* toggle 行为 */
 [tgResch,tgUpcoming,tgPending,tgDone].forEach(el=>{
   el.addEventListener('change', ()=>{
     secResch.style.display    = tgResch.checked ? 'block' : 'none';
@@ -668,9 +664,20 @@ const tgDone    = document.getElementById('tgDone');
     secDone.style.display     = tgDone.checked ? 'block' : 'none';
   });
 });
+btnAll.addEventListener('click', ()=>{
+  [tgResch,tgUpcoming,tgPending,tgDone].forEach(el=>el.checked=true);
+  tgResch.dispatchEvent(new Event('change'));
+});
+btnNone.addEventListener('click', ()=>{
+  [tgResch,tgUpcoming,tgPending,tgDone].forEach(el=>el.checked=false);
+  tgResch.dispatchEvent(new Event('change'));
+});
 
-/* ==== 启动：尝试自动恢复登录 ==== */
+/* ==== 启动 ==== */
 (async function init(){
+  // 默认全不勾选
+  [tgResch,tgUpcoming,tgPending,tgDone].forEach(el=>el.checked=false);
+
   const cache = readSession();
   if (cache && (cache.email || cache.phone) && cache.password){
     const rel = await post('login_client', { email: cache.email||'', phone: cache.phone||'', password: cache.password });
