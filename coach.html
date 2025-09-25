@@ -10,15 +10,15 @@
   body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#f6f7fb;color:#111}
   .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
   .card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 6px 18px #00000012;padding:16px;margin-bottom:16px}
-  input,button{padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px}
+  input,button,select{padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px}
   button{background:#111;color:#fff;cursor:pointer}
   table{width:100%;border-collapse:collapse}
   th,td{padding:8px;border-bottom:1px solid #eee;font-size:14px;vertical-align:middle}
   th{font-weight:600;color:#374151;background:#fafafa}
 
   /* === 状态底色（更醒目） === */
-  .status-pending{background:#FED7AA}     /* 亮橙 */
-  .status-scheduled{background:#BBF7D0}   /* 亮绿 */
+  .status-pending{background:#FED7AA}     /* 更亮橙 */
+  .status-scheduled{background:#BBF7D0}   /* 更亮绿 */
   .status-done{background:#E5E7EB}        /* 灰 */
 
   .muted{color:#6b7280}
@@ -164,11 +164,57 @@
   </div>
 </div>
 
+<!-- === 改时间弹窗（HTML） === -->
+<div id="rsDlg" style="position:fixed;inset:0;display:none;background:#00000055;align-items:center;justify-content:center;z-index:9999">
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;max-width:520px;width:92%;padding:16px;">
+    <h3 style="margin-top:0">改时间提议</h3>
+    <div id="rsSid" class="muted" style="margin-bottom:8px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center">
+      <label>原因</label>
+      <select id="rsReason" required>
+        <option value="">请选择原因</option>
+        <option value="coach_conflict">教练时间冲突</option>
+        <option value="court_conflict">场地时间冲突</option>
+      </select>
+      <div style="grid-column:1/3;height:6px"></div>
+      <label>备选 1</label>
+      <div>
+        <input type="date" id="rsD1" />
+        <select id="rsH1"></select><span class="muted"> : </span><select id="rsM1"><option>00</option><option>30</option></select>
+      </div>
+      <label>备选 2</label>
+      <div>
+        <input type="date" id="rsD2" />
+        <select id="rsH2"></select><span class="muted"> : </span><select id="rsM2"><option>00</option><option>30</option></select>
+      </div>
+      <label>备选 3</label>
+      <div>
+        <input type="date" id="rsD3" />
+        <select id="rsH3"></select><span class="muted"> : </span><select id="rsM3"><option>00</option><option>30</option></select>
+      </div>
+      <label>备选 4</label>
+      <div>
+        <input type="date" id="rsD4" />
+        <select id="rsH4"></select><span class="muted"> : </span><select id="rsM4"><option>00</option><option>30</option></select>
+      </div>
+      <label>备选 5</label>
+      <div>
+        <input type="date" id="rsD5" />
+        <select id="rsH5"></select><span class="muted"> : </span><select id="rsM5"><option>00</option><option>30</option></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn-secondary" onclick="closeRs()">取消</button>
+      <button onclick="submitReschedule()">提交改时间</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* =========================
    1) 你的 Apps Script API
 ========================= */
-const API_BASE = 'https://script.google.com/macros/s/AKfycbz8KsBS6wH3vUjtAQ5A-dLWRWKlzYlgvvYIIkQYGD23Ue3Vk7FSHII1d8ko8s2oKL33Zw/exec';
+const API_BASE = 'https://script.google.com/macros/s/AKfycbxgSxWqIJD4WpiPGeaf6HSERs4YZz-H60p43Izcvc0wQAh7Jhev4LYRIK3dPiz-qehMWw/exec';
 
 async function post(action, payload = {}) {
   try {
@@ -219,7 +265,6 @@ function formatTimeHHmm(x){
   const mm = String(d.getMinutes()).padStart(2,'0');
   return `${hh}:${mm}`;
 }
-/** 组合出课程开始/结束时间（本地时区） */
 function sessionStartEnd(s){
   const d = s.date || s.session_date;
   const t = formatTimeHHmm(s.time || s.session_time);
@@ -330,27 +375,24 @@ function renderAll(list){
   const upcoming = withStart.filter(x=>{
     // 未来（或今天未开始）且状态 pending / scheduled
     return x.start && x.start.getTime() >= (now.getTime() - 60*1000) &&
-           (x.status==='pending' || x.status==='scheduled');
+           (x.status==='pending' || x.status==='scheduled' || x.status==='coach_proposed');
   });
-  const done = withStart
-    .filter(x=>x.status==='done' && x.start);
+  const done = withStart.filter(x=>x.status==='done' && x.start);
 
-  // 排序：即将到来的
-  // 先 pending: 老 → 新；再 scheduled: 近 → 远
-  const pendings = upcoming.filter(x=>x.status==='pending')
-                           .sort((a,b)=>a.start-b.start);
-  const scheduled = upcoming.filter(x=>x.status!=='pending') // scheduled
-                            .sort((a,b)=>a.start-b.start);
-  const upcomingSorted = [...pendings, ...scheduled];
+  // 排序：即将到来的 → 先 pending（老→新），再 scheduled（近→远），最后 coach_proposed（老→新）
+  const pendings = upcoming.filter(x=>x.status==='pending').sort((a,b)=>a.start-b.start);
+  const scheduled = upcoming.filter(x=>x.status==='scheduled').sort((a,b)=>a.start-b.start);
+  const proposed = upcoming.filter(x=>x.status==='coach_proposed').sort((a,b)=>a.start-b.start);
+  const upcomingSorted = [...pendings, ...scheduled, ...proposed];
 
-  // 排序：已完成（新 → 旧）
+  // 已完成（新 → 旧）
   const doneSorted = done.sort((a,b)=>b.start - a.start);
 
   renderUpcoming(upcomingSorted);
   renderDone(doneSorted, DONE_PAGE);
 }
 
-// —— 即将到来的（含 48h/24h 警示 + 添加到日历） ——
+// —— 即将到来的（含 48h/24h 警示 + 添加到日历 + 改时间） ——
 function renderUpcoming(list){
   const tb = document.querySelector('#tblUpcoming tbody'); tb.innerHTML='';
   const now = new Date();
@@ -364,7 +406,7 @@ function renderUpcoming(list){
     const pkgName = s.package_name || s.package || s.pkg_name || s.pkg || s.package_id || '';
 
     let warnHTML = '';
-    if (s.status === 'pending' && s.start && s.start > now){
+    if ((s.status === 'pending' || s.status === 'coach_proposed') && s.start && s.start > now){
       const hours = (s.start - now)/3600000;
       if (hours <= 24){
         warnHTML = `<span class="warn-red">即将逾期未确认，请尽快处理！</span>`;
@@ -376,6 +418,14 @@ function renderUpcoming(list){
     const titleForCalendar = `${coach?.coach_name||''}-${coach?.coach_id||''}-${clientName}-${pkgName}`.replace(/\s+/g,' ').trim();
     const addBtn = `<button class="btn-secondary" onclick='addToMyCalendar(${JSON.stringify({id:s.session_id||'',title:titleForCalendar}).replace(/'/g,"&#39;")}, "${dateDisp}", "${timeDisp}", "${s.duration_hours ?? s.duration ?? 1}")'>添加到我的日历</button>`;
 
+    const changeBtn = s.status==='pending'
+      ? `<button class="btn-secondary" onclick='openRescheduleDialog(${JSON.stringify(s).replace(/'/g,"&#39;")})'>改时间</button>`
+      : '';
+
+    const confirmBtn = s.status==='pending'
+      ? `<button class="btn-secondary" onclick="confirmSess('${s.session_id}')">确认</button>`
+      : '';
+
     tr.innerHTML = `
       <td>${s.session_id || ''}</td>
       <td>${dateDisp}</td>
@@ -385,7 +435,8 @@ function renderUpcoming(list){
       <td>${(s.status || '')} ${warnHTML}</td>
       <td>
         <div class="op-row">
-          ${s.status==='pending' ? `<button class="btn-secondary" onclick="confirmSess('${s.session_id}')">确认</button>` : ''}
+          ${confirmBtn}
+          ${changeBtn}
           ${addBtn}
         </div>
       </td>`;
@@ -423,7 +474,6 @@ function renderDone(list, page){
   document.getElementById('donePrev').disabled = DONE_PAGE<=1;
   document.getElementById('doneNext').disabled = DONE_PAGE>=pages;
 
-  // 绑定翻页
   document.getElementById('donePrev').onclick = ()=>{ renderDone(list, DONE_PAGE-1); };
   document.getElementById('doneNext').onclick = ()=>{ renderDone(list, DONE_PAGE+1); };
 }
@@ -534,7 +584,7 @@ window.addToMyCalendar = addToMyCalendar;
   function gcalPrimaryId(){
     const primary = calendarListCache.find(c=>c.primary);
     return primary ? primary.id : 'primary';
-    }
+  }
   function gcalEnsurePrimaryWriteTarget(){
     const primaryId = gcalPrimaryId();
     if (writeCalendarId !== primaryId){
@@ -725,6 +775,50 @@ window.addToMyCalendar = addToMyCalendar;
     if(window.gapi) gapiLoaded();
     if(window.google) gisLoaded();
   });
+</script>
+
+<script>
+/* =========================
+   3) 改时间弹窗逻辑
+========================= */
+let RS_SESSION=null;
+function fillHourSel(id){ const sel=document.getElementById(id); if(sel.options.length) return; for(let h=8;h<=23;h++){ const v=String(h).padStart(2,'0'); sel.add(new Option(v,v)); } }
+['rsH1','rsH2','rsH3','rsH4','rsH5'].forEach(fillHourSel);
+
+function openRescheduleDialog(s){
+  RS_SESSION = s;
+  document.getElementById('rsSid').textContent = `session_id: ${s.session_id}`;
+  ['D1','D2','D3','D4','D5'].forEach(k=>document.getElementById('rs'+k).value='');
+  ['H1','H2','H3','H4','H5'].forEach(k=>document.getElementById('rs'+k).value='08');
+  ['M1','M2','M3','M4','M5'].forEach(k=>document.getElementById('rs'+k).value='00');
+  document.getElementById('rsReason').value='';
+  document.getElementById('rsDlg').style.display='flex';
+}
+function closeRs(){ document.getElementById('rsDlg').style.display='none'; RS_SESSION=null; }
+
+async function submitReschedule(){
+  const reason = document.getElementById('rsReason').value;
+  if (!reason) return alert('请选择原因');
+
+  const opts=[];
+  for (let i=1;i<=5;i++){
+    const d = document.getElementById('rsD'+i).value;
+    const h = document.getElementById('rsH'+i).value;
+    const m = document.getElementById('rsM'+i).value;
+    if (d && h){ opts.push({date:d, time:`${h}:${m}`}); }
+  }
+  if (opts.length===0) return alert('请至少给出一个可选时间');
+
+  const r = await post('propose_reschedule', {
+    session_id: RS_SESSION.session_id,
+    reason,
+    options: opts
+  });
+  if (!r.ok){ alert(r.msg||'提交失败'); return; }
+  closeRs();
+  alert('已提交改时间，等待学员确认');
+  refresh();
+}
 </script>
 </body>
 </html>
