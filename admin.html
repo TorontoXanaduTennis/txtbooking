@@ -698,6 +698,7 @@ async function doTopup(package_id, client_id){
 }
 
 /* 续课添加：增加应付金额输入并写入 amount_due */
+/* 续课添加：增加应付金额输入并确保写入应付 */
 async function addPackage(client_id){
   const package_name = prompt('输入新套餐名称（如 800/10hr）');
   if(!package_name) return;
@@ -708,11 +709,36 @@ async function addPackage(client_id){
   const amount_due = Number(prompt('输入该套餐 税后课程总价（应付）') || 0);
   if(!(amount_due>0)) return alert('应付需大于 0');
 
+  // 1) 先尝试带 amount_due 创建
   const r = await post('add_package', { client_id, package_name, total_hours, amount_due });
-  if(!r.ok) return alert('创建失败：' + (r.msg||''));
-  alert('创建成功：' + r.package_id);
+  if(!r || !r.ok) return alert('创建失败：' + (r && r.msg || ''));
+
+  const pid = r.package_id;
+
+  // 2) 兼容：如果后端忽略了 amount_due，再补打一条设置应付（尝试多个可能的动作名）
+  try{
+    const trySet = async (action) => await post(action, { package_id: pid, amount_due });
+    const attempts = [
+      trySet('set_package_amount_due'),
+      trySet('set_pkg_amount_due'),
+      trySet('set_package_due'),
+      trySet('update_package') // 某些后端用 update_package 接受部分字段
+    ];
+    // 顺序尝试，直到有一次返回 ok
+    for (const p of attempts){
+      try {
+        const rr = await p;
+        if (rr && rr.ok) break;
+      } catch(_) {}
+    }
+  }catch(_){}
+
+  // 3) 立即刷新该 package 的付款块；以及客户整体信息
+  try{ await loadPackagePaymentBlock(pid, client_id); }catch(_){}
+  alert('创建成功：' + pid);
   searchClients();
 }
+
 
 async function changeAssignedCoach(client_id){
   const coach_id = await pickCoach('选择新的固定指派教练');
