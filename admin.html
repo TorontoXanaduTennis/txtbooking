@@ -151,11 +151,11 @@
       <input id="amount_paid" placeholder="已付金额（必填）" />
       <select id="pay_method">
         <option value="">收款方式（必选）</option>
-        <option>马丁收现金</option>
-        <option>董昱莹收现金</option>
-        <option>吴嘉启收现金</option>
-        <option>Interac e-transfer</option>
         <option>线下刷卡</option>
+        <option>Interac e-transfer</option>
+        <option>吴嘉启收现金</option>
+        <option>董昱莹收现金</option>
+        <option>马丁收现金</option>
       </select>
 
       <div class="toolbar" style="gap:8px">
@@ -177,17 +177,6 @@
       <span id="srCount" class="muted"></span>
     </div>
     <div id="searchRes" style="margin-top:10px"></div>
-  </div>
-
-  <!-- 列表可见性控制 -->
-  <div class="card">
-    <strong>列表显示/隐藏</strong>
-    <div class="vis-bar">
-      <label><input type="checkbox" id="vis_pendingSoon"  checked /> 待确认·10天内</label>
-      <label><input type="checkbox" id="vis_pendingLater" checked /> 待确认·超过10天</label>
-      <label><input type="checkbox" id="vis_scheduled"    checked /> 已排期</label>
-      <label><input type="checkbox" id="vis_done"         checked /> 已完成</label>
-    </div>
   </div>
 
   <!-- Google 日历 -->
@@ -219,6 +208,21 @@
     <div id="gcal-diag" class="card" style="padding:10px;display:none;">
       <b>诊断</b>
       <pre id="gcal-diagText"></pre>
+    </div>
+  </div>
+
+  <!-- 列表可见性控制（已移动到日历下方） -->
+  <div class="card">
+    <strong>列表显示/隐藏</strong>
+    <div class="vis-bar" style="margin-top:10px">
+      <label><input type="checkbox" id="vis_pendingSoon"  checked /> 待确认·10天内</label>
+      <label><input type="checkbox" id="vis_pendingLater" checked /> 待确认·超过10天</label>
+      <label><input type="checkbox" id="vis_scheduled"    checked /> 已排期</label>
+      <label><input type="checkbox" id="vis_done"         checked /> 已完成</label>
+      <span style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn gray"   id="visSelectAll">全选</button>
+        <button class="btn orange" id="visUnselectAll">全不选</button>
+      </span>
     </div>
   </div>
 
@@ -362,25 +366,50 @@ function parseMaybeDate(x){
   if (x==null || x==='') return null;
   if (x instanceof Date && !isNaN(x)) return x;
   if (typeof x==='number'){
+    // Excel serial (day) or unix ms
     if (x < 1e11){ const base=Date.UTC(1899,11,30); return new Date(base + x*86400000); }
     return new Date(x);
   }
   if (typeof x==='string'){
     const s=x.trim();
+    // time-only "HH:mm" / "HH:mm:ss"
     if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)){
       const [h,m]=s.split(':').map(Number); const d=new Date(); d.setHours(h||0,m||0,0,0); return d;
     }
+    // pure timestamp
     if (/^\d{10,13}$/.test(s)){
       const n=Number(s); return new Date(s.length===10?n*1000:n);
     }
+    // "YYYY-MM-DD HH:mm(:ss)"
     const m1=s.match(/^(\d{4}[\/-]\d{1,2}[\/-]\d{1,2})[ T](\d{1,2}:\d{2}(:\d{2})?)$/);
     if (m1){ const ds=m1[1].replace(/\//g,'-'); return new Date(ds+'T'+m1[2]); }
     const d = new Date(s); if(!isNaN(d)) return d;
   }
   return null;
 }
-function fmtDate(x){ const d=parseMaybeDate(x); return d?d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}):(x||''); }
-function fmtTime(x){ const d=parseMaybeDate(x); return d?d.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'}):(x||''); }
+function fmtDate(x){
+  const d=parseMaybeDate(x);
+  return d?d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}):(x||'');
+}
+function fmtTime(x){
+  const d=parseMaybeDate(x);
+  return d?d.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'}):(x||'');
+}
+// 合并日期与时间，避免出现 1899 / 冗长 GMT
+function fmtDateTime(dateVal, timeVal){
+  const d = parseMaybeDate(dateVal);
+  const t = parseMaybeDate(timeVal);
+  if (d && t){
+    const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
+    const ds = dt.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'});
+    const ts = dt.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'});
+    return `${ds} ${ts}`;
+  }
+  if (d) return `${fmtDate(d)} ${t?fmtTime(t):''}`.trim();
+  if (t) return fmtTime(t);
+  return '';
+}
+
 function startDT(row, idx){
   const d = parseMaybeDate(row[idx.date]);
   const t = parseMaybeDate(row[idx.time]);
@@ -411,8 +440,8 @@ async function loadCoaches(){
 }
 
 /* ---- 客户/套餐 名称缓存 ---- */
-const CLIENT_NAME_CACHE = new Map(); // client_id -> full_name
-const PKG_NAME_CACHE = new Map();    // package_id -> package_name
+const CLIENT_NAME_CACHE = new Map();
+const PKG_NAME_CACHE = new Map();
 
 async function ensureClientNames(ids){
   const missing = [...new Set(ids.filter(Boolean))].filter(id=>!CLIENT_NAME_CACHE.has(String(id)));
@@ -513,7 +542,6 @@ async function createClient(){
     const amount_paid_v = mustNumber(amount_paid.value.trim());
     const method        = pay_method.value.trim();
 
-    // 前端校验（必填）
     if(!isFinite(amount_due_v)  || amount_due_v<=0){ alert('请填写有效的 税后课程总价'); return; }
     if(!isFinite(amount_paid_v) || amount_paid_v<0){ alert('请填写有效的 已付金额（可为 0）'); return; }
     if(!method){ alert('请选择 收款方式'); return; }
@@ -523,9 +551,6 @@ async function createClient(){
       amount_due: amount_due_v, amount_paid: amount_paid_v, transaction_method: method
     };
 
-    // 约定：后端 create_client 如接收到金额与方式，则会：
-    // 1) 创建 client 与 package
-    // 2) 在 Transaction 表写一条交易（初始已付）
     const r = await post('create_client', payload);
     const el = document.getElementById('createClientMsg');
     if (r && r.ok){
@@ -559,7 +584,6 @@ async function searchClients(){
 
     if (c.client_id && c.name){ CLIENT_NAME_CACHE.set(String(c.client_id), String(c.name)); }
 
-    // 为每个 package 预留一个支付信息容器，稍后异步填充
     const pkgLines = (pkgs||[]).map(p=>{
       const pid = p.package_id || '';
       const pname = p.package_name || pid || '(未命名)';
@@ -619,13 +643,12 @@ async function loadPackagePaymentBlock(package_id, client_id){
     const is_paid      = !!r.is_paid;
     const txs          = Array.isArray(r.transactions)?r.transactions:[];
 
-    // 交易小字行
+    // 交易小字行（修复时间显示）
     const txLine = txs.length ? txs.map(tx=>{
-      const d = tx.date ? String(tx.date) : '';
-      const t = tx.time ? String(tx.time) : '';
+      const when = fmtDateTime(tx.date, tx.time);
       const a = typeof tx.amount==='number'? tx.amount : Number(tx.amount||0);
       const m = tx.method || '';
-      return `${d} ${t} · ${a} · ${m}`;
+      return `${when} · ${a} · ${m}`;
     }).join(' ｜ ') : '无交易记录';
 
     // 状态徽标
@@ -638,11 +661,11 @@ async function loadPackagePaymentBlock(package_id, client_id){
       <div class="pkg-payops">
         <input id="topup-${package_id}" placeholder="客户已补差价：收款金额输入" />
         <select id="topupm-${package_id}">
-          <option>马丁收现金</option>
-          <option>董昱莹收现金</option>
-          <option>吴嘉启收现金</option>
-          <option>Interac e-transfer</option>
           <option>线下刷卡</option>
+          <option>Interac e-transfer</option>
+          <option>吴嘉启收现金</option>
+          <option>董昱莹收现金</option>
+          <option>马丁收现金</option>
         </select>
         <button class="btn success" onclick="doTopup('${package_id}','${client_id}')">登记收款</button>
       </div>` : '';
@@ -655,10 +678,6 @@ async function loadPackagePaymentBlock(package_id, client_id){
       <div class="pkg-payline">${txLine}</div>
       ${ops}
     `;
-    if (is_paid){
-      // 付清后禁用
-      //（UI层已不显示操作按钮；后端应保护已付清交易）
-    }
   }catch(e){
     holder.textContent = '读取异常';
   }
@@ -675,21 +694,26 @@ async function doTopup(package_id, client_id){
 
   const r = await post('add_transaction', { package_id, client_id, amount, method });
   if(!r || !r.ok){ alert('登记失败：' + (r&&r.msg||'')); return; }
-  // 刷新该 package 的支付块
   await loadPackagePaymentBlock(package_id, client_id);
 }
 
+/* 续课添加：增加应付金额输入并写入 amount_due */
 async function addPackage(client_id){
   const package_name = prompt('输入新套餐名称（如 800/10hr）');
   if(!package_name) return;
+
   const total_hours = Number(prompt('输入套餐总小时（如 10）') || 0);
   if(!(total_hours>0)) return alert('总小时需大于 0');
 
-  const r = await post('add_package', { client_id, package_name, total_hours });
+  const amount_due = Number(prompt('输入该套餐 税后课程总价（应付）') || 0);
+  if(!(amount_due>0)) return alert('应付需大于 0');
+
+  const r = await post('add_package', { client_id, package_name, total_hours, amount_due });
   if(!r.ok) return alert('创建失败：' + (r.msg||''));
   alert('创建成功：' + r.package_id);
   searchClients();
 }
+
 async function changeAssignedCoach(client_id){
   const coach_id = await pickCoach('选择新的固定指派教练');
   if (!coach_id) return;
@@ -746,7 +770,6 @@ async function loadSessions(){
       return (eb?eb.getTime():0) - (ea?ea.getTime():0);
     });
 
-  // 预取 client / package 名称
   const clientIdIdx = idxOf(H, ['client_id','clientId','clientID']);
   if (clientIdIdx!==-1){
     const allClientIds = rows.map(rw=>rw[clientIdIdx]).filter(Boolean);
@@ -763,11 +786,9 @@ async function loadSessions(){
   renderTable('tbodyScheduled', scheduled, idx, 'scheduled', createdIdx);
   donePage = 1; renderDonePaged(idx, createdIdx);
 
-  // 对账
   const notDoneRows = [...pendingSoon, ...pendingLater, ...scheduled];
   reconcileAddedMarksForVisible(notDoneRows, idx);
 
-  // 应用可见性
   applyVisibilityFromStorage();
 }
 
@@ -813,7 +834,6 @@ function buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel){
   if (addedToName){
     addBtn = `<span class="muted">已添加到球馆${addedToName}</span>`;
   }else{
-    // 传递“教练名/教练ID/客户全名（去掉括号ID）”给写入函数
     const coachName = String(row[idx.coach_name]||'');
     const coachId   = String(row[idx.coach_id]||'');
     const clientFullName = (clientStr||'').replace(/\s*\([^)]*\)\s*$/, '').trim();
@@ -923,7 +943,7 @@ async function sw(session_id, status){
   const coach_id = await pickCoach('选择新的授课教练（仅本节课）');
   if (!coach_id) return;
   const r = await post('switch_coach', { session_id, coach_id });
-  if (!r.ok) return alert(r.msg || '失败');
+  if (!r.ok) return alert('失败：' + (r.msg||'')); 
   loadSessions();
 }
 
@@ -1246,7 +1266,7 @@ async function reconcileAddedMarksForVisible(rows, idx){
   }
 }
 
-/* ===== 列表可见性：存取与应用 ===== */
+/* ===== 列表可见性：存取与应用 + 全选/全不选 ===== */
 const VIS_KEYS = {
   vis_pendingSoon:  'sec_pendingSoon',
   vis_pendingLater: 'sec_pendingLater',
@@ -1281,6 +1301,21 @@ function bindVisibilityToggles(){
       if (sec) sec.style.display = ck.checked ? '' : 'none';
     });
   }
+  // 全选/全不选
+  const allBtn = document.getElementById('visSelectAll');
+  const noneBtn = document.getElementById('visUnselectAll');
+  if (allBtn) allBtn.onclick = ()=>{
+    const pref = readVisPref();
+    for (const k of Object.keys(VIS_KEYS)){ pref[k] = true; const ck=document.getElementById(k); if(ck) ck.checked=true; }
+    saveVisPref(pref);
+    applyVisibilityFromStorage();
+  };
+  if (noneBtn) noneBtn.onclick = ()=>{
+    const pref = readVisPref();
+    for (const k of Object.keys(VIS_KEYS)){ pref[k] = false; const ck=document.getElementById(k); if(ck) ck.checked=false; }
+    saveVisPref(pref);
+    applyVisibilityFromStorage();
+  };
 }
 
 /* ---- 启动 ---- */
