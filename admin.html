@@ -71,7 +71,7 @@
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 
-  /* Google Calendar 样式作用域 */
+  /* Google Calendar 样式 */
   #gcal-wrap * { box-sizing: border-box; }
   #gcal-wrap .bar{display:flex;gap:8px;align-items:center}
   #gcal-wrap .right{margin-left:auto;display:flex;gap:8px;align-items:center}
@@ -211,7 +211,7 @@
     </div>
   </div>
 
-  <!-- 列表可见性控制（已移动到日历下方） -->
+  <!-- 列表可见性控制（放在日历下方） -->
   <div class="card">
     <strong>列表显示/隐藏</strong>
     <div class="vis-bar" style="margin-top:10px">
@@ -366,36 +366,25 @@ function parseMaybeDate(x){
   if (x==null || x==='') return null;
   if (x instanceof Date && !isNaN(x)) return x;
   if (typeof x==='number'){
-    // Excel serial (day) or unix ms
     if (x < 1e11){ const base=Date.UTC(1899,11,30); return new Date(base + x*86400000); }
     return new Date(x);
   }
   if (typeof x==='string'){
     const s=x.trim();
-    // time-only "HH:mm" / "HH:mm:ss"
     if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)){
       const [h,m]=s.split(':').map(Number); const d=new Date(); d.setHours(h||0,m||0,0,0); return d;
     }
-    // pure timestamp
     if (/^\d{10,13}$/.test(s)){
       const n=Number(s); return new Date(s.length===10?n*1000:n);
     }
-    // "YYYY-MM-DD HH:mm(:ss)"
     const m1=s.match(/^(\d{4}[\/-]\d{1,2}[\/-]\d{1,2})[ T](\d{1,2}:\d{2}(:\d{2})?)$/);
     if (m1){ const ds=m1[1].replace(/\//g,'-'); return new Date(ds+'T'+m1[2]); }
     const d = new Date(s); if(!isNaN(d)) return d;
   }
   return null;
 }
-function fmtDate(x){
-  const d=parseMaybeDate(x);
-  return d?d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}):(x||'');
-}
-function fmtTime(x){
-  const d=parseMaybeDate(x);
-  return d?d.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'}):(x||'');
-}
-// 合并日期与时间，避免出现 1899 / 冗长 GMT
+function fmtDate(x){ const d=parseMaybeDate(x); return d?d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}):(x||''); }
+function fmtTime(x){ const d=parseMaybeDate(x); return d?d.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'}):(x||''); }
 function fmtDateTime(dateVal, timeVal){
   const d = parseMaybeDate(dateVal);
   const t = parseMaybeDate(timeVal);
@@ -409,7 +398,6 @@ function fmtDateTime(dateVal, timeVal){
   if (t) return fmtTime(t);
   return '';
 }
-
 function startDT(row, idx){
   const d = parseMaybeDate(row[idx.date]);
   const t = parseMaybeDate(row[idx.time]);
@@ -643,7 +631,6 @@ async function loadPackagePaymentBlock(package_id, client_id){
     const is_paid      = !!r.is_paid;
     const txs          = Array.isArray(r.transactions)?r.transactions:[];
 
-    // 交易小字行（修复时间显示）
     const txLine = txs.length ? txs.map(tx=>{
       const when = fmtDateTime(tx.date, tx.time);
       const a = typeof tx.amount==='number'? tx.amount : Number(tx.amount||0);
@@ -651,12 +638,9 @@ async function loadPackagePaymentBlock(package_id, client_id){
       return `${when} · ${a} · ${m}`;
     }).join(' ｜ ') : '无交易记录';
 
-    // 状态徽标
-    const badge = is_paid
-      ? `<span class="pay-badge pay-paid">PAID</span>`
-      : `<span class="pay-badge pay-out">OUTSTANDING</span>`;
+    const badge = is_paid ? `<span class="pay-badge pay-paid">PAID</span>`
+                          : `<span class="pay-badge pay-out">OUTSTANDING</span>`;
 
-    // 操作区（仅未付清时可见）
     const ops = !is_paid ? `
       <div class="pkg-payops">
         <input id="topup-${package_id}" placeholder="客户已补差价：收款金额输入" />
@@ -697,8 +681,7 @@ async function doTopup(package_id, client_id){
   await loadPackagePaymentBlock(package_id, client_id);
 }
 
-/* 续课添加：增加应付金额输入并写入 amount_due */
-/* 续课添加：增加应付金额输入并确保写入应付 */
+/* 续课添加：新增“应付”并确保写入成功（含兜底） */
 async function addPackage(client_id){
   const package_name = prompt('输入新套餐名称（如 800/10hr）');
   if(!package_name) return;
@@ -709,36 +692,48 @@ async function addPackage(client_id){
   const amount_due = Number(prompt('输入该套餐 税后课程总价（应付）') || 0);
   if(!(amount_due>0)) return alert('应付需大于 0');
 
-  // 1) 先尝试带 amount_due 创建
+  // 1) 首选：直接把 amount_due 发给后端
   const r = await post('add_package', { client_id, package_name, total_hours, amount_due });
   if(!r || !r.ok) return alert('创建失败：' + (r && r.msg || ''));
-
   const pid = r.package_id;
 
-  // 2) 兼容：如果后端忽略了 amount_due，再补打一条设置应付（尝试多个可能的动作名）
+  // 2) 验证是否真的写上了应付；否则依次尝试多个动作名；最后兜底用 add_transaction(set_due)
   try{
-    const trySet = async (action) => await post(action, { package_id: pid, amount_due });
-    const attempts = [
-      trySet('set_package_amount_due'),
-      trySet('set_pkg_amount_due'),
-      trySet('set_package_due'),
-      trySet('update_package') // 某些后端用 update_package 接受部分字段
-    ];
-    // 顺序尝试，直到有一次返回 ok
-    for (const p of attempts){
-      try {
-        const rr = await p;
-        if (rr && rr.ok) break;
-      } catch(_) {}
+    const check = await post('pkg_payment', { package_id: pid });
+    const dueNow = Number(check && check.amount_due || 0);
+
+    if (!(dueNow > 0)){
+      // 尝试不同的后端动作名
+      const trySet = async (action) => {
+        const resp = await post(action, { package_id: pid, amount_due });
+        return resp && resp.ok;
+      };
+      const actions = [
+        'set_package_amount_due',
+        'pkg_set_due',
+        'set_pkg_amount_due',
+        'set_package_due',
+        'update_package'
+      ];
+      let ok = false;
+      for (const act of actions){
+        try{ if (await trySet(act)) { ok = true; break; } }catch(_){}
+      }
+      // 兜底：用交易把应付写到表（后端需识别 set_due）
+      if (!ok){
+        await post('add_transaction', {
+          package_id: pid, client_id,
+          method: 'SET_DUE', amount: 0, set_due: amount_due
+        });
+      }
     }
   }catch(_){}
 
-  // 3) 立即刷新该 package 的付款块；以及客户整体信息
+  // 3) 刷新该 package 的支付块 + 客户卡片
   try{ await loadPackagePaymentBlock(pid, client_id); }catch(_){}
   alert('创建成功：' + pid);
   searchClients();
 }
-
 
 async function changeAssignedCoach(client_id){
   const coach_id = await pickCoach('选择新的固定指派教练');
@@ -1327,7 +1322,6 @@ function bindVisibilityToggles(){
       if (sec) sec.style.display = ck.checked ? '' : 'none';
     });
   }
-  // 全选/全不选
   const allBtn = document.getElementById('visSelectAll');
   const noneBtn = document.getElementById('visUnselectAll');
   if (allBtn) allBtn.onclick = ()=>{
