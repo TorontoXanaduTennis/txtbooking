@@ -11,6 +11,7 @@
     --success:#10b981; --danger:#ef4444; --primary:#111; --blue:#2563eb; --orange:#f59e0b; --gray:#6b7280; --deep:#374151;
     --row-gap:10px; --radius:14px;
     --st-pending:#FEF3C7; --st-scheduled:#E5E7EB; --st-done:#D1FAE5;
+    --gcal-border:#e5e7eb; --gcal-bg:#f8fafc; --gcal-text:#111827; --gcal-muted:#6b7280;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
@@ -66,12 +67,7 @@
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center}
-  .dialog{background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:16px;min-width:320px}
-  .dialog .actions{margin-top:10px;display:flex;gap:8px;justify-content:flex-end}
-
-  /* 日历作用域 */
-  :root { --gcal-border:#e5e7eb; --gcal-bg:#f8fafc; --gcal-text:#111827; --gcal-muted:#6b7280; }
+  /* Google Calendar 样式作用域 */
   #gcal-wrap * { box-sizing: border-box; }
   #gcal-wrap .bar{display:flex;gap:8px;align-items:center}
   #gcal-wrap .right{margin-left:auto;display:flex;gap:8px;align-items:center}
@@ -384,7 +380,9 @@ async function ensureClientNames(ids){
   try{
     const r = await post('client_names', { ids: missing });
     if (r && r.ok && r.map){
-      for (const [id, nm] of Object.entries(r.map)){ CLIENT_NAME_CACHE.set(String(id), String(nm||'')); }
+      for (const [id, nm] of Object.entries(r.map)){
+        CLIENT_NAME_CACHE.set(String(id), String(nm||''));
+      }
       return;
     }
   }catch(e){}
@@ -430,6 +428,7 @@ function packageNameFromRow(row, idx){
   return cached || pid;
 }
 
+/* ---- 选择教练弹窗 ---- */
 function pickCoach(title='选择教练'){
   return new Promise(resolve=>{
     const ov = document.createElement('div'); ov.className='overlay';
@@ -604,6 +603,10 @@ async function loadSessions(){
   renderPendingGroup('tbodyPendingLater', pendingLater, idx, createdIdx);
   renderTable('tbodyScheduled', scheduled, idx, 'scheduled', createdIdx);
   donePage = 1; renderDonePaged(idx, createdIdx);
+
+  // —— 对账：若某些 session 在当前写入日历里已被删除，则恢复“可添加”按钮
+  const notDoneRows = [...pendingSoon, ...pendingLater, ...scheduled];
+  reconcileAddedMarksForVisible(notDoneRows, idx);
 }
 
 function renderDonePaged(idx, createdIdx){
@@ -632,10 +635,11 @@ function createdTimeStr(row, createdIdx){
 function addedKey(sessionId, calId){ return `SESSION_CAL_ADDED::${sessionId}::${calId}`; }
 function markAdded(sessionId, calId, calName){ try{ localStorage.setItem(addedKey(sessionId, calId), calName||''); }catch(e){} }
 function getAddedName(sessionId, calId){ try{ return localStorage.getItem(addedKey(sessionId, calId)); }catch(e){ return null; } }
+function unmarkAdded(sessionId, calId){ try{ localStorage.removeItem(addedKey(sessionId, calId)); }catch(e){} }
 
+/* ---- 行操作渲染 ---- */
 function buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel){
   const sid = row[idx.session_id];
-  const st = startDT(row, idx);
   const et = endDT(row, idx);
   const finished = et ? (Date.now() >= et.getTime()) : false;
   const canComplete = (status === 'scheduled') && finished;
@@ -647,14 +651,16 @@ function buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel){
   if (addedToName){
     addBtn = `<span class="muted">已添加到球馆${addedToName}</span>`;
   }else{
+    // 传递“教练名/教练ID/客户全名（去掉括号ID）”给写入函数
+    const coachName = String(row[idx.coach_name]||'');
+    const coachId   = String(row[idx.coach_id]||'');
+    const clientFullName = (clientStr||'').replace(/\s*\([^)]*\)\s*$/, '').trim();
     addBtn = `<button class="btn gray" onclick='addToFacilityCalendar(${JSON.stringify({
       session_id:sid,
       date:fmtDate(row[idx.date]),
       time:fmtTime(row[idx.time]),
       dur:(row[idx.duration_hours]||1),
-      clientLabel:clientStr,
-      pkgName,
-      coachLabel
+      coachName, coachId, clientFullName
     }).replace(/'/g,"&#39;")})'>添加到球馆日历</button>`;
   }
 
@@ -759,7 +765,9 @@ async function sw(session_id, status){
   loadSessions();
 }
 
-/* ===== Google Calendar 嵌入 ===== */
+/* =========================
+   Google Calendar 嵌入
+========================= */
 const GCAL_CLIENT_ID = "126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com";
 const GCAL_SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events";
 const GCAL_TZ = "America/Toronto";
@@ -795,7 +803,7 @@ function gcalSignOut(){ if(!gcal_accessToken) return; google.accounts.oauth2.rev
 });}
 document.getElementById('gcal-signin').onclick=gcalSignIn;
 document.getElementById('gcal-signout').onclick=gcalSignOut;
-document.getElementById('gcal-refreshBtn').onclick=()=>{ if(gcal_calendar) gcal_calendar.refetchEvents(); };
+document.getElementById('gcal-refreshBtn').onclick=()=>{ if(gcal_calendar) gcal_calendar.refetchEvents(); loadSessions(); };
 document.getElementById('gcal-status').textContent='未登录';
 
 function gcalIsSignedIn(){ return !!gcal_accessToken; }
@@ -823,7 +831,7 @@ async function gcalOnSignedIn(){
     writeSel.value=writeCalendarId;
     document.getElementById('gcal-currCal').textContent=writeCalendarId;
     writeSel.style.display='';
-    writeSel.onchange=()=>{ writeCalendarId=writeSel.value; document.getElementById('gcal-currCal').textContent=writeCalendarId; };
+    writeSel.onchange=()=>{ writeCalendarId=writeSel.value; document.getElementById('gcal-currCal').textContent=writeCalendarId; loadSessions(); };
 
     const picker=document.getElementById('gcal-picker');
     const listDiv=document.getElementById('gcal-calList');
@@ -984,7 +992,7 @@ async function addToFacilityCalendar(meta){
 
   const calName = currentWriteCalSummary();
   // 标题：教练名字-教练id-客户全名-写入目标日历的名称
-  const title = `${(meta.coachLabel||'').trim()}-${(meta.clientLabel||'').replace(/\s+/g,' ').trim()}-${calName}`.replace(/\s+/g,' ').trim();
+  const title = `${(meta.coachName||'').trim()}-${(meta.coachId||'').trim()}-${(meta.clientFullName||'').trim()}-${calName}`.replace(/\s+/g,' ').trim();
 
   try{
     await gapi.client.calendar.events.insert({
@@ -1002,6 +1010,79 @@ async function addToFacilityCalendar(meta){
   }catch(err){
     gcalShowDiag(err);
     alert('写入失败：' + (err?.result?.error?.message || err?.message || '未知错误'));
+  }
+}
+
+/* ===== 与日历对账：若日历中已无对应事件，则恢复“可添加” ===== */
+async function reconcileAddedMarksForVisible(rows, idx){
+  try{
+    if (!gcalIsSignedIn()) return;
+    const calId = writeCalendarId;
+    if (!calId) return;
+
+    const needCheck = rows.filter(r => {
+      const sid = r[idx.session_id];
+      return sid && getAddedName(sid, calId);
+    });
+    if (!needCheck.length) return;
+
+    let anyChanged = false;
+
+    const getMeta = (row)=>{
+      const st = startDT(row, idx);
+      const dur = Number(row[idx.duration_hours]||1)||1;
+      const et = st ? new Date(st.getTime() + dur*3600*1000) : null;
+      const clientId = row[idx.client_id];
+      const clientStr = clientLabel(clientId);
+      const clientNameOnly = (clientStr||'').replace(/\s*\([^)]*\)\s*$/,'').trim();
+      return { st, et, clientNameOnly,
+        coachId: String(row[idx.coach_id]||''),
+        coachName: String(row[idx.coach_name]||'')
+      };
+    };
+
+    for (const row of needCheck){
+      const sid = row[idx.session_id];
+      const { st, et, clientNameOnly, coachId, coachName } = getMeta(row);
+      if (!st || !et){ unmarkAdded(sid, calId); anyChanged = true; continue; }
+
+      const pad = 90*60*1000;
+      const timeMin = new Date(st.getTime() - pad).toISOString();
+      const timeMax = new Date(et.getTime() + pad).toISOString();
+
+      const resp = await gapi.client.calendar.events.list({
+        calendarId: calId,
+        timeMin, timeMax,
+        singleEvents: true,
+        orderBy: 'startTime',
+        showDeleted: false,
+        maxResults: 250
+      });
+
+      const items = resp.result.items || [];
+      const exists = items.some(ev=>{
+        const evStartISO = ev.start?.dateTime || ev.start?.date;
+        if (!evStartISO) return false;
+        const evStart = new Date(evStartISO);
+        if (isNaN(evStart)) return false;
+        const diff = Math.abs(evStart.getTime() - st.getTime());
+        const summary = (ev.summary||'').toLowerCase();
+        const keys = [clientNameOnly, coachId, coachName].map(s=>String(s||'').toLowerCase()).filter(Boolean);
+        const hit = keys.length ? keys.some(k=>k && summary.includes(k)) : true;
+        return diff <= 10*60*1000 && hit;
+      });
+
+      if (!exists){
+        unmarkAdded(sid, calId);
+        anyChanged = true;
+      }
+    }
+
+    if (anyChanged){
+      loadSessions();
+    }
+  }catch(err){
+    console.warn('reconcile error', err);
   }
 }
 
