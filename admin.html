@@ -5,115 +5,115 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>管理端 · TXT 订课</title>
 <style>
-  :root{
-    --bg:#f6f7fb; --card:#fff; --text:#111; --muted:#6b7280; --bdr:#e5e7eb;
-    --shadow:0 8px 20px rgba(0,0,0,.08);
-    --success:#10b981; --danger:#ef4444; --primary:#111; --blue:#2563eb; --orange:#f59e0b; --gray:#6b7280; --deep:#374151;
-    --row-gap:10px; --radius:14px;
-    --st-pending:#FEF3C7; --st-scheduled:#E5E7EB; --st-done:#D1FAE5;
-    --gcal-border:#e5e7eb; --gcal-bg:#f8fafc; --gcal-text:#111827; --gcal-muted:#6b7280;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
-  .wrap{max-width:1180px;margin:28px auto;padding:0 16px}
-  h1{font-size:28px;margin:0 0 16px}
-  .card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:18px}
-  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  input,select,button{padding:10px 12px;border:1px solid var(--bdr);border-radius:10px;background:#fff}
-  button{background:var(--primary);color:#fff;cursor:pointer}
-  .btn{padding:8px 12px;border-radius:10px;border:1px solid transparent}
-  .btn.success{background:var(--success)}
-  .btn.danger{background:var(--danger)}
-  .btn.blue{background:var(--blue)}
-  .btn.orange{background:var(--orange)}
-  .btn.gray{background:var(--gray)}
-  .muted{color:var(--muted)}
-  .section-title{font-weight:700;margin:8px 0 10px}
+:root{
+--bg:#f6f7fb; --card:#fff; --text:#111; --muted:#6b7280; --bdr:#e5e7eb;
+--shadow:0 8px 20px rgba(0,0,0,.08);
+--success:#10b981; --danger:#ef4444; --primary:#111; --blue:#2563eb; --orange:#f59e0b; --gray:#6b7280; --deep:#374151;
+--row-gap:10px; --radius:14px;
+--st-pending:#FEF3C7; --st-scheduled:#E5E7EB; --st-done:#D1FAE5;
+--gcal-border:#e5e7eb; --gcal-bg:#f8fafc; --gcal-text:#111827; --gcal-muted:#6b7280;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
+.wrap{max-width:1180px;margin:28px auto;padding:0 16px}
+h1{font-size:28px;margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:18px}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input,select,button{padding:10px 12px;border:1px solid var(--bdr);border-radius:10px;background:#fff}
+button{background:var(--primary);color:#fff;cursor:pointer}
+.btn{padding:8px 12px;border-radius:10px;border:1px solid transparent}
+.btn.success{background:var(--success)}
+.btn.danger{background:var(--danger)}
+.btn.blue{background:var(--blue)}
+.btn.orange{background:var(--orange)}
+.btn.gray{background:var(--gray)}
+.muted{color:var(--muted)}
+.section-title{font-weight:700;margin:8px 0 10px}
 
-  .section{border:2px solid var(--deep);border-radius:16px;overflow:hidden;background:#fff;}
-  .section-inner{padding:12px 12px 4px}
+.section{border:2px solid var(--deep);border-radius:16px;overflow:hidden;background:#fff;}
+.section-inner{padding:12px 12px 4px}
 
-  .pattern{
-    height:12px;
-    background:
-      repeating-linear-gradient(135deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px),
-      repeating-linear-gradient(225deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px);
-    opacity:.5;
-  }
-  .divider{
-    height:12px; margin:12px 0;
-    background:
-      repeating-linear-gradient(135deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px),
-      repeating-linear-gradient(225deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px);
-    border-radius:6px; opacity:.45;
-  }
+.pattern{
+height:12px;
+background:
+repeating-linear-gradient(135deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px),
+repeating-linear-gradient(225deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px);
+opacity:.5;
+}
+.divider{
+height:12px; margin:12px 0;
+background:
+repeating-linear-gradient(135deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px),
+repeating-linear-gradient(225deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px);
+border-radius:6px; opacity:.45;
+}
 
-  .table-wrap{position:relative;overflow:auto;padding-top:6px}
-  table{width:100%;border-collapse:separate;border-spacing:0 10px}
-  thead th{position:sticky;top:0;background:var(--bg);z-index:1;font-weight:600;padding:10px}
-  tbody tr{background:#fff;box-shadow:var(--shadow)}
-  th,td{padding:10px 12px;font-size:14px;vertical-align:middle;white-space:nowrap}
-  tbody tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px}
-  tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
-  .row-actions button{margin-right:6px}
-  .disabled{opacity:.45;pointer-events:none}
+.table-wrap{position:relative;overflow:auto;padding-top:6px}
+table{width:100%;border-collapse:separate;border-spacing:0 10px}
+thead th{position:sticky;top:0;background:var(--bg);z-index:1;font-weight:600;padding:10px}
+tbody tr{background:#fff;box-shadow:var(--shadow)}
+th,td{padding:10px 12px;font-size:14px;vertical-align:middle;white-space:nowrap}
+tbody tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px}
+tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
+.row-actions button{margin-right:6px}
+.disabled{opacity:.45;pointer-events:none}
 
-  .badge{padding:2px 10px;border-radius:999px;font-size:12px;display:inline-block}
-  .b-pending{background:var(--st-pending);color:#92400e}
-  .b-scheduled{background:var(--st-scheduled);color:#374151}
-  .b-done{background:var(--st-done);color:#065f46}
+.badge{padding:2px 10px;border-radius:999px;font-size:12px;display:inline-block}
+.b-pending{background:var(--st-pending);color:#92400e}
+.b-scheduled{background:var(--st-scheduled);color:#374151}
+.b-done{background:var(--st-done);color:#065f46}
 
-  .pay-badge{padding:2px 8px;border-radius:999px;font-size:12px;margin-left:6px}
-  .pay-paid{background:#D1FAE5;color:#065f46;border:1px solid #a7f3d0}
-  .pay-out{background:#FEF3C7;color:#92400e;border:1px solid #fde68a}
+.pay-badge{padding:2px 8px;border-radius:999px;font-size:12px;margin-left:6px}
+.pay-paid{background:#D1FAE5;color:#065f46;border:1px solid #a7f3d0}
+.pay-out{background:#FEF3C7;color:#92400e;border:1px solid #fde68a}
 
-  .client-card{background:#fff;border:1px solid var(--bdr);border-radius:12px;box-shadow:var(--shadow);padding:12px;margin:10px 0}
-  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-  .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.client-card{background:#fff;border:1px solid var(--bdr);border-radius:12px;box-shadow:var(--shadow);padding:12px;margin:10px 0}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 
-  /* Google Calendar 样式 */
-  #gcal-wrap * { box-sizing: border-box; }
-  #gcal-wrap .bar{display:flex;gap:8px;align-items:center}
-  #gcal-wrap .right{margin-left:auto;display:flex;gap:8px;align-items:center}
-  #gcal-wrap .help{font-size:12px;color:var(--gcal-muted)}
-  #gcal-calendar{width:100%}
-  #gcal-wrap button{padding:8px 12px;border:1px solid var(--gcal-border);border-radius:8px;background:#fff;cursor:pointer;color:#111}
-  #gcal-wrap select{padding:6px 8px;border:1px solid var(--gcal-border);border-radius:8px;background:#fff}
-  #gcal-picker .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-  #gcal-picker .list{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
-  #gcal-picker .item{display:flex;align-items:center;gap:6px;font-size:12px;border:1px dashed var(--gcal-border);padding:3px 8px;border-radius:8px;background:#fff}
-  #gcal-picker .item input{transform:translateY(1px)}
-  #gcal-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
-  #gcal-legend .pill{display:flex;align-items:center;gap:6px;border:1px solid var(--gcal-border);border-radius:999px;padding:2px 8px;background:#fff;font-size:12px}
-  #gcal-legend .sw{width:10px;height:10px;border-radius:3px;border:1px solid #00000022}
-  #gcal-picker .sw{width:10px;height:10px;border-radius:3px;border:1px solid #00000022}
+/* Google Calendar 样式 */
+#gcal-wrap * { box-sizing: border-box; }
+#gcal-wrap .bar{display:flex;gap:8px;align-items:center}
+#gcal-wrap .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+#gcal-wrap .help{font-size:12px;color:var(--gcal-muted)}
+#gcal-calendar{width:100%}
+#gcal-wrap button{padding:8px 12px;border:1px solid var(--gcal-border);border-radius:8px;background:#fff;cursor:pointer;color:#111}
+#gcal-wrap select{padding:6px 8px;border:1px solid var(--gcal-border);border-radius:8px;background:#fff}
+#gcal-picker .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+#gcal-picker .list{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+#gcal-picker .item{display:flex;align-items:center;gap:6px;font-size:12px;border:1px dashed var(--gcal-border);padding:3px 8px;border-radius:8px;background:#fff}
+#gcal-picker .item input{transform:translateY(1px)}
+#gcal-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+#gcal-legend .pill{display:flex;align-items:center;gap:6px;border:1px solid var(--gcal-border);border-radius:999px;padding:2px 8px;background:#fff;font-size:12px}
+#gcal-legend .sw{width:10px;height:10px;border-radius:3px;border:1px solid #00000022}
+#gcal-picker .sw{width:10px;height:10px;border-radius:3px;border:1px solid #00000022}
 
-  /* 列表可见性条 */
-  .vis-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px}
-  .vis-bar label{display:flex;gap:6px;align-items:center;font-size:13px}
-  .pkg-payline{font-size:12px;color:#6b7280;margin-top:4px}
-  .pkg-payops{display:flex;gap:6px;align-items:center;margin-top:6px}
-  .pkg-payops input, .pkg-payops select{padding:6px 8px;border-radius:8px}
+/* 列表可见性条 */
+.vis-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.vis-bar label{display:flex;gap:6px;align-items:center;font-size:13px}
+.pkg-payline{font-size:12px;color:#6b7280;margin-top:4px}
+.pkg-payops{display:flex;gap:6px;align-items:center;margin-top:6px}
+.pkg-payops input, .pkg-payops select{padding:6px 8px;border-radius:8px}
 </style>
 
 <link id="gcal-fc-css" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.min.css" rel="stylesheet" />
 <script>
-  (function ensureFullCalendarCSS(){
-    function loaded(l){ try{ return !!l.sheet && l.sheet.cssRules!==null; }catch(e){ return !!l.sheet; } }
-    function swap(){
-      const l=document.getElementById('gcal-fc-css');
-      const tried=l.getAttribute('data-tried')||'';
-      if(!tried.includes('jsdelivr')){
-        l.href="https://unpkg.com/fullcalendar@6.1.19/index.min.css";
-        l.setAttribute('data-tried', tried+' jsdelivr');
-        setTimeout(swap, 4000);
-      }else if(!tried.includes('unpkg')){
-        l.href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.9/index.min.css";
-        l.setAttribute('data-tried', tried+' unpkg');
-      }
-    }
-    setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) swap(); }, 5000);
-  })();
+(function ensureFullCalendarCSS(){
+function loaded(l){ try{ return !!l.sheet && l.sheet.cssRules!==null; }catch(e){ return !!l.sheet; } }
+function swap(){
+const l=document.getElementById('gcal-fc-css');
+const tried=l.getAttribute('data-tried')||'';
+if(!tried.includes('jsdelivr')){
+l.href="https://unpkg.com/fullcalendar@6.1.19/index.min.css";
+l.setAttribute('data-tried', tried+' jsdelivr');
+setTimeout(swap, 4000);
+}else if(!tried.includes('unpkg')){
+l.href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.9/index.min.css";
+l.setAttribute('data-tried', tried+' unpkg');
+}
+}
+setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) swap(); }, 5000);
+})();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.global.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -122,231 +122,273 @@
 
 <body>
 <div class="wrap">
-  <h1>管理端 · TXT 订课</h1>
+<h1>管理端 · TXT 订课</h1>
 
-  <div class="card">
-    <div class="toolbar">
-      <input id="adminkey" placeholder="Admin Key(一次保存)" />
-      <button class="btn" onclick="saveKey()">保存Key</button>
-      <button class="btn" onclick="loadSessions()">刷新列表</button>
-      <button class="btn orange" onclick="softReset()">刷新页面</button>
+<!-- 顶部：管理员登录（Google 白名单） -->
+<div class="card">
+  <div class="toolbar" style="gap:8px;align-items:center">
+    <button class="btn" id="adminSignInBtn">使用 Google 登录管理员</button>
+    <button class="btn gray" id="adminSignOutBtn" style="display:none;">退出管理员</button>
+    <span id="adminLoginStatus" class="muted">未登录管理员</span>
+    <span style="margin-left:auto"></span>
+    <button class="btn" onclick="loadSessions()">刷新列表</button>
+    <button class="btn orange" onclick="softReset()">刷新页面</button>
+  </div>
+</div>
+
+<!-- 录入新客户 + 交易（保持原有） -->
+<div class="card">
+<h3>录入新客户</h3>
+<div class="grid">
+<input id="c_name" placeholder="姓名" />
+<input id="c_phone" placeholder="电话" />
+<input id="c_wechat" placeholder="微信" />
+<input id="c_email" placeholder="邮箱" />
+<input id="c_pass" placeholder="登录密码" />
+<input id="p_name" placeholder="首次 Package 名称(如 800/10hr)" />
+<input id="p_hours" placeholder="总小时(如 10)" />
+<select id="coach_sel"><option value="">选择教练…</option></select>
+
+<!-- 新增必填的交易信息 -->
+<input id="amount_due" placeholder="税后课程总价（必填）" />
+<input id="amount_paid" placeholder="已付金额（必填）" />
+<select id="pay_method">
+<option value="">收款方式（必选）</option>
+<option>线下刷卡</option>
+<option>Interac e-transfer</option>
+<option>吴嘉启收现金</option>
+<option>董昱莹收现金</option>
+<option>马丁收现金</option>
+</select>
+
+<div class="toolbar" style="gap:8px">
+<button class="btn" onclick="createClient()">确认录入</button>
+<button class="btn gray" onclick="clearCreateForm()">清空</button>
+</div>
+</div>
+<div id="createClientMsg" style="margin-top:8px;color:var(--success)"></div>
+<div class="muted" style="margin-top:6px">提示：教练名单来自 Coach 表（list_coaches）。</div>
+</div>
+
+<!-- 搜索客户（保持原有） -->
+<div class="card">
+<h3>搜索客户</h3>
+<div class="toolbar" style="gap:12px">
+<input id="q" style="min-width:320px" placeholder="输入 client_id / 姓名 / 电话 / 微信 / 邮箱（任意其一匹配）" />
+<button class="btn blue" onclick="searchClients()">搜索</button>
+<button class="btn gray" onclick="resetSearch()">重新搜索</button>
+<span id="srCount" class="muted"></span>
+</div>
+<div id="searchRes" style="margin-top:10px"></div>
+</div>
+
+<!-- Google 日历（保持原有） -->
+<div class="card" id="gcal-wrap">
+  <div class="bar">
+    <strong>球馆日历</strong>
+    <div class="right">
+      <button id="gcal-signin">使用 Google 登录</button>
+      <button id="gcal-signout" style="display:none;">退出</button>
+      <button id="gcal-refreshBtn" style="display:none;">刷新</button>
+      <span id="gcal-status" class="help">未登录</span>
     </div>
   </div>
-
-  <!-- 录入新客户 + 交易 -->
-  <div class="card">
-    <h3>录入新客户</h3>
-    <div class="grid">
-      <input id="c_name"   placeholder="姓名" />
-      <input id="c_phone"  placeholder="电话" />
-      <input id="c_wechat" placeholder="微信" />
-      <input id="c_email"  placeholder="邮箱" />
-      <input id="c_pass"   placeholder="登录密码" />
-      <input id="p_name"   placeholder="首次 Package 名称(如 800/10hr)" />
-      <input id="p_hours"  placeholder="总小时(如 10)" />
-      <select id="coach_sel"><option value="">选择教练…</option></select>
-
-      <!-- 新增必填的交易信息 -->
-      <input id="amount_due"  placeholder="税后课程总价（必填）" />
-      <input id="amount_paid" placeholder="已付金额（必填）" />
-      <select id="pay_method">
-        <option value="">收款方式（必选）</option>
-        <option>线下刷卡</option>
-        <option>Interac e-transfer</option>
-        <option>吴嘉启收现金</option>
-        <option>董昱莹收现金</option>
-        <option>马丁收现金</option>
-      </select>
-
-      <div class="toolbar" style="gap:8px">
-        <button class="btn" onclick="createClient()">确认录入</button>
-        <button class="btn gray" onclick="clearCreateForm()">清空</button>
-      </div>
+  <div id="gcal-picker" class="card" style="padding:10px;margin:12px 0;display:none;">
+    <div class="row">
+      <div class="help">选择要显示的日历（可多选；只读也可显示）：</div>
+      <button id="gcal-checkAll" class="help">全选</button>
+      <button id="gcal-uncheckAll" class="help">全不选</button>
+      <select id="gcal-writeCal" title="写入目标（只列可写）" style="display:none;"></select>
+      <div class="help">当前写入目标：<code id="gcal-currCal">primary</code></div>
     </div>
-    <div id="createClientMsg" style="margin-top:8px;color:var(--success)"></div>
-    <div class="muted" style="margin-top:6px">提示：教练名单来自 Coach 表（list_coaches）。</div>
+    <div id="gcal-calList" class="list"></div>
+    <div id="gcal-legend"></div>
   </div>
-
-  <!-- 搜索客户 -->
-  <div class="card">
-    <h3>搜索客户</h3>
-    <div class="toolbar" style="gap:12px">
-      <input id="q" style="min-width:320px" placeholder="输入 client_id / 姓名 / 电话 / 微信 / 邮箱（任意其一匹配）" />
-      <button class="btn blue" onclick="searchClients()">搜索</button>
-      <button class="btn gray" onclick="resetSearch()">重新搜索</button>
-      <span id="srCount" class="muted"></span>
-    </div>
-    <div id="searchRes" style="margin-top:10px"></div>
+  <div id="gcal-calendar"></div>
+  <div id="gcal-diag" class="card" style="padding:10px;display:none;">
+    <b>诊断</b>
+    <pre id="gcal-diagText"></pre>
   </div>
+</div>
 
-  <!-- Google 日历 -->
-  <div class="card" id="gcal-wrap">
-    <div class="bar">
-      <strong>球馆日历</strong>
-      <div class="right">
-        <button id="gcal-signin">使用 Google 登录</button>
-        <button id="gcal-signout" style="display:none;">退出</button>
-        <button id="gcal-refreshBtn" style="display:none;">刷新</button>
-        <span id="gcal-status" class="help">未登录</span>
-      </div>
-    </div>
+<!-- 列表可见性控制（保持原有） -->
+<div class="card">
+<strong>列表显示/隐藏</strong>
+<div class="vis-bar" style="margin-top:10px">
+<label><input type="checkbox" id="vis_pendingSoon" checked /> 待确认·10天内</label>
+<label><input type="checkbox" id="vis_pendingLater" checked /> 待确认·超过10天</label>
+<label><input type="checkbox" id="vis_scheduled" checked /> 已排期</label>
+<label><input type="checkbox" id="vis_done" checked /> 已完成</label>
+<span style="margin-left:auto;display:flex;gap:8px">
+<button class="btn gray" id="visSelectAll">全选</button>
+<button class="btn orange" id="visUnselectAll">全不选</button>
+</span>
+</div>
+</div>
 
-    <div id="gcal-picker" class="card" style="padding:10px;margin:12px 0;display:none;">
-      <div class="row">
-        <div class="help">选择要显示的日历（可多选；只读也可显示）：</div>
-        <button id="gcal-checkAll" class="help">全选</button>
-        <button id="gcal-uncheckAll" class="help">全不选</button>
-        <select id="gcal-writeCal" title="写入目标（只列可写）" style="display:none;"></select>
-        <div class="help">当前写入目标：<code id="gcal-currCal">primary</code></div>
-      </div>
-      <div id="gcal-calList" class="list"></div>
-      <div id="gcal-legend"></div>
-    </div>
+<!-- Session 列表（保持原有） -->
+<div class="card">
+<h3 style="margin:0 0 8px">Session 列表</h3>
 
-    <div id="gcal-calendar"></div>
+<!-- PENDING (10 天内) -->
+<div class="section" id="sec_pendingSoon">
+<div class="pattern"></div>
+<div class="section-inner">
+<div class="section-title">待确认（pending） · 10天内</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>创建时间</th><th>date</th><th>time</th><th>client</th>
+<th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
+<th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
+</tr>
+</thead>
+<tbody id="tbodyPendingSoon"></tbody>
+</table>
+</div>
+</div>
+<div class="pattern"></div>
+</div>
 
-    <div id="gcal-diag" class="card" style="padding:10px;display:none;">
-      <b>诊断</b>
-      <pre id="gcal-diagText"></pre>
-    </div>
-  </div>
+<div style="height:16px"></div>
 
-  <!-- 列表可见性控制（放在日历下方） -->
-  <div class="card">
-    <strong>列表显示/隐藏</strong>
-    <div class="vis-bar" style="margin-top:10px">
-      <label><input type="checkbox" id="vis_pendingSoon"  checked /> 待确认·10天内</label>
-      <label><input type="checkbox" id="vis_pendingLater" checked /> 待确认·超过10天</label>
-      <label><input type="checkbox" id="vis_scheduled"    checked /> 已排期</label>
-      <label><input type="checkbox" id="vis_done"         checked /> 已完成</label>
-      <span style="margin-left:auto;display:flex;gap:8px">
-        <button class="btn gray"   id="visSelectAll">全选</button>
-        <button class="btn orange" id="visUnselectAll">全不选</button>
-      </span>
-    </div>
-  </div>
+<!-- PENDING (超过10天) -->
+<div class="section" id="sec_pendingLater">
+<div class="pattern"></div>
+<div class="section-inner">
+<div class="section-title">待确认（pending） · 超过10天</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>创建时间</th><th>date</th><th>time</th><th>client</th>
+<th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
+<th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
+</tr>
+</thead>
+<tbody id="tbodyPendingLater"></tbody>
+</table>
+</div>
+</div>
+<div class="pattern"></div>
+</div>
 
-  <!-- Session 列表 -->
-  <div class="card">
-    <h3 style="margin:0 0 8px">Session 列表</h3>
+<div style="height:16px"></div>
 
-    <!-- PENDING (10 天内) -->
-    <div class="section" id="sec_pendingSoon">
-      <div class="pattern"></div>
-      <div class="section-inner">
-        <div class="section-title">待确认（pending） · 10天内</div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>创建时间</th><th>date</th><th>time</th><th>client</th>
-                <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
-                <th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyPendingSoon"></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="pattern"></div>
-    </div>
+<!-- SCHEDULED -->
+<div class="section" id="sec_scheduled">
+<div class="pattern"></div>
+<div class="section-inner">
+<div class="section-title">已排期（scheduled）</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>创建时间</th><th>date</th><th>time</th><th>client</th>
+<th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
+<th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
+</tr>
+</thead>
+<tbody id="tbodyScheduled"></tbody>
+</table>
+</div>
+</div>
+<div class="pattern"></div>
+</div>
 
-    <div style="height:16px"></div>
+<div style="height:16px"></div>
 
-    <!-- PENDING (超过10天) -->
-    <div class="section" id="sec_pendingLater">
-      <div class="pattern"></div>
-      <div class="section-inner">
-        <div class="section-title">待确认（pending） · 超过10天</div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>创建时间</th><th>date</th><th>time</th><th>client</th>
-                <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
-                <th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyPendingLater"></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="pattern"></div>
-    </div>
-
-    <div style="height:16px"></div>
-
-    <!-- SCHEDULED -->
-    <div class="section" id="sec_scheduled">
-      <div class="pattern"></div>
-      <div class="section-inner">
-        <div class="section-title">已排期（scheduled）</div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>创建时间</th><th>date</th><th>time</th><th>client</th>
-                <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
-                <th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyScheduled"></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="pattern"></div>
-    </div>
-
-    <div style="height:16px"></div>
-
-    <!-- DONE -->
-    <div class="section" id="sec_done">
-      <div class="pattern"></div>
-      <div class="section-inner">
-        <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
-          <span>已完成（done）</span>
-          <span class="toolbar" style="gap:8px">
-            <button class="btn gray" id="donePrev" onclick="pageDone(-1)">上一页</button>
-            <span id="donePageInfo" class="muted"></span>
-            <button class="btn gray" id="doneNext" onclick="pageDone(1)">下一页</button>
-          </span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>创建时间</th><th>date</th><th>time</th><th>client</th>
-                <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
-                <th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyDone"></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="pattern"></div>
-    </div>
-  </div>
+<!-- DONE -->
+<div class="section" id="sec_done">
+<div class="pattern"></div>
+<div class="section-inner">
+<div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+<span>已完成（done）</span>
+<span class="toolbar" style="gap:8px">
+<button class="btn gray" id="donePrev" onclick="pageDone(-1)">上一页</button>
+<span id="donePageInfo" class="muted"></span>
+<button class="btn gray" id="doneNext" onclick="pageDone(1)">下一页</button>
+</span>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>创建时间</th><th>date</th><th>time</th><th>client</th>
+<th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
+<th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
+</tr>
+</thead>
+<tbody id="tbodyDone"></tbody>
+</table>
+</div>
+</div>
+<div class="pattern"></div>
+</div>
+</div>
 </div>
 
 <script>
 /* === Apps Script /exec === */
 const API_BASE = 'https://script.google.com/macros/s/AKfycbw80Dgt_8Qb_7v5qxC9lBCeFXmxXBSbsm3Nu_lnU_cMZOw5HNxcFJzOQOKATGQmrvf4gA/exec';
 
-/* ---- Admin Key ---- */
-function adminKey(){ return localStorage.getItem('TXT_ADMIN_KEY') || ''; }
-function saveKey(){
-  localStorage.setItem('TXT_ADMIN_KEY', document.getElementById('adminkey').value.trim());
-  alert('已保存');
+/* ===== 管理员 Google 登录（ID Token） ===== */
+const ADMIN_CLIENT_ID = "126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com"; // 与日历同一个 web client
+function adminIdToken(){ return localStorage.getItem('TXT_ADMIN_ID_TOKEN') || ''; }
+function setAdminIdToken(tok){ if(tok) localStorage.setItem('TXT_ADMIN_ID_TOKEN', tok); else localStorage.removeItem('TXT_ADMIN_ID_TOKEN'); }
+function parseJwtPayload(jwt){
+  try{ const p = jwt.split('.')[1]; return JSON.parse(atob(p.replace(/-/g,'+').replace(/_/g,'/'))); }catch(_){ return {}; }
 }
-function softReset(){
-  clearCreateForm(); resetSearch(); loadSessions();
+function updateAdminLoginUI(info){
+  const btnIn = document.getElementById('adminSignInBtn');
+  const btnOut = document.getElementById('adminSignOutBtn');
+  const st = document.getElementById('adminLoginStatus');
+  if(info && info.ok){
+    btnIn.style.display='none'; btnOut.style.display='';
+    st.textContent = `管理员已登录：${info.email}` + (info.whitelisted? '' : '（不在白名单）');
+    st.style.color = info.whitelisted? 'var(--muted)' : 'var(--danger)';
+  }else{
+    btnIn.style.display=''; btnOut.style.display='none';
+    st.textContent='未登录管理员'; st.style.color='var(--muted)';
+  }
 }
+async function checkAdminAuth(){
+  const idt = adminIdToken();
+  if(!idt){ updateAdminLoginUI(null); return; }
+  try{
+    const r = await post('auth_check', { id_token: idt }, /*skipAttach*/true);
+    if(r && r.ok){ updateAdminLoginUI(r); } else { updateAdminLoginUI(null); }
+  }catch(_){ updateAdminLoginUI(null); }
+}
+function initAdminGSI(){
+  if(!window.google || !google.accounts || !google.accounts.id) return;
+  google.accounts.id.initialize({
+    client_id: ADMIN_CLIENT_ID,
+    callback: (resp)=>{
+      const idt = resp && resp.credential;
+      if(!idt){ alert('登录失败'); return; }
+      setAdminIdToken(idt);
+      checkAdminAuth();
+    }
+  });
+  const btn = document.getElementById('adminSignInBtn');
+  google.accounts.id.renderButton(btn, { theme: 'outline', size: 'large', type: 'standard', text: 'signin_with' });
+}
+document.getElementById('adminSignOutBtn').onclick = ()=>{
+  const idt = adminIdToken();
+  try{ if(idt){ const payload = parseJwtPayload(idt); if(payload && payload.email) google.accounts.id.revoke(payload.email, ()=>{}); } }catch(_){}
+  setAdminIdToken('');
+  updateAdminLoginUI(null);
+};
 
-/* ---- 请求封装（text/plain 避免预检） ---- */
-async function post(action, payload={}){
-  const k = adminKey();
-  if (k && !payload.admin_key) payload.admin_key = k;
+/* 旧功能：软刷新 */
+function softReset(){ clearCreateForm(); resetSearch(); loadSessions(); }
+
+/* ---- 请求封装（自动附带 id_token；text/plain 避免预检） ---- */
+async function post(action, payload={}, skipAttach){
+  const idt = adminIdToken();
+  if(!skipAttach && idt && !payload.id_token) payload.id_token = idt;
   try{
     const res = await fetch(API_BASE, {
       method: 'POST',
@@ -360,7 +402,7 @@ async function post(action, payload={}){
   }
 }
 
-/* ---- 日期/时间工具 ---- */
+/* ---- 日期/时间工具（保持原有） ---- */
 const isDate = v => Object.prototype.toString.call(v)==='[object Date]' && !isNaN(v);
 function parseMaybeDate(x){
   if (x==null || x==='') return null;
@@ -424,10 +466,10 @@ async function loadCoaches(){
   if (r.ok) COACHES = r.items||[];
   const sel = document.getElementById('coach_sel');
   sel.innerHTML = '<option value="">选择教练…</option>' +
-    (COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('');
+  (COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('');
 }
 
-/* ---- 客户/套餐 名称缓存 ---- */
+/* ---- 客户/套餐 名称缓存（保持原有） ---- */
 const CLIENT_NAME_CACHE = new Map();
 const PKG_NAME_CACHE = new Map();
 
@@ -481,7 +523,7 @@ function packageNameFromRow(row, idx){
   return cached || pid;
 }
 
-/* ---- 选择教练弹窗 ---- */
+/* ---- 选择教练弹窗（保持原有） ---- */
 function pickCoach(title='选择教练'){
   return new Promise(resolve=>{
     const ov = document.createElement('div'); ov.className='overlay';
@@ -489,15 +531,15 @@ function pickCoach(title='选择教练'){
     Object.assign(ov.style,{position:'fixed',inset:'0',background:'rgba(0,0,0,.3)',display:'grid',placeItems:'center',zIndex:9999});
     Object.assign(box.style,{background:'#fff',border:'1px solid #e5e7eb',borderRadius:'12px',boxShadow:'0 10px 24px rgba(0,0,0,.14)',padding:'14px',width:'min(420px,92vw)'});
     box.innerHTML = `
-      <div style="font-weight:600;margin-bottom:8px">${title}</div>
-      <select id="dlg_sel" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px">
-        ${(COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('')}
-      </select>
-      <div class="actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
-        <button class="btn gray" id="dlg_cancel">取消</button>
-        <button class="btn" id="dlg_ok">确定</button>
-      </div>
-    `;
+<div style="font-weight:600;margin-bottom:8px">${title}</div>
+<select id="dlg_sel" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px">
+${(COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('')}
+</select>
+<div class="actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+<button class="btn gray" id="dlg_cancel">取消</button>
+<button class="btn" id="dlg_ok">确定</button>
+</div>
+`;
     ov.appendChild(box); document.body.appendChild(ov);
     box.querySelector('#dlg_cancel').onclick=()=>{ document.body.removeChild(ov); resolve(null); };
     box.querySelector('#dlg_ok').onclick=()=>{ const v=box.querySelector('#dlg_sel').value; document.body.removeChild(ov); resolve(v); };
@@ -517,20 +559,20 @@ function mustNumber(v){ const n=Number(v); return isFinite(n) ? n : NaN; }
 
 async function createClient(){
   try{
-    const name         = c_name.value.trim();
-    const phone        = c_phone.value.trim();
-    const wechat       = c_wechat.value.trim();
-    const email        = c_email.value.trim();
-    const password     = c_pass.value.trim();
+    const name = c_name.value.trim();
+    const phone = c_phone.value.trim();
+    const wechat = c_wechat.value.trim();
+    const email = c_email.value.trim();
+    const password = c_pass.value.trim();
     const package_name = p_name.value.trim();
-    const total_hours  = Number(p_hours.value.trim() || 10);
-    const coach_id     = coach_sel.value;
+    const total_hours = Number(p_hours.value.trim() || 10);
+    const coach_id = coach_sel.value;
 
-    const amount_due_v  = mustNumber(amount_due.value.trim());
+    const amount_due_v = mustNumber(amount_due.value.trim());
     const amount_paid_v = mustNumber(amount_paid.value.trim());
-    const method        = pay_method.value.trim();
+    const method = pay_method.value.trim();
 
-    if(!isFinite(amount_due_v)  || amount_due_v<=0){ alert('请填写有效的 税后课程总价'); return; }
+    if(!isFinite(amount_due_v) || amount_due_v<=0){ alert('请填写有效的 税后课程总价'); return; }
     if(!isFinite(amount_paid_v) || amount_paid_v<0){ alert('请填写有效的 已付金额（可为 0）'); return; }
     if(!method){ alert('请选择 收款方式'); return; }
 
@@ -552,7 +594,7 @@ async function createClient(){
   }catch(err){ alert('创建失败：' + err.message); }
 }
 
-/* ---- 搜索客户 + 套餐支付渲染 ---- */
+/* ---- 搜索客户 + 套餐支付渲染（保持原有） ---- */
 function resetSearch(){ q.value=''; srCount.textContent=''; searchRes.innerHTML=''; }
 async function searchClients(){
   const keyword = q.value.trim();
@@ -578,34 +620,34 @@ async function searchClients(){
       const rest = `总 ${p.total_hours||''} / 剩余 ${p.remaining_hours||''}`;
       const holderId = `pkgpay-${pid}`;
       return `<div style="margin-top:8px">
-        <b>${pname}</b> <span class="muted">[${pid}] · ${rest}</span>
-        <div id="${holderId}" class="pkg-payline">载入支付信息中…</div>
-      </div>`;
+<b>${pname}</b> <span class="muted">[${pid}] · ${rest}</span>
+<div id="${holderId}" class="pkg-payline">载入支付信息中…</div>
+</div>`;
     }).join('') || '<div class="muted">无</div>';
 
     const sessLines = (sess||[]).map(s=>`• ${fmtDate(s.date)} ${fmtTime(s.time)} | ${s.coach_name||''} | ${s.status}`).join('<br/>') || '无';
 
     return `
-      <div class="client-card">
-        <div class="grid-2">
-          <div><b>${c.name||''}</b> <span class="muted">(${c.client_id||''})</span></div>
-          <div class="muted">电话：${c.phone||''} · 微信：${c.wechat||''} · 邮箱：${c.email||''}</div>
-        </div>
-        <div style="margin-top:6px" class="muted">固定教练：<b>${assignedLabel}</b></div>
-        <div class="toolbar" style="margin-top:8px">
-          <button class="btn" onclick="addPackage('${c.client_id}')">添加续课套餐</button>
-          <button class="btn blue" onclick="changeAssignedCoach('${c.client_id}')">更换固定指派教练</button>
-        </div>
-        <details style="margin-top:8px" open>
-          <summary>套餐 (${pkgs.length})</summary>
-          <div class="muted" style="margin-top:4px">
-            ${pkgLines}
-          </div>
-        </details>
-        <details style="margin-top:6px"><summary>课程 (${sess.length})</summary>
-          <div class="muted" style="margin-top:4px">${sessLines}</div>
-        </details>
-      </div>`;
+<div class="client-card">
+<div class="grid-2">
+<div><b>${c.name||''}</b> <span class="muted">(${c.client_id||''})</span></div>
+<div class="muted">电话：${c.phone||''} · 微信：${c.wechat||''} · 邮箱：${c.email||''}</div>
+</div>
+<div style="margin-top:6px" class="muted">固定教练：<b>${assignedLabel}</b></div>
+<div class="toolbar" style="margin-top:8px">
+<button class="btn" onclick="addPackage('${c.client_id}')">添加续课套餐</button>
+<button class="btn blue" onclick="changeAssignedCoach('${c.client_id}')">更换固定指派教练</button>
+</div>
+<details style="margin-top:8px" open>
+<summary>套餐 (${pkgs.length})</summary>
+<div class="muted" style="margin-top:4px">
+${pkgLines}
+</div>
+</details>
+<details style="margin-top:6px"><summary>课程 (${sess.length})</summary>
+<div class="muted" style="margin-top:4px">${sessLines}</div>
+</details>
+</div>`;
   }).join('') || '<div class="muted">未找到匹配客户</div>';
 
   // 异步加载每个 package 的支付信息
@@ -625,48 +667,40 @@ async function loadPackagePaymentBlock(package_id, client_id){
     const r = await post('pkg_payment', { package_id });
     if (!r || !r.ok){ holder.textContent = '读取失败'; return; }
 
-    const amount_due   = Number(r.amount_due||0);
-    const amount_paid  = Number(r.amount_paid_total||0);
-    const outstanding  = Number(r.outstanding||Math.max(0, amount_due - amount_paid));
-    const is_paid      = !!r.is_paid;
-    const txs          = Array.isArray(r.transactions)?r.transactions:[];
-
+    const amount_due = Number(r.amount_due||0);
+    const amount_paid = Number(r.amount_paid_total||0);
+    const outstanding = Number(r.outstanding||Math.max(0, amount_due - amount_paid));
+    const is_paid = !!r.is_paid;
+    const txs = Array.isArray(r.transactions)?r.transactions:[];
     const txLine = txs.length ? txs.map(tx=>{
       const when = fmtDateTime(tx.date, tx.time);
       const a = typeof tx.amount==='number'? tx.amount : Number(tx.amount||0);
       const m = tx.method || '';
       return `${when} · ${a} · ${m}`;
     }).join(' ｜ ') : '无交易记录';
-
-    const badge = is_paid ? `<span class="pay-badge pay-paid">PAID</span>`
-                          : `<span class="pay-badge pay-out">OUTSTANDING</span>`;
-
+    const badge = is_paid ? `<span class="pay-badge pay-paid">PAID</span>` : `<span class="pay-badge pay-out">OUTSTANDING</span>`;
     const ops = !is_paid ? `
-      <div class="pkg-payops">
-        <input id="topup-${package_id}" placeholder="客户已补差价：收款金额输入" />
-        <select id="topupm-${package_id}">
-          <option>线下刷卡</option>
-          <option>Interac e-transfer</option>
-          <option>吴嘉启收现金</option>
-          <option>董昱莹收现金</option>
-          <option>马丁收现金</option>
-        </select>
-        <button class="btn success" onclick="doTopup('${package_id}','${client_id}')">登记收款</button>
-      </div>` : '';
-
+<div class="pkg-payops">
+<input id="topup-${package_id}" placeholder="客户已补差价：收款金额输入" />
+<select id="topupm-${package_id}">
+<option>线下刷卡</option>
+<option>Interac e-transfer</option>
+<option>吴嘉启收现金</option>
+<option>董昱莹收现金</option>
+<option>马丁收现金</option>
+</select>
+<button class="btn success" onclick="doTopup('${package_id}','${client_id}')">登记收款</button>
+</div>` : '';
     holder.innerHTML = `
-      <div>
-        <span>应付：<b>${amount_due}</b>，已付：<b>${amount_paid}</b>，未结：<b>${outstanding}</b></span>
-        ${badge}
-      </div>
-      <div class="pkg-payline">${txLine}</div>
-      ${ops}
-    `;
-  }catch(e){
-    holder.textContent = '读取异常';
-  }
+<div>
+<span>应付：<b>${amount_due}</b>，已付：<b>${amount_paid}</b>，未结：<b>${outstanding}</b></span>
+${badge}
+</div>
+<div class="pkg-payline">${txLine}</div>
+${ops}
+`;
+  }catch(e){ holder.textContent = '读取异常'; }
 }
-
 async function doTopup(package_id, client_id){
   const amtEl = document.getElementById(`topup-${package_id}`);
   const metEl = document.getElementById(`topupm-${package_id}`);
@@ -675,61 +709,31 @@ async function doTopup(package_id, client_id){
   const method = metEl.value;
   if(!isFinite(amount) || amount<=0){ alert('请输入有效的补款金额'); return; }
   if(!method){ alert('请选择收款方式'); return; }
-
   const r = await post('add_transaction', { package_id, client_id, amount, method });
   if(!r || !r.ok){ alert('登记失败：' + (r&&r.msg||'')); return; }
   await loadPackagePaymentBlock(package_id, client_id);
 }
 
-/* 续课添加：新增“应付”并确保写入成功（含兜底） */
+/* 续课添加（保持原有逻辑） */
 async function addPackage(client_id){
   const package_name = prompt('输入新套餐名称（如 800/10hr）');
   if(!package_name) return;
-
   const total_hours = Number(prompt('输入套餐总小时（如 10）') || 0);
   if(!(total_hours>0)) return alert('总小时需大于 0');
-
   const amount_due = Number(prompt('输入该套餐 税后课程总价（应付）') || 0);
   if(!(amount_due>0)) return alert('应付需大于 0');
-
-  // 1) 首选：直接把 amount_due 发给后端
   const r = await post('add_package', { client_id, package_name, total_hours, amount_due });
   if(!r || !r.ok) return alert('创建失败：' + (r && r.msg || ''));
   const pid = r.package_id;
-
-  // 2) 验证是否真的写上了应付；否则依次尝试多个动作名；最后兜底用 add_transaction(set_due)
   try{
     const check = await post('pkg_payment', { package_id: pid });
     const dueNow = Number(check && check.amount_due || 0);
-
     if (!(dueNow > 0)){
-      // 尝试不同的后端动作名
-      const trySet = async (action) => {
-        const resp = await post(action, { package_id: pid, amount_due });
-        return resp && resp.ok;
-      };
-      const actions = [
-        'set_package_amount_due',
-        'pkg_set_due',
-        'set_pkg_amount_due',
-        'set_package_due',
-        'update_package'
-      ];
-      let ok = false;
-      for (const act of actions){
-        try{ if (await trySet(act)) { ok = true; break; } }catch(_){}
-      }
-      // 兜底：用交易把应付写到表（后端需识别 set_due）
-      if (!ok){
-        await post('add_transaction', {
-          package_id: pid, client_id,
-          method: 'SET_DUE', amount: 0, set_due: amount_due
-        });
-      }
+      const actions = ['set_package_amount_due','pkg_set_due','set_pkg_amount_due','set_package_due','update_package'];
+      for (const act of actions){ try{ const ok = await post(act, { package_id: pid, amount_due }); if (ok && ok.ok) break; }catch(_){ } }
+      await post('add_transaction', { package_id: pid, client_id, method: 'SET_DUE', amount: 0, set_due: amount_due });
     }
   }catch(_){}
-
-  // 3) 刷新该 package 的支付块 + 客户卡片
   try{ await loadPackagePaymentBlock(pid, client_id); }catch(_){}
   alert('创建成功：' + pid);
   searchClients();
@@ -739,12 +743,12 @@ async function changeAssignedCoach(client_id){
   const coach_id = await pickCoach('选择新的固定指派教练');
   if (!coach_id) return;
   const r = await post('set_assigned_coach', { client_id, coach_id });
-  if (!r.ok) return alert('更换失败：' + (r.msg||''));
+  if (!r.ok) return alert('更换失败：' + (r.msg||'')); 
   alert('已更换固定指派教练');
   searchClients();
 }
 
-/* ---- Session 列表 ---- */
+/* ====== 以下与 Session/日历等保持原有 ====== */
 function idxOf(H, names){ for (const n of names){ const i = H.indexOf(n); if (i !== -1) return i; } return -1; }
 
 let DONE_ALL = []; let donePage=1; const donePageSize=50;
@@ -768,28 +772,28 @@ async function loadSessions(){
   const now = Date.now(), tenDaysMs = 10*24*3600*1000;
 
   const pendings = rows.filter(row => String(row[idx.status])==='pending')
-    .sort((a,b)=>{
-      const ca = createdIdx!==-1 ? parseMaybeDate(a[createdIdx]) : startDT(a, idx);
-      const cb = createdIdx!==-1 ? parseMaybeDate(b[createdIdx]) : startDT(b, idx);
-      return (ca?ca.getTime():0) - (cb?cb.getTime():0);
-    });
-  const pendingSoon  = pendings.filter(row=>{ const st=startDT(row, idx); return !st || (st.getTime()-now)<=tenDaysMs; });
+  .sort((a,b)=>{
+    const ca = createdIdx!==-1 ? parseMaybeDate(a[createdIdx]) : startDT(a, idx);
+    const cb = createdIdx!==-1 ? parseMaybeDate(b[createdIdx]) : startDT(b, idx);
+    return (ca?ca.getTime():0) - (cb?cb.getTime():0);
+  });
+  const pendingSoon = pendings.filter(row=>{ const st=startDT(row, idx); return !st || (st.getTime()-now)<=tenDaysMs; });
   const pendingLater = pendings.filter(row=>{ const st=startDT(row, idx); return st && (st.getTime()-now)>tenDaysMs; });
 
   const scheduled = rows.filter(row => String(row[idx.status])==='scheduled')
-    .sort((a,b)=>{
-      const sa=startDT(a, idx), sb=startDT(b, idx);
-      const da = sa?Math.abs(sa.getTime()-now):Number.MAX_SAFE_INTEGER;
-      const db = sb?Math.abs(sb.getTime()-now):Number.MAX_SAFE_INTEGER;
-      if (da !== db) return da - db;
-      return (sa?sa.getTime():0) - (sb?sb.getTime():0);
-    });
+  .sort((a,b)=>{
+    const sa=startDT(a, idx), sb=startDT(b, idx);
+    const da = sa?Math.abs(sa.getTime()-now):Number.MAX_SAFE_INTEGER;
+    const db = sb?Math.abs(sb.getTime()-now):Number.MAX_SAFE_INTEGER;
+    if (da !== db) return da - db;
+    return (sa?sa.getTime():0) - (sb?sb.getTime():0);
+  });
 
   DONE_ALL = rows.filter(row => String(row[idx.status])==='done')
-    .sort((a,b)=>{
-      const ea=endDT(a, idx), eb=endDT(b, idx);
-      return (eb?eb.getTime():0) - (ea?ea.getTime():0);
-    });
+  .sort((a,b)=>{
+    const ea=endDT(a, idx), eb=endDT(b, idx);
+    return (eb?eb.getTime():0) - (ea?ea.getTime():0);
+  });
 
   const clientIdIdx = idxOf(H, ['client_id','clientId','clientID']);
   if (clientIdIdx!==-1){
@@ -802,7 +806,7 @@ async function loadSessions(){
     await ensurePackageNames(allPkgIds);
   }
 
-  renderPendingGroup('tbodyPendingSoon',  pendingSoon,  idx, createdIdx);
+  renderPendingGroup('tbodyPendingSoon', pendingSoon, idx, createdIdx);
   renderPendingGroup('tbodyPendingLater', pendingLater, idx, createdIdx);
   renderTable('tbodyScheduled', scheduled, idx, 'scheduled', createdIdx);
   donePage = 1; renderDonePaged(idx, createdIdx);
@@ -835,13 +839,13 @@ function createdTimeStr(row, createdIdx){
   return `${dt} ${tm}`;
 }
 
-/* ---- 已写入日历的本地标记 ---- */
+/* ---- 已写入日历的本地标记（保持原有） ---- */
 function addedKey(sessionId, calId){ return `SESSION_CAL_ADDED::${sessionId}::${calId}`; }
 function markAdded(sessionId, calId, calName){ try{ localStorage.setItem(addedKey(sessionId, calId), calName||''); }catch(e){} }
 function getAddedName(sessionId, calId){ try{ return localStorage.getItem(addedKey(sessionId, calId)); }catch(e){ return null; } }
 function unmarkAdded(sessionId, calId){ try{ localStorage.removeItem(addedKey(sessionId, calId)); }catch(e){} }
 
-/* ---- 行操作渲染 ---- */
+/* ---- 行操作渲染（保持原有） ---- */
 function buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel){
   const sid = row[idx.session_id];
   const et = endDT(row, idx);
@@ -856,7 +860,7 @@ function buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel){
     addBtn = `<span class="muted">已添加到球馆${addedToName}</span>`;
   }else{
     const coachName = String(row[idx.coach_name]||'');
-    const coachId   = String(row[idx.coach_id]||'');
+    const coachId = String(row[idx.coach_id]||'');
     const clientFullName = (clientStr||'').replace(/\s*\([^)]*\)\s*$/, '').trim();
     addBtn = `<button class="btn gray" onclick='addToFacilityCalendar(${JSON.stringify({
       session_id:sid,
@@ -868,8 +872,8 @@ function buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel){
   }
 
   const completeBtn = `<button class="btn success ${canComplete?'':'disabled'}" onclick="${canComplete?`complete('${sid}')`:'void(0)'}">已完成</button>`;
-  const cancelBtn   = `<button class="btn danger"  onclick="cancelSession('${sid}')">取消</button>`;
-  const switchBtn   = `<button class="btn blue"    onclick="sw('${sid}','${status}')">换教练</button>`;
+  const cancelBtn = `<button class="btn danger" onclick="cancelSession('${sid}')">取消</button>`;
+  const switchBtn = `<button class="btn blue" onclick="sw('${sid}','${status}')">换教练</button>`;
 
   return `${completeBtn} ${cancelBtn} ${switchBtn} ${addBtn}`;
 }
@@ -891,18 +895,18 @@ function renderPendingGroup(tbodyId, rows, idx, createdIdx){
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${createdStr}</td>
-      <td>${fmtDate(row[idx.date])}</td>
-      <td>${fmtTime(row[idx.time])}</td>
-      <td>${clientStr}</td>
-      <td>${coachLabel}</td>
-      <td>${pkgName}</td>
-      <td>${row[idx.duration_hours]||1}</td>
-      <td>${badge(status)}</td>
-      <td>${row[idx.notes]||''}</td>
-      <td class="row-actions">${opHTML}</td>
-      <td>${session_id}</td>
-      <td>${pkg_id}</td>`;
+<td>${createdStr}</td>
+<td>${fmtDate(row[idx.date])}</td>
+<td>${fmtTime(row[idx.time])}</td>
+<td>${clientStr}</td>
+<td>${coachLabel}</td>
+<td>${pkgName}</td>
+<td>${row[idx.duration_hours]||1}</td>
+<td>${badge(status)}</td>
+<td>${row[idx.notes]||''}</td>
+<td class="row-actions">${opHTML}</td>
+<td>${session_id}</td>
+<td>${pkg_id}</td>`;
     tb.appendChild(tr);
   });
 }
@@ -924,18 +928,18 @@ function renderTable(tbodyId, rows, idx, listType, createdIdx){
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${createdStr}</td>
-      <td>${fmtDate(row[idx.date])}</td>
-      <td>${fmtTime(row[idx.time])}</td>
-      <td>${clientStr}</td>
-      <td>${coachLabel}</td>
-      <td>${pkgName}</td>
-      <td>${row[idx.duration_hours]||1}</td>
-      <td>${badge(status)}</td>
-      <td>${row[idx.notes]||''}</td>
-      <td class="row-actions">${opHTML}</td>
-      <td>${session_id}</td>
-      <td>${pkg_id}</td>`;
+<td>${createdStr}</td>
+<td>${fmtDate(row[idx.date])}</td>
+<td>${fmtTime(row[idx.time])}</td>
+<td>${clientStr}</td>
+<td>${coachLabel}</td>
+<td>${pkgName}</td>
+<td>${row[idx.duration_hours]||1}</td>
+<td>${badge(status)}</td>
+<td>${row[idx.notes]||''}</td>
+<td class="row-actions">${opHTML}</td>
+<td>${session_id}</td>
+<td>${pkg_id}</td>`;
     tb.appendChild(tr);
   });
 }
@@ -969,9 +973,9 @@ async function sw(session_id, status){
 }
 
 /* =========================
-   Google Calendar 嵌入
+Google Calendar 嵌入（保持原有）
 ========================= */
-const GCAL_CLIENT_ID = "126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com";
+const GCAL_CLIENT_ID = ADMIN_CLIENT_ID;
 const GCAL_SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events";
 const GCAL_TZ = "America/Toronto";
 const GCAL_FETCH_BUFFER_MS = 36 * 60 * 60 * 1000;
@@ -987,10 +991,14 @@ function gcalShowDiag(obj){
   catch(e){ p.textContent=String(obj); }
 }
 function gapiLoaded(){ gapi.load('client', async ()=>{ await gapi.client.init({discoveryDocs:["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"]}); gapiReady=true; }); }
-function gisLoaded(){ gcal_tokenClient=google.accounts.oauth2.initTokenClient({
-  client_id:GCAL_CLIENT_ID, scope:GCAL_SCOPES,
-  callback:(resp)=>{ if(resp&&resp.access_token){ gcal_accessToken=resp.access_token; gapi.client.setToken({access_token:gcal_accessToken}); gcalOnSignedIn(); } else { gcalShowDiag({oauth_callback_resp:resp}); } }
-}); gisReady=true; }
+function gisLoaded(){ 
+  gcal_tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:GCAL_CLIENT_ID, scope:GCAL_SCOPES,
+    callback:(resp)=>{ if(resp&&resp.access_token){ gcal_accessToken=resp.access_token; gapi.client.setToken({access_token:gcal_accessToken}); gcalOnSignedIn(); } else { gcalShowDiag({oauth_callback_resp:resp}); } }
+  }); 
+  gisReady=true; 
+  initAdminGSI(); // 初始化管理员 ID 按钮
+}
 window.gapiLoaded=gapiLoaded; window.gisLoaded=gisLoaded;
 
 async function gcalSignIn(){ if(!gapiReady||!gisReady) return; gcal_tokenClient.requestAccessToken({prompt:'consent'}); }
@@ -1017,7 +1025,6 @@ async function gcalOnSignedIn(){
   document.getElementById('gcal-signout').style.display='';
   document.getElementById('gcal-refreshBtn').style.display='';
   document.getElementById('gcal-status').textContent='已登录';
-
   try{
     const res=await gapi.client.calendar.calendarList.list({maxResults:250});
     calendarListCache=(res.result.items||[]);
@@ -1058,15 +1065,12 @@ async function gcalOnSignedIn(){
 
     document.getElementById('gcal-checkAll').onclick=()=>{ showCalendarIds=new Set(calendarListCache.map(c=>c.id)); listDiv.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=true); if(gcal_calendar) gcal_calendar.refetchEvents(); };
     document.getElementById('gcal-uncheckAll').onclick=()=>{ showCalendarIds=new Set(); listDiv.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false); if(gcal_calendar) gcal_calendar.refetchEvents(); };
-
   }catch(e){ gcalShowDiag(e); }
-
   gcalRenderCalendar();
 }
 
 function gcalRenderCalendar(){
   const el=document.getElementById('gcal-calendar'); if(gcal_calendar) gcal_calendar.destroy();
-
   gcal_calendar=new FullCalendar.Calendar(el,{
     initialView:'timeGridWeek',
     timeZone:GCAL_TZ,
@@ -1075,94 +1079,46 @@ function gcalRenderCalendar(){
     slotMaxTime:"23:59:59",
     scrollTime:"08:00:00",
     slotLabelFormat:{hour:'2-digit',minute:'2-digit',hour12:false},
-    selectable:true,
-    editable:true,
-    nowIndicator:true,
-    eventMaxStack:50,
+    selectable:true, editable:true, nowIndicator:true, eventMaxStack:50,
     headerToolbar:{ left:'prev,next today', center:'title', right:'dayGridMonth,timeGridWeek,timeGridDay' },
-
-    events: async (info, success, failure)=>{
+    events: async (info, success, failure)=>{ /* 保持原有逻辑 */ 
       try{
         const timeMinISO=new Date(info.start.getTime()-GCAL_FETCH_BUFFER_MS).toISOString();
         const timeMaxISO=new Date(info.end.getTime()+GCAL_FETCH_BUFFER_MS).toISOString();
         const ids=(showCalendarIds.size?Array.from(showCalendarIds):[writeCalendarId]);
-
         const fetchOne=async(cid)=>{
-          const res=await gapi.client.calendar.events.list({
-            calendarId:cid, timeMin:timeMinISO, timeMax:timeMaxISO,
-            singleEvents:true, orderBy:'startTime', showDeleted:false, maxResults:2500,
-          });
+          const res=await gapi.client.calendar.events.list({ calendarId:cid, timeMin:timeMinISO, timeMax:timeMaxISO, singleEvents:true, orderBy:'startTime', showDeleted:false, maxResults:2500 });
           const meta=calendarListCache.find(x=>x.id===cid);
           const color=meta?.backgroundColor;
           const canEdit=meta && (meta.accessRole==='owner'||meta.accessRole==='writer');
-
-          return (res.result.items||[]).map(ev=>({
-            id:(ev.id||Math.random().toString(36).slice(2))+'::'+cid,
-            title:ev.summary||'(无标题)',
-            start:ev.start.dateTime||ev.start.date,
-            end:ev.end?.dateTime||ev.end?.date,
-            allDay:!!ev.start.date,
-            backgroundColor:color, borderColor:color,
-            extendedProps:{calendarId:cid, eventId:ev.id, canEdit}
-          }));
+          return (res.result.items||[]).map(ev=>({ id:(ev.id||Math.random().toString(36).slice(2))+'::'+cid, title:ev.summary||'(无标题)', start:ev.start.dateTime||ev.start.date, end:ev.end?.dateTime||ev.end?.date, allDay:!!ev.start.date, backgroundColor:color, borderColor:color, extendedProps:{calendarId:cid, eventId:ev.id, canEdit} }));
         };
-
         const chunks=await Promise.all(ids.map(cid=>fetchOne(cid)));
         success(chunks.flat());
       }catch(err){ gcalShowDiag(err); failure(err); }
     },
-
-    eventAllow:(dropInfo, draggedEvent)=>{
-      const canEdit=draggedEvent.extendedProps?.canEdit;
-      if(!canEdit){ alert('这是只读日历的事件，不能编辑。'); return false; }
-      return true;
-    },
-
-    select: async (selInfo)=>{
+    eventAllow:(dropInfo, draggedEvent)=>{ const canEdit=draggedEvent.extendedProps?.canEdit; if(!canEdit){ alert('这是只读日历的事件，不能编辑。'); return false; } return true; },
+    select: async (selInfo)=>{ /* 保持原有 */ 
       if(!gcalIsSignedIn()) return;
-      const title=prompt('事件标题：','新事件');
-      if(!title){ gcal_calendar.unselect(); return; }
+      const title=prompt('事件标题：','新事件'); if(!title){ gcal_calendar.unselect(); return; }
       const isAllDay=selInfo.allDay;
-      const resource={
-        summary:title,
-        start:isAllDay?{date:selInfo.startStr}:{dateTime:selInfo.startStr,timeZone:GCAL_TZ},
-        end:  isAllDay?{date:selInfo.endStr}:{dateTime:selInfo.endStr,timeZone:GCAL_TZ},
-      };
+      const resource={ summary:title, start:isAllDay?{date:selInfo.startStr}:{dateTime:selInfo.startStr,timeZone:GCAL_TZ}, end: isAllDay?{date:selInfo.endStr}:{dateTime:selInfo.endStr,timeZone:GCAL_TZ} };
       try{
         const res=await gapi.client.calendar.events.insert({calendarId:writeCalendarId, resource});
-        const meta=calendarListCache.find(x=>x.id===writeCalendarId);
-        const color=meta?.backgroundColor;
+        const meta=calendarListCache.find(x=>x.id===writeCalendarId); const color=meta?.backgroundColor;
         if(showCalendarIds.has(writeCalendarId)){
-          gcal_calendar.addEvent({
-            id:(res.result.id||Math.random().toString(36).slice(2))+'::'+writeCalendarId,
-            title:res.result.summary||'(无标题)',
-            start:res.result.start.dateTime||res.result.start.date,
-            end:res.result.end?.dateTime||res.result.end?.date,
-            allDay:!!res.result.start.date,
-            backgroundColor:color, borderColor:color,
-            extendedProps:{calendarId:writeCalendarId, eventId:res.result.id, canEdit:true}
-          });
+          gcal_calendar.addEvent({ id:(res.result.id||Math.random().toString(36).slice(2))+'::'+writeCalendarId, title:res.result.summary||'(无标题)', start:res.result.start.dateTime||res.result.start.date, end:res.result.end?.dateTime||res.result.end?.date, allDay:!!res.result.start.date, backgroundColor:color, borderColor:color, extendedProps:{calendarId:writeCalendarId, eventId:res.result.id, canEdit:true} });
         }
       }catch(e){ gcalShowDiag(e); alert('创建失败：'+(e.result?.error?.message||e.message)); }
     },
-
-    eventChange: async (chg)=>{
-      const e=chg.event;
-      const {calendarId,eventId,canEdit}=e.extendedProps||{};
+    eventChange: async (chg)=>{ /* 保持原有 */ 
+      const e=chg.event; const {calendarId,eventId,canEdit}=e.extendedProps||{};
       if(!canEdit){ chg.revert(); return; }
       try{
-        await gapi.client.calendar.events.update({
-          calendarId,eventId,
-          resource:{
-            summary:e.title,
-            start:e.allDay?{date:e.startStr}:{dateTime:e.start.toISOString(),timeZone:GCAL_TZ},
-            end:  e.allDay?{date:e.endStr}:{dateTime:e.end?.toISOString(),timeZone:GCAL_TZ},
-          }
-        });
+        await gapi.client.calendar.events.update({ calendarId,eventId, resource:{ summary:e.title, start:e.allDay?{date:e.startStr}:{dateTime:e.start.toISOString(),timeZone:GCAL_TZ}, end: e.allDay?{date:e.endStr}:{dateTime:e.end?.toISOString(),timeZone:GCAL_TZ} } });
       }catch(err){ gcalShowDiag(err); alert('更新失败，已回滚：'+(err.result?.error?.message||err.message)); chg.revert(); }
     },
-
-    eventClick: async (clickInfo)=>{
+    eventClick: async (clickInfo)=>{ /* 保持原有 */ 
       const {calendarId,eventId,canEdit}=clickInfo.event.extendedProps||{};
       if(!canEdit){ alert('这是只读日历的事件，不能删除。'); return; }
       if(!confirm('删除这个事件？')) return;
@@ -1173,38 +1129,26 @@ function gcalRenderCalendar(){
       }catch(err){ gcalShowDiag(err); alert('删除失败：'+(err.result?.error?.message||err.message)); }
     }
   });
-
   gcal_calendar.render();
 }
 
 window.addEventListener('load', ()=>{
   if(window.gapi) gapiLoaded();
   if(window.google) gisLoaded();
+  checkAdminAuth();
 });
 
-/* ====== Admin：添加到球馆日历 ====== */
+/* ====== Admin：添加到球馆日历（保持原有） ====== */
 async function addToFacilityCalendar(meta){
-  if (!gcalIsSignedIn()){
-    alert('日历未登录，请先在上方使用 Google 登录。');
-    return;
-  }
+  if (!gcalIsSignedIn()){ alert('日历未登录，请先在上方使用 Google 登录。'); return; }
   const dateStr = (meta.date||'').replace(/\//g,'-');
   const startISO = `${dateStr}T${meta.time||'00:00'}:00`;
   const start = new Date(startISO);
-  const end   = new Date(start.getTime() + (Number(meta.dur)||1)*3600*1000);
-
+  const end = new Date(start.getTime() + (Number(meta.dur)||1)*3600*1000);
   const calName = currentWriteCalSummary();
   const title = `${(meta.coachName||'').trim()}-${(meta.coachId||'').trim()}-${(meta.clientFullName||'').trim()}-${calName}`.replace(/\s+/g,' ').trim();
-
   try{
-    await gapi.client.calendar.events.insert({
-      calendarId: writeCalendarId,
-      resource:{
-        summary:title,
-        start:{dateTime:start.toISOString(), timeZone:GCAL_TZ},
-        end:{dateTime:end.toISOString(), timeZone:GCAL_TZ}
-      }
-    });
+    await gapi.client.calendar.events.insert({ calendarId: writeCalendarId, resource:{ summary:title, start:{dateTime:start.toISOString(), timeZone:GCAL_TZ}, end:{dateTime:end.toISOString(), timeZone:GCAL_TZ} } });
     markAdded(meta.session_id, writeCalendarId, calName);
     alert('已添加到当前写入目标日历：' + calName);
     if(gcal_calendar) gcal_calendar.refetchEvents();
@@ -1214,98 +1158,21 @@ async function addToFacilityCalendar(meta){
   }
 }
 
-/* ===== 与日历对账 ===== */
-async function reconcileAddedMarksForVisible(rows, idx){
-  try{
-    if (!gcalIsSignedIn()) return;
-    const calId = writeCalendarId;
-    if (!calId) return;
-
-    const needCheck = rows.filter(r => {
-      const sid = r[idx.session_id];
-      return sid && getAddedName(sid, calId);
-    });
-    if (!needCheck.length) return;
-
-    let anyChanged = false;
-
-    const getMeta = (row)=>{
-      const st = startDT(row, idx);
-      const dur = Number(row[idx.duration_hours]||1)||1;
-      const et = st ? new Date(st.getTime() + dur*3600*1000) : null;
-      const clientId = row[idx.client_id];
-      const clientStr = clientLabel(clientId);
-      const clientNameOnly = (clientStr||'').replace(/\s*\([^)]*\)\s*$/,'').trim();
-      return { st, et, clientNameOnly,
-        coachId: String(row[idx.coach_id]||''),
-        coachName: String(row[idx.coach_name]||'')
-      };
-    };
-
-    for (const row of needCheck){
-      const sid = row[idx.session_id];
-      const { st, et, clientNameOnly, coachId, coachName } = getMeta(row);
-      if (!st || !et){ unmarkAdded(sid, calId); anyChanged = true; continue; }
-
-      const pad = 90*60*1000;
-      const timeMin = new Date(st.getTime() - pad).toISOString();
-      const timeMax = new Date(et.getTime() + pad).toISOString();
-
-      const resp = await gapi.client.calendar.events.list({
-        calendarId: calId,
-        timeMin, timeMax,
-        singleEvents: true,
-        orderBy: 'startTime',
-        showDeleted: false,
-        maxResults: 250
-      });
-
-      const items = resp.result.items || [];
-      const exists = items.some(ev=>{
-        const evStartISO = ev.start?.dateTime || ev.start?.date;
-        if (!evStartISO) return false;
-        const evStart = new Date(evStartISO);
-        if (isNaN(evStart)) return false;
-        const diff = Math.abs(evStart.getTime() - st.getTime());
-        const summary = (ev.summary||'').toLowerCase();
-        const keys = [clientNameOnly, coachId, coachName].map(s=>String(s||'').toLowerCase()).filter(Boolean);
-        const hit = keys.length ? keys.some(k=>k && summary.includes(k)) : true;
-        return diff <= 10*60*1000 && hit;
-      });
-
-      if (!exists){
-        unmarkAdded(sid, calId);
-        anyChanged = true;
-      }
-    }
-
-    if (anyChanged){
-      loadSessions();
-    }
-  }catch(err){
-    console.warn('reconcile error', err);
-  }
-}
-
-/* ===== 列表可见性：存取与应用 + 全选/全不选 ===== */
+/* ===== 列表可见性：存取与应用 + 全选/全不选（保持原有） ===== */
 const VIS_KEYS = {
-  vis_pendingSoon:  'sec_pendingSoon',
+  vis_pendingSoon: 'sec_pendingSoon',
   vis_pendingLater: 'sec_pendingLater',
-  vis_scheduled:    'sec_scheduled',
-  vis_done:         'sec_done'
+  vis_scheduled: 'sec_scheduled',
+  vis_done: 'sec_done'
 };
-function readVisPref(){
-  try{ return JSON.parse(localStorage.getItem('TXT_ADMIN_VIS')||'{}'); }catch(e){ return {}; }
-}
-function saveVisPref(obj){
-  localStorage.setItem('TXT_ADMIN_VIS', JSON.stringify(obj||{}));
-}
+function readVisPref(){ try{ return JSON.parse(localStorage.getItem('TXT_ADMIN_VIS')||'{}'); }catch(e){ return {}; } }
+function saveVisPref(obj){ localStorage.setItem('TXT_ADMIN_VIS', JSON.stringify(obj||{})); }
 function applyVisibilityFromStorage(){
   const pref = readVisPref();
   for (const [ckId, secId] of Object.entries(VIS_KEYS)){
     const ck = document.getElementById(ckId);
     const sec = document.getElementById(secId);
-    const show = pref[ckId] !== false; // 默认显示
+    const show = pref[ckId] !== false;
     if (ck) ck.checked = show;
     if (sec) sec.style.display = show ? '' : 'none';
   }
