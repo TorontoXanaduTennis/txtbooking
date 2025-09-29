@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>教练端 · TXT 订课</title>
+<title>教练端 · TXT 订课（Google 登录版）</title>
 
 <!-- ===== 基础样式（教练端） ===== -->
 <style>
@@ -16,11 +16,12 @@
   th,td{padding:8px;border-bottom:1px solid #eee;font-size:14px;vertical-align:middle}
   th{font-weight:600;color:#374151;background:#fafafa}
 
-  /* === 状态底色（更醒目） === */
-  .status-pending{background:#FED7AA}     /* 更亮橙 */
-  .status-scheduled{background:#BBF7D0}   /* 更亮绿 */
-  .status-done{background:#E5E7EB}        /* 灰 */
-  .status-coach_proposed{background:#FEF3C7} /* 待学员提交新时间（淡黄，可选） */
+  /* === 状态底色 === */
+  .status-pending{background:#FED7AA}
+  .status-scheduled{background:#BBF7D0}
+  .status-done{background:#E5E7EB}
+  .status-coach_proposed{background:#FEF3C7}
+  .status-canceled{background:#F3F4F6}
 
   .muted{color:#6b7280}
   .warn-orange{color:#d97706;font-weight:600;margin-left:6px}
@@ -86,12 +87,10 @@
 <div class="wrap">
   <h1>教练端 · TXT 订课</h1>
 
-  <!-- ===== 登录卡片（教练） ===== -->
+  <!-- ===== 登录卡片（Google 账号） ===== -->
   <div class="card">
-    <h3>登录（coach_id + coach_email）</h3>
-    <input id="cid" placeholder="coach_id" />
-    <input id="cem" placeholder="coach_email" />
-    <button id="loginBtn" onclick="login()">登录</button>
+    <h3>使用 Google 登录（邮箱需存在于 Coach 表的 <code>coach_email</code> 列）</h3>
+    <div id="coachGBtn" style="margin:8px 0"></div>
     <button onclick="refresh()">刷新</button>
     <div id="info" style="margin-top:8px;color:#10b981"></div>
   </div>
@@ -219,6 +218,8 @@ const API_BASE = 'https://script.google.com/macros/s/AKfycbynPqPnHlHWsfwNgX12FK_
 
 async function post(action, payload = {}) {
   try {
+    const saved = JSON.parse(localStorage.getItem('TXT_COACH_GOOGLE')||'{}');
+    if (saved && saved.id_token) payload.id_token = saved.id_token; // 使用 Google 身份
     const res = await fetch(API_BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
@@ -295,19 +296,6 @@ async function hydrateMissingClientNames(missingIds){
     const r = await post('client_names', { ids });
     if(r && r.ok && r.map){ fillClientNamesFromMap(r.map); return; }
   }catch(e){}
-  const chunk = async (arr, size=5)=>{
-    for(let i=0;i<arr.length;i+=size){
-      const group = arr.slice(i,i+size);
-      await Promise.all(group.map(async id=>{
-        if(clientNameCache.has(id)) return;
-        try{
-          const r = await post('client_name_by_id', { id });
-          if(r && r.ok && r.name){ clientNameCache.set(id, String(r.name)); }
-        }catch(e){}
-      }));
-    }
-  };
-  await chunk(ids, 5);
 }
 function displayClientName(s){
   const direct = s.client_name || s.client_full_name || s.client || '';
@@ -318,42 +306,41 @@ function displayClientName(s){
   return id;
 }
 
-// —— 登录（教练） ——
-async function login(){
-  const btn = document.getElementById('loginBtn');
-  btn.disabled = true;
-  try{
-    const coach_id = document.getElementById('cid').value.trim();
-    const coach_email = document.getElementById('cem').value.trim();
-    const r = await post('login_coach', { coach_id, coach_email });
-    if(!r.ok){ alert(r.msg || '登录失败'); return; }
+// —— Google 登录（教练） ——
+window.onload = function(){
+  if (window.google && window.google.accounts && window.google.accounts.id){
+    google.accounts.id.initialize({
+      client_id:"126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com",
+      callback: async (resp)=>{
+        const id_token = resp.credential;
+        const r = await post('login_coach_google', { id_token });
+        if(!r.ok){ alert(r.msg||'登录失败'); return; }
 
-    coach = r.coach;
-    document.getElementById('info').textContent = `${coach.coach_name} (${coach.coach_id}) 已登录`;
-    localStorage.setItem('TXT_COACH', JSON.stringify({ coach_id, coach_email }));
+        coach = r.coach;
+        localStorage.setItem('TXT_COACH_GOOGLE', JSON.stringify({ id_token }));
+        document.getElementById('info').textContent = `${coach.coach_name} (${coach.coach_id}) 已登录`;
 
-    if(r.clientMap) fillClientNamesFromMap(r.clientMap);
+        if(r.clientMap) fillClientNamesFromMap(r.clientMap);
 
-    const sessions = r.sessions || [];
-    document.getElementById('upcoming').style.display = 'block';
-    document.getElementById('done').style.display = 'block';
-    renderAll(sessions);
+        const sessions = r.sessions || [];
+        document.getElementById('upcoming').style.display = 'block';
+        document.getElementById('done').style.display = 'block';
+        renderAll(sessions);
 
-    const missingIds = sessions.map(s => s.client_id || s.clientId || s.clientID).filter(Boolean);
-    await hydrateMissingClientNames(missingIds);
-    renderAll(sessions);
-  } finally {
-    btn.disabled = false;
+        const missingIds = sessions.map(s => s.client_id || s.clientId || s.clientID).filter(Boolean);
+        await hydrateMissingClientNames(missingIds);
+        renderAll(sessions);
+      }
+    });
+    google.accounts.id.renderButton(document.getElementById('coachGBtn'), { theme:'outline', size:'large', shape:'pill', text:'signin_with', locale:'zh-CN' });
   }
-}
-window.login = login;
+};
 
 // —— 刷新（教练） ——
 async function refresh(){
-  const saved = localStorage.getItem('TXT_COACH');
+  const saved = localStorage.getItem('TXT_COACH_GOOGLE');
   if(!saved) return alert('请先登录');
-  const { coach_id, coach_email } = JSON.parse(saved);
-  const r = await post('login_coach', { coach_id, coach_email });
+  const r = await post('login_coach_google', {});
   if(!r.ok) return alert(r.msg || '刷新失败');
 
   if(r.clientMap) fillClientNamesFromMap(r.clientMap);
@@ -365,35 +352,27 @@ async function refresh(){
   await hydrateMissingClientNames(missingIds);
   renderAll(sessions);
 }
-window.refresh = refresh;
 
 // ======= 主渲染：分表 + 排序 + 分页 =======
 function renderAll(list){
   const now = new Date();
 
-  // 拆分
   const withStart = list.map(s => ({...s, ...sessionStartEnd(s)}));
+
   const upcoming = withStart.filter(x=>{
-    // 未来（或今天未开始）且状态 pending / scheduled / coach_proposed
     return x.start && x.start.getTime() >= (now.getTime() - 60*1000) &&
-           (x.status==='pending' || x.status==='scheduled' || x.status==='coach_proposed');
-  });
-  const done = withStart.filter(x=>x.status==='done' && x.start);
+           (x.status==='pending' || x.status==='scheduled' || x.status==='coach_proposed' || x.status==='canceled');
+  }).sort((a,b)=>a.start-b.start);
 
-  // 排序：即将到来的 → 先 pending（老→新），再 scheduled（近→远），最后 coach_proposed（老→新）
-  const pendings = upcoming.filter(x=>x.status==='pending').sort((a,b)=>a.start-b.start);
-  const scheduled = upcoming.filter(x=>x.status==='scheduled').sort((a,b)=>a.start-b.start);
-  const proposed = upcoming.filter(x=>x.status==='coach_proposed').sort((a,b)=>a.start-b.start);
-  const upcomingSorted = [...pendings, ...scheduled, ...proposed];
+  const done = withStart.filter(x=>x.status==='done' && x.start).sort((a,b)=>b.start - a.start);
 
-  // 已完成（新 → 旧）
-  const doneSorted = done.sort((a,b)=>b.start - a.start);
-
-  renderUpcoming(upcomingSorted);
-  renderDone(doneSorted, DONE_PAGE);
+  renderUpcoming(upcoming);
+  renderDone(done, DONE_PAGE);
 }
 
-// —— 即将到来的（含 48h/24h 警示 + 添加到日历 + 改时间） ——
+function hoursUntil(s){ return (s.start - new Date())/3600000; }
+
+// —— 即将到来的（含限制/提示） ——
 function renderUpcoming(list){
   const tb = document.querySelector('#tblUpcoming tbody'); tb.innerHTML='';
   const now = new Date();
@@ -404,35 +383,37 @@ function renderUpcoming(list){
     const dateDisp = formatDateWithWeek(s.date || s.session_date);
     const timeDisp = formatTimeHHmm(s.time || s.session_time);
     const clientName = displayClientName(s);
-    const pkgName = s.package_name || s.package || s.pkg_name || s.pkg || s.package_id || '';
 
-    let warnHTML = '';
-    if ((s.status === 'pending' || s.status === 'coach_proposed') && s.start && s.start > now){
-      const hours = (s.start - now)/3600000;
-      if (hours <= 24){
-        warnHTML = `<span class="warn-red">即将逾期未确认，请尽快处理！</span>`;
-      } else if (hours <= 48){
-        warnHTML = `<span class="warn-orange">请尽快确认此课程！</span>`;
+    let statusTxt = s.status || '';
+    if (s.status === 'canceled') statusTxt = '已取消';
+
+    // coach_proposed 超 48 小时未处理提示
+    if (s.status==='coach_proposed' && s.reschedule_created_at){
+      const created = new Date(s.reschedule_created_at);
+      if (!isNaN(created) && (now.getTime() - created.getTime()) > 48*3600000){
+        statusTxt += ' · 学员尚未确认，请与客服联系';
       }
     }
 
-    // 操作列：按状态拼装
+    // 操作列
     let opsHTML = '';
-    const titleForCalendar = `${coach?.coach_name||''}-${coach?.coach_id||''}-${clientName}-${pkgName}`.replace(/\s+/g,' ').trim();
+    const canPropose = hoursUntil(s) >= 24;
 
-    if (s.status === 'pending') {
-      const addBtn = `<button class="btn-secondary" onclick='addToMyCalendar(${JSON.stringify({id:s.session_id||'',title:titleForCalendar}).replace(/'/g,"&#39;")}, "${dateDisp}", "${timeDisp}", "${s.duration_hours ?? s.duration ?? 1}")'>添加到我的日历</button>`;
-      const changeBtn = `<button class="btn-secondary" onclick='openRescheduleDialog(${JSON.stringify(s).replace(/'/g,"&#39;")})'>改时间</button>`;
+    if (s.status === 'canceled'){
+      opsHTML = ''; // 已取消不可操作
+    } else if (s.status === 'pending'){
+      const changeBtn = canPropose
+        ? `<button class="btn-secondary" onclick='openRescheduleDialog(${JSON.stringify(s).replace(/'/g,"&#39;")})'>改时间</button>`
+        : `<button class="btn-secondary" disabled title="24小时内不可改时间">改时间</button>`;
       const confirmBtn = `<button class="btn-secondary" onclick="confirmSess('${s.session_id}')">确认</button>`;
-      opsHTML = `<div class="op-row">${confirmBtn}${changeBtn}${addBtn}</div>`;
-    } else if (s.status === 'scheduled') {
-      const addBtn = `<button class="btn-secondary" onclick='addToMyCalendar(${JSON.stringify({id:s.session_id||'',title:titleForCalendar}).replace(/'/g,"&#39;")}, "${dateDisp}", "${timeDisp}", "${s.duration_hours ?? s.duration ?? 1}")'>添加到我的日历</button>`;
-      opsHTML = `<div class="op-row">${addBtn}</div>`;
-    } else if (s.status === 'coach_proposed') {
-      // 需求：proposed 后面不显示任何按钮，只显示提示文本
+      opsHTML = `<div class="op-row">${confirmBtn}${changeBtn}</div>`;
+    } else if (s.status === 'scheduled'){
+      const changeBtn = canPropose
+        ? `<button class="btn-secondary" onclick='openRescheduleDialog(${JSON.stringify(s).replace(/'/g,"&#39;")})'>改时间</button>`
+        : `<button class="btn-secondary" disabled title="24小时内不可改时间">改时间</button>`;
+      opsHTML = `<div class="op-row">${changeBtn}</div>`;
+    } else if (s.status === 'coach_proposed'){
       opsHTML = `<span class="muted">等待学员提交新时间</span>`;
-    } else {
-      opsHTML = '';
     }
 
     tr.innerHTML = `
@@ -441,7 +422,7 @@ function renderUpcoming(list){
       <td>${timeDisp}</td>
       <td>${clientName}</td>
       <td>${s.duration_hours ?? s.duration ?? 1}</td>
-      <td>${(s.status || '')} ${warnHTML}</td>
+      <td>${statusTxt}</td>
       <td>${opsHTML}</td>`;
     tb.appendChild(tr);
   });
@@ -488,9 +469,8 @@ async function confirmSess(id){
   alert('已确认，状态为待完成');
   refresh();
 }
-window.confirmSess = confirmSess;
 
-/* ===== “添加到我的日历” 实现 ===== */
+/* ===== “添加到我的日历” 实现（保留原功能，可选用） ===== */
 function addToMyCalendar(meta, dateDisp, timeDisp, durHours){
   if (!gcalIsSignedIn()){
     alert('日历未登录，请用 Google 账号登录你的日历后进行操作');
@@ -511,32 +491,62 @@ function addToMyCalendar(meta, dateDisp, timeDisp, durHours){
 }
 window.addToMyCalendar = addToMyCalendar;
 
-// —— 自动恢复登录 —— 
-(function autoLogin(){
-  const saved = localStorage.getItem('TXT_COACH');
-  if(!saved) return;
-  const { coach_id, coach_email } = JSON.parse(saved);
-  if(coach_id && coach_email){
-    post('login_coach', { coach_id, coach_email }).then(async r=>{
-      if(!r || !r.ok) return;
-      coach = r.coach;
-      document.getElementById('info').textContent = `${coach.coach_name} (${coach.coach_id}) 已登录`;
-      document.getElementById('upcoming').style.display = 'block';
-      document.getElementById('done').style.display = 'block';
-      if(r.clientMap) fillClientNamesFromMap(r.clientMap);
-      const sessions = r.sessions || [];
-      renderAll(sessions);
-      const missingIds = sessions.map(s => s.client_id || s.clientId || s.clientID).filter(Boolean);
-      await hydrateMissingClientNames(missingIds);
-      renderAll(sessions);
-    });
+/* =========================
+   2) 改时间弹窗逻辑（含 24h 限制）
+========================= */
+let RS_SESSION=null;
+function fillHourSel(id){ const sel=document.getElementById(id); if(sel.options.length) return; for(let h=8;h<=23;h++){ const v=String(h).padStart(2,'0'); sel.add(new Option(v,v)); } }
+['rsH1','rsH2','rsH3','rsH4','rsH5'].forEach(fillHourSel);
+
+function openRescheduleDialog(s){
+  RS_SESSION = s;
+
+  // 24h 内不允许改时间
+  const dd=new Date(s.date); const [H,M]=String(s.time).slice(0,5).split(':').map(Number);
+  const start=new Date(dd.getFullYear(),dd.getMonth(),dd.getDate(),H||0,M||0,0,0);
+  if ((start - new Date()) < 24*3600000){
+    alert('24小时内不可发起改时间');
+    RS_SESSION=null;
+    return;
   }
-})();
+
+  document.getElementById('rsSid').textContent = `session_id: ${s.session_id}`;
+  ['D1','D2','D3','D4','D5'].forEach(k=>document.getElementById('rs'+k).value='');
+  ['H1','H2','H3','H4','H5'].forEach(k=>document.getElementById('rs'+k).value='08');
+  ['M1','M2','M3','M4','M5'].forEach(k=>document.getElementById('rs'+k).value='00');
+  document.getElementById('rsReason').value='';
+  document.getElementById('rsDlg').style.display='flex';
+}
+function closeRs(){ document.getElementById('rsDlg').style.display='none'; RS_SESSION=null; }
+
+async function submitReschedule(){
+  const reason = document.getElementById('rsReason').value;
+  if (!reason) return alert('请选择原因');
+
+  const opts=[];
+  for (let i=1;i<=5;i++){
+    const d = document.getElementById('rsD'+i).value;
+    const h = document.getElementById('rsH'+i).value;
+    const m = document.getElementById('rsM'+i).value;
+    if (d && h){ opts.push({date:d, time:`${h}:${m}`}); }
+  }
+  if (opts.length===0) return alert('请至少给出一个可选时间');
+
+  const r = await post('propose_reschedule', {
+    session_id: RS_SESSION.session_id,
+    reason,
+    options: opts
+  });
+  if (!r.ok){ alert(r.msg||'提交失败'); return; }
+  closeRs();
+  alert('已提交改时间，等待学员确认');
+  refresh();
+}
 </script>
 
 <script>
 /* =========================
-   2) Google Calendar 嵌入
+   3) Google Calendar 嵌入（原样保留）
 ========================= */
   const GCAL_CLIENT_ID = "126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com";
   const GCAL_SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events";
@@ -778,50 +788,6 @@ window.addToMyCalendar = addToMyCalendar;
     if(window.gapi) gapiLoaded();
     if(window.google) gisLoaded();
   });
-</script>
-
-<script>
-/* =========================
-   3) 改时间弹窗逻辑
-========================= */
-let RS_SESSION=null;
-function fillHourSel(id){ const sel=document.getElementById(id); if(sel.options.length) return; for(let h=8;h<=23;h++){ const v=String(h).padStart(2,'0'); sel.add(new Option(v,v)); } }
-['rsH1','rsH2','rsH3','rsH4','rsH5'].forEach(fillHourSel);
-
-function openRescheduleDialog(s){
-  RS_SESSION = s;
-  document.getElementById('rsSid').textContent = `session_id: ${s.session_id}`;
-  ['D1','D2','D3','D4','D5'].forEach(k=>document.getElementById('rs'+k).value='');
-  ['H1','H2','H3','H4','H5'].forEach(k=>document.getElementById('rs'+k).value='08');
-  ['M1','M2','M3','M4','M5'].forEach(k=>document.getElementById('rs'+k).value='00');
-  document.getElementById('rsReason').value='';
-  document.getElementById('rsDlg').style.display='flex';
-}
-function closeRs(){ document.getElementById('rsDlg').style.display='none'; RS_SESSION=null; }
-
-async function submitReschedule(){
-  const reason = document.getElementById('rsReason').value;
-  if (!reason) return alert('请选择原因');
-
-  const opts=[];
-  for (let i=1;i<=5;i++){
-    const d = document.getElementById('rsD'+i).value;
-    const h = document.getElementById('rsH'+i).value;
-    const m = document.getElementById('rsM'+i).value;
-    if (d && h){ opts.push({date:d, time:`${h}:${m}`}); }
-  }
-  if (opts.length===0) return alert('请至少给出一个可选时间');
-
-  const r = await post('propose_reschedule', {
-    session_id: RS_SESSION.session_id,
-    reason,
-    options: opts
-  });
-  if (!r.ok){ alert(r.msg||'提交失败'); return; }
-  closeRs();
-  alert('已提交改时间，等待学员确认');
-  refresh();
-}
 </script>
 </body>
 </html>
