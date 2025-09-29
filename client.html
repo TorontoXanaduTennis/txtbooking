@@ -35,7 +35,6 @@
       repeating-linear-gradient(135deg,#4b5563 0 8px,rgba(75,85,99,0) 8px 16px),
       repeating-linear-gradient(225deg,#4b5563 0 8px,rgba(75,85,99,0) 8px 16px);opacity:.45}
 
-  /* 表格更紧凑 */
   .table-wrap{position:relative;overflow:auto}
   table{width:100%;table-layout:auto;border-collapse:separate;border-spacing:0 8px}
   thead th{position:sticky;top:0;background:var(--bg);z-index:1;font-weight:600;padding:6px 8px;font-size:13px;white-space:nowrap}
@@ -58,28 +57,22 @@
   .renew-row{display:flex;justify-content:flex-end;margin-top:8px}
   .disabled{opacity:.55;pointer-events:none}
 
-  /* 列表选择面板 */
   .toggles{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .toggles label{display:flex;gap:6px;align-items:center;font-size:12px;color:#374151}
   .opt-multi{width:100%; min-width:220px}
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div class="wrap">
   <h1>客户端 · TXT 订课</h1>
 
-  <!-- 登录：单列四排 -->
+  <!-- 登录（改为 Google 账号） -->
   <div class="card" id="loginCard">
     <div id="loginForm">
-      <h3>登录</h3>
-      <div style="display:grid;grid-template-columns:1fr;gap:8px;max-width:420px">
-        <input id="name"  autocomplete="name"        placeholder="姓名（必填）" />
-        <input id="email" autocomplete="email"       placeholder="邮箱（与电话二选一）" />
-        <input id="phone" autocomplete="tel"         placeholder="电话（与邮箱二选一）" />
-        <input id="password" autocomplete="current-password" placeholder="登录密码（必填）" type="password" />
-        <button id="loginBtn" class="btn blue" onclick="login()">登录</button>
-      </div>
-      <div class="muted" style="margin-top:6px;font-size:12px">必须输入：<b>姓名</b> + <b>邮箱或电话</b> + <b>登录密码</b>。</div>
+      <h3>使用 Google 登录</h3>
+      <div id="gBtn" style="margin:8px 0"></div>
+      <div class="muted" style="margin-top:6px;font-size:12px">你的 Google 邮箱必须已录入在系统（Client 表的 email）中，方可登录。</div>
     </div>
 
     <div id="userBar" style="display:none;align-items:center;justify-content:space-between" class="toolbar">
@@ -131,7 +124,7 @@
     <div id="bookMsg" class="muted" style="margin-top:6px"></div>
   </div>
 
-  <!-- ✅ 列表选择面板（登录后显示；位置：预约下方、待确认上方；默认全不选） -->
+  <!-- 列表选择面板 -->
   <div id="toggleCard" class="card" style="display:none">
     <div class="toolbar" style="justify-content:space-between;gap:12px">
       <div class="muted">选择要显示的列表：</div>
@@ -148,7 +141,7 @@
     </div>
   </div>
 
-  <!-- ====== 待改时间（放最前） ====== -->
+  <!-- 待改时间（隐藏 proposal_id） -->
   <div id="secResch" class="section" style="display:none">
     <div class="pattern"></div>
     <div class="section-inner">
@@ -157,7 +150,7 @@
         <table>
           <thead>
             <tr>
-              <th class="w-id">proposal_id</th>
+              <!-- <th class="w-id">proposal_id</th> 隐藏 -->
               <th>原因</th>
               <th class="w-opts">可选时间（可多选）</th>
               <th class="w-date">课程原计划时间</th>
@@ -184,7 +177,7 @@
           <thead>
             <tr>
               <th class="w-date">date</th><th class="w-time">time</th><th>duration</th><th class="w-coach">coach</th>
-              <th>status</th><th>备注</th><th>反馈</th><th>提交</th><th class="w-id">session_id</th>
+              <th>status</th><th>备注</th><th>反馈</th><th>提交</th><th>取消</th><th class="w-id">session_id</th>
             </tr>
           </thead>
           <tbody id="tbUpcomingSoon"></tbody>
@@ -197,7 +190,7 @@
           <thead>
             <tr>
               <th class="w-date">date</th><th class="w-time">time</th><th>duration</th><th class="w-coach">coach</th>
-              <th>status</th><th>备注</th><th>反馈</th><th>提交</th><th class="w-id">session_id</th>
+              <th>status</th><th>备注</th><th>反馈</th><th>提交</th><th>取消</th><th class="w-id">session_id</th>
             </tr>
           </thead>
           <tbody id="tbUpcomingLater"></tbody>
@@ -217,7 +210,7 @@
           <thead>
             <tr>
               <th class="w-date">date</th><th class="w-time">time</th><th>duration</th><th class="w-coach">coach</th>
-              <th>status</th><th>备注</th><th>反馈</th><th>提交</th><th class="w-id">session_id</th>
+              <th>status</th><th>备注</th><th>反馈</th><th>提交</th><th>取消</th><th class="w-id">session_id</th>
             </tr>
           </thead>
           <tbody id="tbPending"></tbody>
@@ -267,12 +260,8 @@ function readSession(){ try{ return JSON.parse(localStorage.getItem('TXT_CLIENT'
 async function post(action, payload = {}) {
   try {
     const cache = readSession();
-    if (action !== 'login_client' && cache){
-      if (!('client_id' in payload) && cache.client_id) payload.client_id = cache.client_id;
-      if (!('client_key' in payload) && cache.password)  payload.client_key = cache.password;
-      if (!('password'  in payload) && cache.password)  payload.password  = cache.password;
-      if (!('email'     in payload) && cache.email)     payload.email     = cache.email;
-      if (!('phone'     in payload) && cache.phone)     payload.phone     = cache.phone;
+    if (cache && cache.id_token){
+      payload.id_token = cache.id_token; // 客户端所有请求用 Google 身份
     }
     const res = await fetch(API_BASE, {
       method: 'POST',
@@ -320,11 +309,8 @@ function setLoginUI(logged){
   pkgCard.style.display   = logged ? 'block': 'none';
   progressCard.style.display = logged ? 'block' : 'none';
   dash.style.display      = logged ? 'block' : 'none';
-
-  // 列表选择面板：登录后才显示
   toggleCard.style.display = logged ? 'block' : 'none';
 
-  // 根据复选框控制列表显隐（默认都不勾选）
   secResch.style.display    = (logged && tgResch.checked) ? 'block' : 'none';
   secUpcoming.style.display = (logged && tgUpcoming.checked) ? 'block' : 'none';
   secPending.style.display  = (logged && tgPending.checked) ? 'block' : 'none';
@@ -332,33 +318,31 @@ function setLoginUI(logged){
 }
 function logout(){
   client=null; saveSession(null); setLoginUI(false); bookMsg.textContent='';
-  ['name','email','phone','password'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  // 清空所有勾选
   [tgResch,tgUpcoming,tgPending,tgDone].forEach(el=>el.checked=false);
 }
+
+/* Google 登录按钮 */
+window.onload = function(){
+  if (window.google && window.google.accounts && window.google.accounts.id){
+    google.accounts.id.initialize({
+      client_id: "126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com",
+      callback: async (resp)=>{
+        const id_token = resp.credential;
+        const r = await post('login_client_google', { id_token });
+        if (!r.ok){ alert(r.msg||'登录失败'); return; }
+        saveSession({ id_token, client_id:r.client.client_id, email:r.client.email, name:r.client.name });
+        await afterLogin(r);
+      }
+    });
+    google.accounts.id.renderButton(document.getElementById('gBtn'), { theme:'outline', size:'large', shape:'pill', text:'signin_with', locale:'zh-CN' });
+  }
+};
+
 async function reloadAfterLogin(){
   const cache = readSession();
-  if (!cache || (!cache.email && !cache.phone) || !cache.password){ alert('请先登录'); return; }
-  const r = await post('login_client', { email: cache.email||'', phone: cache.phone||'', password: cache.password });
+  if (!cache || !cache.id_token){ alert('请先登录'); return; }
+  const r = await post('login_client_google', {});
   if (r.ok) await afterLogin(r); else alert(r.msg||'刷新失败');
-}
-
-async function login(){
-  const btn = document.getElementById('loginBtn'); btn.disabled = true;
-  try{
-    const name = nameEl.value.trim(), email = emailEl.value.trim(), phone = phoneEl.value.trim(), password = passwordEl.value.trim();
-    if (!name) { alert('请填写姓名'); return; }
-    if (!email && !phone){ alert('邮箱与电话需至少填写一个'); return; }
-    if (!password){ alert('请填写登录密码'); return; }
-    const r = await post('login_client', { email, phone, password });
-    if(!r.ok){ alert(r.msg || '登录失败'); return; }
-    if (r.client && r.client.name){
-      const a=String(r.client.name).trim().toLowerCase(), b=name.toLowerCase().trim();
-      if (a!==b){ alert('姓名与账号不匹配'); return; }
-    }
-    saveSession({client_id:r.client.client_id, email:r.client.email||email, phone:r.client.phone||phone, name:r.client.name, password});
-    await afterLogin(r);
-  } finally { btn.disabled = false; }
 }
 
 function renderProgress(){
@@ -385,7 +369,7 @@ async function afterLogin(data){
 
   renderProgress();
 
-  pkgSel.innerHTML = (PACKS||[]).map(p=>`<option value="${p.package_id}">${p.package_name} [${p.package_id}]</option>`).join('');
+  pkgSel.innerHTML = (PACKS||[]).map(p=>`<option value="${p.package_id}" data-remaining="${Number(p.remaining_hours||0)}">${p.package_name} [${p.package_id}]（剩余${Number(p.remaining_hours||0)}h）</option>`).join('');
 
   coachPill.textContent = `您的教练：${client.coach_name || '未指定教练'}`;
   coachPill.dataset.coachId = client.coach_id || '';
@@ -403,9 +387,14 @@ async function afterLogin(data){
   prepareDone();
 }
 
-/* ==== 预约 ==== */
+/* ==== 预约（含课时校验与换包） ==== */
 function composeTimeStr(){ return `${hourSel.value||'08'}:${minSel.value||'00'}`; }
 function isPastSelection(dateStr, timeStr){ const sel=new Date(`${dateStr}T${timeStr}:00`); return sel.getTime() < Date.now() - 60*1000; }
+
+function totalRemainingHours(){
+  return (PACKS||[]).reduce((s,p)=>s+Number(p.remaining_hours||0),0);
+}
+
 async function createSession(){
   if(!client){ alert('请先登录'); return; }
   const package_id = pkgSel.value, dateStr = date.value, timeStr = composeTimeStr();
@@ -414,12 +403,35 @@ async function createSession(){
   if(!package_id){ alert('请选择套餐'); return; }
   if(!dateStr){ alert('请选择日期'); return; }
   if (isPastSelection(dateStr, timeStr)){ alert('不能选择已过去的时间'); return; }
-  const r = await post('create_session', { package_id, date: dateStr, time: timeStr, duration_hours, notes, coach_id });
+
+  // 课时充足性校验
+  const sumRemain = totalRemainingHours();
+  if (sumRemain < 1){
+    // 总剩余不足 1h — 阻止预约 & 弹出续课提示
+    requestRenew(); return;
+  }
+
+  const selRemain = Number((pkgSel.selectedOptions[0]?.dataset?.remaining)||0);
+  let usePkg = package_id;
+  if (selRemain < duration_hours){
+    // 选项：提示改用其他有足够剩余的 package
+    const candidates = (PACKS||[]).filter(p=>Number(p.remaining_hours||0)>=duration_hours);
+    if (candidates.length===0){
+      requestRenew(); return;
+    }
+    const labels = candidates.map((p,i)=>`${i+1}. ${p.package_name}[${p.package_id}]（剩余${p.remaining_hours}h）`).join('\n');
+    const pick = prompt(`当前套餐剩余不足 ${duration_hours}h。\n请选择可用于本次预约的套餐编号：\n${labels}`, '1');
+    const idx = Number(pick||'1')-1;
+    if (isNaN(idx) || idx<0 || idx>=candidates.length) return;
+    usePkg = candidates[idx].package_id;
+  }
+
+  const r = await post('create_session', { package_id: usePkg, date: dateStr, time: timeStr, duration_hours, notes, coach_id });
   if(!r.ok){ bookMsg.style.color='var(--red)'; bookMsg.textContent='预约失败：' + (r.msg||'Unknown error'); }
   else{ bookMsg.style.color='var(--green)'; bookMsg.textContent='预约成功，等待教练确认'; reloadAfterLogin(); }
 }
 
-/* ==== 待改时间 ==== */
+/* ==== 待改时间（隐藏 proposal_id 列） ==== */
 function renderReschedules(){
   const tb = document.getElementById('tbResch'); tb.innerHTML='';
   const getOrig = (sid)=>{
@@ -437,7 +449,6 @@ function renderReschedules(){
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="w-id">${p.proposal_id||''}</td>
       <td>${p.reason||''}</td>
       <td class="w-opts">
         <select id="${selId}" class="opt-multi" multiple size="${size}" title="可多选">
@@ -464,12 +475,30 @@ async function submitResch(pid){
   alert('提交成功，已生成新的待确认课程'); reloadAfterLogin();
 }
 
-/* ==== 其余列表 ==== */
+/* ==== 行渲染（含取消按钮） ==== */
+function canCancelUI(s){
+  const st = startDT(s);
+  if (!st) return { allow:false, code:'no_time' };
+  const diffH = (st.getTime() - Date.now())/3600000;
+  if (diffH < 2) return { allow:false, code:'lt2h' };
+  if (diffH < 24) return { allow:true, half:true };
+  return { allow:true, half:false };
+}
 function rowHTML(s, locked){
   const sid = s.session_id;
   const note = (s.notes||'').replace(/"/g,'&quot;');
   const fb   = (s.feedback||'').replace(/"/g,'&quot;');
   const dis = locked ? 'disabled' : '';
+
+  // 取消按钮规则
+  const cc = canCancelUI(s);
+  let cancelBtn = `<button class="btn red" onclick="cancelSession('${sid}', false)">取消</button>`;
+  if (!cc.allow){
+    cancelBtn = `<button class="btn gray" disabled title="${cc.code==='lt2h'?'开始前2小时内不可取消':''}">取消</button>`;
+  }else if (cc.half){
+    cancelBtn = `<button class="btn red" onclick="cancelSession('${sid}', true)" title="开始前24小时内取消将扣除本节课一半课时">取消（扣0.5h）</button>`;
+  }
+
   return `
     <td class="w-date">${fmtDate(s.date)}</td>
     <td class="w-time">${fmtTime(s.time)}</td>
@@ -479,6 +508,7 @@ function rowHTML(s, locked){
     <td><input class="row-input note" ${dis} data-id="${sid}" value="${note}"></td>
     <td><input class="row-input fb" ${dis} data-id="${sid}" value="${fb}"></td>
     <td><button class="btn ${locked?'lock':''}" ${locked?'disabled':''} onclick="submitRow('${sid}','${s.status}')">${locked?'已提交':'提交'}</button></td>
+    <td>${cancelBtn}</td>
     <td class="w-id">${sid}</td>
   `;
 }
@@ -489,7 +519,7 @@ function renderUpcoming(){
   soonTB.innerHTML = ''; laterTB.innerHTML = '';
   const now = Date.now();
 
-  const list = (SESS||[]).filter(x=>x.status==='scheduled')
+  const list = (SESS||[]).filter(x=>x.status==='scheduled' || x.status==='pending')
     .sort((a,b)=>{
       const sa=startDT(a), sb=startDT(b);
       const da = sa?sa.getTime():Number.MAX_SAFE_INTEGER;
@@ -547,7 +577,7 @@ function renderDonePaged(){
   secDone.style.display = tgDone.checked ? 'block' : 'none';
 }
 
-/* ==== 兼容提交备注/反馈 ==== */
+/* ==== 兼容提交备注/反馈（保持不变） ==== */
 async function updateNotesCompat(base){
   const actions = [
     'update_session_notes','update_session_feedback','update_notes','update_feedback',
@@ -621,11 +651,17 @@ async function submitRow(id, status){
   }
 }
 
+/* ==== 取消课程 ==== */
+async function cancelSession(session_id, half){
+  if (half){
+    if (!confirm('取消本节课将扣除本节课一半课时（0.5h）。确认取消？')) return;
+  }
+  const r = await post('cancel_session', { session_id, client_cancel:true });
+  if (!r.ok){ alert(r.msg||'取消失败'); return; }
+  alert('已取消本节课。'); reloadAfterLogin();
+}
+
 /* ==== 元素引用 & 事件 ==== */
-const nameEl = document.getElementById('name');
-const emailEl = document.getElementById('email');
-const phoneEl = document.getElementById('phone');
-const passwordEl = document.getElementById('password');
 const hourSel = document.getElementById('hourSel');
 const minSel  = document.getElementById('minSel');
 const date    = document.getElementById('date');
@@ -675,12 +711,10 @@ btnNone.addEventListener('click', ()=>{
 
 /* ==== 启动 ==== */
 (async function init(){
-  // 默认全不勾选
   [tgResch,tgUpcoming,tgPending,tgDone].forEach(el=>el.checked=false);
-
   const cache = readSession();
-  if (cache && (cache.email || cache.phone) && cache.password){
-    const rel = await post('login_client', { email: cache.email||'', phone: cache.phone||'', password: cache.password });
+  if (cache && cache.id_token){
+    const rel = await post('login_client_google', {});
     if (rel.ok){ await afterLogin(rel); return; }
   }
   setLoginUI(false);
