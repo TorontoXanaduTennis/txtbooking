@@ -21,7 +21,7 @@ h1{font-size:28px;margin:0 0 16px}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 input,select,button{padding:10px 12px;border:1px solid var(--bdr);border-radius:10px;background:#fff}
 button{background:var(--primary);color:#fff;cursor:pointer}
-.btn{padding:8px 12px;border-radius:10px;border:1px solid transparent}
+.btn{padding:8px 12px;border-radius:10px;border:1px solid透明}
 .btn.success{background:var(--success)}
 .btn.danger{background:var(--danger)}
 .btn.blue{background:var(--blue)}
@@ -646,7 +646,11 @@ async function searchClients(){
       </div>`;
     }).join('') || '<div class="muted">无</div>';
 
-    const sessLines = (sess||[]).map(s=>`• ${fmtDate(s.date)} ${fmtTime(s.time)} | ${s.coach_name||''} | ${s.status}`).join('<br/>') || '无';
+    /* 修改处：课程行增加 session_id 与时长 */
+    const sessLines = (sess||[]).map(s=>{
+      const dur = (s && (s.duration_hours!=null && s.duration_hours!=='')) ? s.duration_hours : (s?.duration ?? s?.dur ?? 1);
+      return `• ${fmtDate(s.date)} ${fmtTime(s.time)} | ${s.coach_name||''} | ${s.status} | ${s.session_id||''} | ${dur}小时`;
+    }).join('<br/>') || '无';
 
     return `
     <div class="client-card">
