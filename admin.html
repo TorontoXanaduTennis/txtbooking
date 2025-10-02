@@ -59,6 +59,8 @@ tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:1
 .b-pending{background:var(--st-pending);color:#92400e}
 .b-scheduled{background:var(--st-scheduled);color:#374151}
 .b-done{background:var(--st-done);color:#065f46}
+/* 新增：取消状态徽章 */
+.b-cancelled{background:#FECACA;color:#991B1B;border:1px solid #fecaca}
 
 .pay-badge{padding:2px 8px;border-radius:999px;font-size:12px;margin-left:6px}
 .pay-paid{background:#D1FAE5;color:#065f46;border:1px solid #a7f3d0}
@@ -140,6 +142,8 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
     <button class="btn gray" onclick="signOutAdmin()">退出登录</button>
     <button class="btn" onclick="loadSessions()">刷新列表</button>
     <button class="btn orange" onclick="softReset()">刷新页面</button>
+    <!-- 新增：刷新提示 -->
+    <span id="refreshHint" class="muted" style="margin-left:8px"></span>
   </div>
 </div>
 
@@ -173,6 +177,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <button class="btn gray" onclick="clearCreateForm()">清空</button>
 </div>
 </div>
+<!-- 修复：成功后保持绿色提示不被清空 -->
 <div id="createClientMsg" style="margin-top:8px;color:var(--success)"></div>
 <div class="muted" style="margin-top:6px">提示：教练名单来自 Coach List</div>
 </div>
@@ -248,7 +253,8 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <table>
 <thead>
 <tr>
-<th>创建时间</th><th>date</th><th>time</th><th>client</th>
+<!-- 按要求：不再显示创建时间，但排序逻辑保持 -->
+<th>date</th><th>time</th><th>client</th>
 <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
 <th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
 </tr>
@@ -270,7 +276,8 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <table>
 <thead>
 <tr>
-<th>创建时间</th><th>date</th><th>time</th><th>client</th>
+<!-- 去除创建时间列 -->
+<th>date</th><th>time</th><th>client</th>
 <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
 <th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
 </tr>
@@ -292,7 +299,8 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <table>
 <thead>
 <tr>
-<th>创建时间</th><th>date</th><th>time</th><th>client</th>
+<!-- 去除创建时间列 -->
+<th>date</th><th>time</th><th>client</th>
 <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
 <th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
 </tr>
@@ -321,7 +329,8 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <table>
 <thead>
 <tr>
-<th>创建时间</th><th>date</th><th>time</th><th>client</th>
+<!-- 去除创建时间列；并将取消的课并入该表显示 -->
+<th>date</th><th>time</th><th>client</th>
 <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
 <th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
 </tr>
@@ -339,7 +348,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 
 <script>
 /* === Apps Script /exec === */
-const API_BASE = 'https://script.google.com/macros/s/AKfycbwMaGOe2c4hxsemqg75JkXgnfGHqREJFGD4RUNVi50SxHFYr-jTqxS-bPofpF7eAA/exec';
+const API_BASE = 'https://script.google.com/macros/s/AKfycbzIRAc4FhAGl_v-1m59lbHg4zl5Kth6z-1TIuM4en2CS0i8fBV26b5Gi-c0wNL1LPawyA/exec';
 
 /* ---- Admin 登录：ID Token 存取 ---- */
 const ADMIN_ID_TOKEN_KEY = 'TXT_ADMIN_ID_TOKEN';
@@ -347,6 +356,20 @@ function adminToken(){ return localStorage.getItem(ADMIN_ID_TOKEN_KEY) || ''; }
 function setAdminToken(t){ if(t) localStorage.setItem(ADMIN_ID_TOKEN_KEY, t); }
 function clearAdminToken(){ localStorage.removeItem(ADMIN_ID_TOKEN_KEY); }
 function softReset(){ clearCreateForm(); resetSearch(); loadSessions(); }
+
+/* ---- 刷新提示 ---- */
+function setRefreshing(on,msg){
+  const el = document.getElementById('refreshHint');
+  if(!el) return;
+  if(on){
+    el.style.color='var(--orange)';
+    el.textContent = msg || '正在刷新…';
+  }else{
+    el.style.color='var(--success)';
+    el.textContent = msg || '刷新已完成';
+    setTimeout(()=>{ if(el.textContent==='刷新已完成'){ el.textContent=''; } }, 1200);
+  }
+}
 
 /* ---- 请求封装（自动带 id_token；text/plain 避免预检） ---- */
 async function post(action, payload={}){
@@ -477,6 +500,7 @@ function badge(status){
   if(status==='done') return '<span class="badge b-done">done</span>';
   if(status==='scheduled') return '<span class="badge b-scheduled">scheduled</span>';
   if(status==='pending') return '<span class="badge b-pending">pending</span>';
+  if(status==='cancelled') return '<span class="badge b-cancelled">cancelled</span>';
   return status||'';
 }
 
@@ -521,7 +545,7 @@ async function ensurePackageNames(ids){
   const miss = [...new Set(ids.filter(Boolean).map(String))].filter(id=>!PKG_NAME_CACHE.has(id));
   if (!miss.length) return;
   for (const pid of miss){ PKG_NAME_CACHE.set(pid, ''); } // 防抖
-  // 使用已有 fallback 的两个接口尝试
+  // 尝试读取（若后端不存在该兼容接口，会安全失败）
   for (const pid of miss){
     try{
       const rr = await post('package_name_by_id', { id: pid });
@@ -562,13 +586,14 @@ function pickCoach(title='选择教练'){
 }
 
 /* ---- 录入新客户（含首笔交易） ---- */
-function clearCreateForm(){
+/* 修改：支持 keepMsg，成功后不清空“录入成功”绿色提示 */
+function clearCreateForm(keepMsg){
   ['c_name','c_phone','c_wechat','c_email','c_pass','p_name','p_hours','amount_due','amount_paid'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
   const sel1 = document.getElementById('coach_sel'); if (sel1) sel1.value='';
   const sel2 = document.getElementById('pay_method'); if (sel2) sel2.value='';
-  const msg = document.getElementById('createClientMsg'); if (msg) msg.textContent='';
+  if(!keepMsg){ const msg = document.getElementById('createClientMsg'); if (msg) msg.textContent=''; }
 }
 function mustNumber(v){ const n=Number(v); return isFinite(n) ? n : NaN; }
 
@@ -599,9 +624,9 @@ async function createClient(){
     const r = await post('create_client', payload);
     const el = document.getElementById('createClientMsg');
     if (r && r.ok){
+      clearCreateForm(true); // 先清输入，再显示提示（防止提示被清空）
       el.style.color = 'var(--success)';
       el.textContent = `成功录入：client_id=${r.client_id}，package_id=${r.package_id}${r.transaction_id?('，transaction_id='+r.transaction_id):''}`;
-      clearCreateForm();
     }else{
       el.style.color = 'var(--danger)';
       el.textContent = '失败：' + (r && r.msg || 'Network error');
@@ -780,60 +805,71 @@ function pageDone(delta){
 let CURRENT_IDX = null; let CURRENT_HEADERS = null;
 
 async function loadSessions(){
-  const r = await post('list_sessions', { page:1, pageSize:10000 });
-  if (!r.ok){ alert(r.msg || '加载失败'); return; }
+  try{
+    setRefreshing(true,'正在刷新…');
+    const r = await post('list_sessions', { page:1, pageSize:10000 });
+    if (!r.ok){ alert(r.msg || '加载失败'); setRefreshing(false,'刷新失败'); return; }
 
-  const H = r.headers; CURRENT_HEADERS = H;
-  const idx = Object.fromEntries(H.map((h,i)=>[h,i])); CURRENT_IDX = idx;
-  const rows = r.data || [];
+    const H = r.headers; CURRENT_HEADERS = H;
+    const idx = Object.fromEntries(H.map((h,i)=>[h,i])); CURRENT_IDX = idx;
+    const rows = r.data || [];
 
-  const createdIdx = idxOf(r.headers, ['created_at','created_time','created','createdAt','createdAtUtc']);
-  const now = Date.now(), tenDaysMs = 10*24*3600*1000;
+    const createdIdx = idxOf(r.headers, ['created_at','created_time','created','createdAt','createdAtUtc']);
+    const now = Date.now(), tenDaysMs = 10*24*3600*1000;
 
-  const pendings = rows.filter(row => String(row[idx.status])==='pending')
-  .sort((a,b)=>{
-    const ca = createdIdx!==-1 ? parseMaybeDate(a[createdIdx]) : startDT(a, idx);
-    const cb = createdIdx!==-1 ? parseMaybeDate(b[createdIdx]) : startDT(b, idx);
-    return (ca?ca.getTime():0) - (cb?cb.getTime():0);
-  });
-  const pendingSoon = pendings.filter(row=>{ const st=startDT(row, idx); return !st || (st.getTime()-now)<=tenDaysMs; });
-  const pendingLater = pendings.filter(row=>{ const st=startDT(row, idx); return st && (st.getTime()-now)>tenDaysMs; });
+    const pendings = rows.filter(row => String(row[idx.status])==='pending')
+    .sort((a,b)=>{
+      const ca = createdIdx!==-1 ? parseMaybeDate(a[createdIdx]) : startDT(a, idx);
+      const cb = createdIdx!==-1 ? parseMaybeDate(b[createdIdx]) : startDT(b, idx);
+      return (ca?ca.getTime():0) - (cb?cb.getTime():0);
+    });
+    const pendingSoon = pendings.filter(row=>{ const st=startDT(row, idx); return !st || (st.getTime()-now)<=tenDaysMs; });
+    const pendingLater = pendings.filter(row=>{ const st=startDT(row, idx); return st && (st.getTime()-now)>tenDaysMs; });
 
-  const scheduled = rows.filter(row => String(row[idx.status])==='scheduled')
-  .sort((a,b)=>{
-    const sa=startDT(a, idx), sb=startDT(b, idx);
-    const da = sa?Math.abs(sa.getTime()-now):Number.MAX_SAFE_INTEGER;
-    const db = sb?Math.abs(sb.getTime()-now):Number.MAX_SAFE_INTEGER;
-    if (da !== db) return da - db;
-    return (sa?sa.getTime():0) - (sb?sb.getTime():0);
-  });
+    const scheduled = rows.filter(row => String(row[idx.status])==='scheduled')
+    .sort((a,b)=>{
+      const sa=startDT(a, idx), sb=startDT(b, idx);
+      const da = sa?Math.abs(sa.getTime()-now):Number.MAX_SAFE_INTEGER;
+      const db = sb?Math.abs(sb.getTime()-now):Number.MAX_SAFE_INTEGER;
+      if (da !== db) return da - db;
+      return (sa?sa.getTime():0) - (sb?sb.getTime():0);
+    });
 
-  DONE_ALL = rows.filter(row => String(row[idx.status])==='done')
-  .sort((a,b)=>{
-    const ea=endDT(a, idx), eb=endDT(b, idx);
-    return (eb?eb.getTime():0) - (ea?ea.getTime():0);
-  });
+    // 修改：DONE 列表包含已取消（客户取消）课程
+    DONE_ALL = rows.filter(row => {
+      const s = String(row[idx.status]||'');
+      return s==='done' || s==='cancelled';
+    }).sort((a,b)=>{
+      const ea=endDT(a, idx), eb=endDT(b, idx);
+      return (eb?eb.getTime():0) - (ea?ea.getTime():0);
+    });
 
-  const clientIdIdx = idxOf(H, ['client_id','clientId','clientID']);
-  if (clientIdIdx!==-1){
-    const allClientIds = rows.map(rw=>rw[clientIdIdx]).filter(Boolean);
-    await ensureClientNames(allClientIds);
+    const clientIdIdx = idxOf(H, ['client_id','clientId','clientID']);
+    if (clientIdIdx!==-1){
+      const allClientIds = rows.map(rw=>rw[clientIdIdx]).filter(Boolean);
+      await ensureClientNames(allClientIds);
+    }
+    const pkgIdIdx = idxOf(H, ['package_id','packageId','pkg_id']);
+    if (pkgIdIdx !== -1){
+      const allPkgIds = rows.map(rw=>rw[pkgIdIdx]).filter(Boolean);
+      await ensurePackageNames(allPkgIds);
+    }
+
+    renderPendingGroup('tbodyPendingSoon', pendingSoon, idx, createdIdx);
+    renderPendingGroup('tbodyPendingLater', pendingLater, idx, createdIdx);
+    renderTable('tbodyScheduled', scheduled, idx, 'scheduled', createdIdx);
+    donePage = 1; renderDonePaged(idx, createdIdx);
+
+    const notDoneRows = [...pendingSoon, ...pendingLater, ...scheduled];
+    reconcileAddedMarksForVisible(notDoneRows, idx);
+
+    applyVisibilityFromStorage();
+    setRefreshing(false,'刷新已完成');
+  }catch(e){
+    console.error(e);
+    setRefreshing(false,'刷新失败');
+    alert('刷新失败：'+e.message);
   }
-  const pkgIdIdx = idxOf(H, ['package_id','packageId','pkg_id']);
-  if (pkgIdIdx !== -1){
-    const allPkgIds = rows.map(rw=>rw[pkgIdIdx]).filter(Boolean);
-    await ensurePackageNames(allPkgIds);
-  }
-
-  renderPendingGroup('tbodyPendingSoon', pendingSoon, idx, createdIdx);
-  renderPendingGroup('tbodyPendingLater', pendingLater, idx, createdIdx);
-  renderTable('tbodyScheduled', scheduled, idx, 'scheduled', createdIdx);
-  donePage = 1; renderDonePaged(idx, createdIdx);
-
-  const notDoneRows = [...pendingSoon, ...pendingLater, ...scheduled];
-  reconcileAddedMarksForVisible(notDoneRows, idx);
-
-  applyVisibilityFromStorage();
 }
 
 function renderDonePaged(idx, createdIdx){
@@ -902,7 +938,6 @@ function renderPendingGroup(tbodyId, rows, idx, createdIdx){
   tb.innerHTML='';
   rows.forEach(row=>{
     const status = (row[idx.status]+'') || '';
-    const createdStr = createdTimeStr(row, createdIdx);
     const clientId = row[idx.client_id];
     const clientStr = clientLabel(clientId);
     const pkgName = packageNameFromRow(row, idx);
@@ -914,7 +949,6 @@ function renderPendingGroup(tbodyId, rows, idx, createdIdx){
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-    <td>${createdStr}</td>
     <td>${fmtDate(row[idx.date])}</td>
     <td>${fmtTime(row[idx.time])}</td>
     <td>${clientStr}</td>
@@ -935,7 +969,6 @@ function renderTable(tbodyId, rows, idx, listType, createdIdx){
   tb.innerHTML='';
   rows.forEach(row=>{
     const status = (row[idx.status]+'') || '';
-    const createdStr = createdTimeStr(row, createdIdx);
     const clientId = row[idx.client_id];
     const clientStr = clientLabel(clientId);
     const pkgName = packageNameFromRow(row, idx);
@@ -947,7 +980,6 @@ function renderTable(tbodyId, rows, idx, listType, createdIdx){
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-    <td>${createdStr}</td>
     <td>${fmtDate(row[idx.date])}</td>
     <td>${fmtTime(row[idx.time])}</td>
     <td>${clientStr}</td>
