@@ -1,0 +1,897 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Coach · TXT Booking</title>
+<style>
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#f6f7fb;color:#111}
+  .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 6px 18px #00000012;padding:16px;margin-bottom:16px}
+  input,button,select{padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px}
+  button{background:#111;color:#fff;cursor:pointer}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-bottom:1px solid #eee;font-size:14px;vertical-align:middle}
+  th{font-weight:600;color:#374151;background:#fafafa}
+  .status-pending{background:#FED7AA}
+  .status-scheduled{background:#BBF7D0}
+  .status-done{background:#E5E7EB}
+  .status-coach_proposed{background:#FEF3C7}
+  .status-cancelled{background:#FCA5A5}
+  .muted{color:#6b7280}
+  .warn-orange{color:#d97706;font-weight:600;margin-left:6px}
+  .warn-red{color:#dc2626;font-weight:700;margin-left:6px}
+  .op-row{display:flex;gap:8px;flex-wrap:wrap}
+  .btn-secondary{background:#fff;color:#111;border:1px solid #e5e7eb}
+  .pager{display:flex;align-items:center;gap:10px;justify-content:flex-end;margin-top:8px}
+  .pager button{background:#fff;color:#111;border:1px solid #e5e7eb}
+</style>
+<link id="gcal-fc-css" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.min.css" rel="stylesheet" />
+<script>
+  (function(){
+    function loaded(l){ try{ return !!l.sheet && l.sheet.cssRules!==null; }catch(e){ return !!l.sheet; } }
+    function swap(){
+      const l=document.getElementById('gcal-fc-css');
+      const tried=l.getAttribute('data-tried')||'';
+      if(!tried.includes('jsdelivr')){
+        l.href="https://unpkg.com/fullcalendar@6.1.19/index.min.css";
+        l.setAttribute('data-tried', tried+' jsdelivr');
+        setTimeout(swap, 4000);
+      }else if(!tried.includes('unpkg')){
+        l.href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.9/index.min.css";
+        l.setAttribute('data-tried', tried+' unpkg');
+      }
+    }
+    setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) swap(); }, 5000);
+  })();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.global.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js"></script>
+<style>
+  :root { --gcal-border:#e5e7eb; --gcal-bg:#f8fafc; --gcal-text:#111827; --gcal-muted:#6b7280; }
+  #gcal-wrap * { box-sizing: border-box; }
+  #gcal-wrap .bar{display:flex;gap:8px;align-items:center}
+  #gcal-wrap .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+  #gcal-wrap .help{font-size:12px;color:var(--gcal-muted)}
+  #gcal-calendar{width:100%}
+  #gcal-wrap button{padding:8px 12px;border:1px solid var(--gcal-border);border-radius:8px;background:#fff;cursor:pointer;color:#111}
+  #gcal-wrap select{padding:6px 8px;border:1px solid var(--gcal-border);border-radius:8px;background:#fff}
+  #gcal-picker .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  #gcal-picker .list{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  #gcal-picker .item{display:flex;align-items:center;gap:6px;font-size:12px;border:1px dashed var(--gcal-border);padding:3px 8px;border-radius:8px;background:#fff}
+  #gcal-picker .item input{transform:translateY(1px)}
+  #gcal-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  #gcal-legend .pill{display:flex;align-items:center;gap:6px;border:1px solid var(--gcal-border);border-radius:999px;padding:2px 8px;background:#fff;font-size:12px}
+  #gcal-legend .sw{width:10px;height:10px;border-radius:3px;border:1px solid #00000022}
+  #gcal-picker .sw{width:10px;height:10px;border-radius:3px;border:1px solid #00000022}
+  #gcal-diag{display:none;margin-top:8px}
+  #gcal-diag pre{white-space:pre-wrap;word-break:break-word;margin:6px 0 0;font-size:12px;color:var(--gcal-muted)}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+  <h1>Coach · TXT Booking</h1>
+
+  <div class="card">
+    <h3>Sign in with an authorized Google account</h3>
+
+    <div id="g_id_onload"
+         data-client_id="126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com"
+         data-auto_prompt="false"
+         data-callback="onCoachGoogleCredential"></div>
+    <div class="g_id_signin" data-type="standard" data-size="large" data-shape="rectangular" data-theme="outline"></div>
+
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
+      <button class="btn-secondary" onclick="coachGooglePrompt()">Sign in with popup</button>
+      <button class="btn-secondary" onclick="refresh()">Refresh</button>
+      <button class="btn-secondary" onclick="coachLogout()">Sign out</button>
+      <span id="info" style="color:#10b981;margin-left:auto"></span>
+    </div>
+    <div id="opMsg" class="muted" style="margin-top:6px"></div>
+    <div class="muted" style="margin-top:6px">Only accounts whose email appears in the Coach List field <code>coach_email</code> can sign in.</div>
+  </div>
+
+  <div class="card" id="gcal-wrap" style="display:none;">
+    <div class="bar">
+      <strong>Calendar</strong>
+      <div class="right">
+        <button id="gcal-signin">Sign in with Google</button>
+        <button id="gcal-signout" style="display:none;">Sign out</button>
+        <button id="gcal-refreshBtn" style="display:none;">Refresh</button>
+        <span id="gcal-status" class="help">Signed out</span>
+      </div>
+    </div>
+
+    <div id="gcal-picker" class="card" style="padding:10px;margin:12px 0;display:none;">
+      <div class="row">
+        <div class="help">Select calendars to display (multi-select; read-only allowed):</div>
+        <button id="gcal-checkAll" class="help">Select all</button>
+        <button id="gcal-uncheckAll" class="help">Deselect all</button>
+        <select id="gcal-writeCal" title="Write target (writable only)" style="display:none;"></select>
+        <div class="help">Write target: <code id="gcal-currCal">primary</code></div>
+      </div>
+      <div id="gcal-calList" class="list"></div>
+      <div id="gcal-legend"></div>
+    </div>
+
+    <div id="gcal-calendar"></div>
+
+    <div id="gcal-diag" class="card" style="padding:10px;">
+      <b>Diagnostics</b>
+      <pre id="gcal-diagText"></pre>
+    </div>
+  </div>
+
+  <div id="upcoming" class="card" style="display:none">
+    <h3>Upcoming Sessions</h3>
+    <table id="tblUpcoming"><thead>
+      <tr>
+        <th>session_id</th>
+        <th>Date (weekday)</th>
+        <th>Time</th>
+        <th>Client</th>
+        <th>Duration(h)</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead><tbody></tbody></table>
+  </div>
+
+  <div id="late" class="card" style="display:none">
+    <h3>Late (&lt;24h) Cancellations &amp; No Shows</h3>
+    <table id="tblLate"><thead>
+      <tr>
+        <th>session_id</th>
+        <th>Date (weekday)</th>
+        <th>Time</th>
+        <th>Client</th>
+        <th>Duration(h)</th>
+        <th>Type</th>
+      </tr>
+    </thead><tbody></tbody></table>
+  </div>
+
+  <div id="done" class="card" style="display:none">
+    <h3>My Completed Sessions</h3>
+    <table id="tblDone"><thead>
+      <tr>
+        <th>session_id</th>
+        <th>Date (weekday)</th>
+        <th>Time</th>
+        <th>Client</th>
+        <th>Duration(h)</th>
+        <th>Status</th>
+      </tr>
+    </thead><tbody></tbody></table>
+    <div class="pager">
+      <button id="donePrev">Prev</button>
+      <span id="doneInfo" class="muted">1 / 1</span>
+      <button id="doneNext">Next</button>
+    </div>
+  </div>
+</div>
+
+<div id="rsDlg" style="position:fixed;inset:0;display:none;background:#00000055;align-items:center;justify-content:center;z-index:9999">
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;max-width:520px;width:92%;padding:16px;">
+    <h3 style="margin-top:0">Reschedule Proposal</h3>
+    <div id="rsSid" class="muted" style="margin-bottom:8px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center">
+      <label>Reason</label>
+      <select id="rsReason" required>
+        <option value="">Please select a reason</option>
+        <option value="coach_conflict">Coach time conflict</option>
+        <option value="court_conflict">Court time conflict</option>
+      </select>
+      <div style="grid-column:1/3;height:6px"></div>
+      <label>Option 1</label>
+      <div>
+        <input type="date" id="rsD1" />
+        <select id="rsH1"></select><span class="muted"> : </span><select id="rsM1"><option>00</option><option>30</option></select>
+      </div>
+      <label>Option 2</label>
+      <div>
+        <input type="date" id="rsD2" />
+        <select id="rsH2"></select><span class="muted"> : </span><select id="rsM2"><option>00</option><option>30</option></select>
+      </div>
+      <label>Option 3</label>
+      <div>
+        <input type="date" id="rsD3" />
+        <select id="rsH3"></select><span class="muted"> : </span><select id="rsM3"><option>00</option><option>30</option></select>
+      </div>
+      <label>Option 4</label>
+      <div>
+        <input type="date" id="rsD4" />
+        <select id="rsH4"></select><span class="muted"> : </span><select id="rsM4"><option>00</option><option>30</option></select>
+      </div>
+      <label>Option 5</label>
+      <div>
+        <input type="date" id="rsD5" />
+        <select id="rsH5"></select><span class="muted"> : </span><select id="rsM5"><option>00</option><option>30</option></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn-secondary" onclick="closeRs()">Cancel</button>
+      <button onclick="submitReschedule()">Submit reschedule</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'https://script.google.com/macros/s/AKfycbzIRAc4FhAGl_v-1m59lbHg4zl5Kth6z-1TIuM4en2CS0i8fBV26b5Gi-c0wNL1LPawyA/exec';
+
+async function post(action, payload = {}) {
+  try {
+    const res = await fetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action, ...payload })
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('POST error', err);
+    showMsg('Network error: ' + err.message, 'red');
+    return { ok:false, msg:'Network error' };
+  }
+}
+
+function showMsg(text, type='green'){
+  const el = document.getElementById('opMsg');
+  if(!el) return;
+  el.textContent = text || '';
+  el.style.color = (type==='green') ? '#10b981' : (type==='red' ? '#ef4444' : '#6b7280');
+  if(type==='green'){
+    setTimeout(()=>{ if(el.textContent===text) el.textContent=''; }, 1800);
+  }
+}
+
+let coach = null;
+let COACH_ID_TOKEN = null;
+const DONE_PAGE_SIZE = 10;
+let DONE_PAGE = 1;
+
+const weekdayEN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function isValidDate(d){ return d instanceof Date && !isNaN(d.getTime()); }
+function formatDateWithWeek(x){
+  if(!x) return '';
+  let d;
+  if(typeof x === 'number') d = new Date(x);
+  else if(typeof x === 'string') d = new Date(x);
+  else if(x instanceof Date) d = x;
+  if(!isValidDate(d)) return String(x);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  const wk = weekdayEN[d.getDay()];
+  return `${y}-${m}-${day} (${wk})`;
+}
+function formatTimeHHmm(x){
+  if(!x) return '';
+  if(typeof x === 'string' && /^\d{1,2}:\d{2}(:\d{2})?$/.test(x.trim())){
+    return x.trim().slice(0,5);
+  }
+  let d;
+  if(typeof x === 'number') d = new Date(x);
+  else if(typeof x === 'string') d = new Date(x);
+  else if(x instanceof Date) d = x;
+  if(!isValidDate(d)) return String(x);
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  return `${hh}:${mm}`;
+}
+function sessionStartEnd(s){
+  const d = s.date || s.session_date;
+  const t = formatTimeHHmm(s.time || s.session_time);
+  if(!d || !t) return {start:null,end:null};
+  const dd = new Date(d);
+  if(isNaN(dd)) return {start:null,end:null};
+  const [H,M] = t.split(':').map(Number);
+  const start = new Date(dd.getFullYear(), dd.getMonth(), dd.getDate(), H||0, M||0, 0, 0);
+  const durH = Number(s.duration_hours ?? s.duration ?? 1) || 1;
+  const end   = new Date(start.getTime() + durH * 3600 * 1000);
+  return {start,end};
+}
+function normStatus(x){ return String(x||'').toLowerCase().replace(/\s+/g,'_'); }
+
+const clientNameCache = new Map();
+function fillClientNamesFromMap(mapObj){
+  if(mapObj && typeof mapObj === 'object'){
+    for(const [id, name] of Object.entries(mapObj)){
+      if(id && name) clientNameCache.set(String(id), String(name));
+    }
+  }
+}
+async function hydrateMissingClientNames(missingIds){
+  const ids = [...new Set(missingIds.filter(Boolean).map(String))].filter(id=>!clientNameCache.has(id));
+  if(ids.length === 0) return;
+  try{
+    const r = await post('client_names', { ids });
+    if(r && r.ok && r.map){ fillClientNamesFromMap(r.map); return; }
+  }catch(e){}
+  const chunk = async (arr, size=5)=>{
+    for(let i=0;i<arr.length;i+=size){
+      const group = arr.slice(i,i+size);
+      await Promise.all(group.map(async id=>{
+        if(clientNameCache.has(id)) return;
+        try{
+          const r = await post('client_name_by_id', { id });
+          if(r && r.ok && r.name){ clientNameCache.set(id, String(r.name)); }
+        }catch(e){}
+      }));
+    }
+  };
+  await chunk(ids, 5);
+}
+function displayClientName(s){
+  const direct = s.client_name || s.client_full_name || s.client || '';
+  if(direct) return direct;
+  const id = String(s.client_id || s.clientId || s.clientID || '').trim();
+  if(!id) return '';
+  if(clientNameCache.has(id)) return clientNameCache.get(id);
+  return id;
+}
+
+async function onCoachGoogleCredential(resp){
+  try{
+    const id_token = resp && resp.credential;
+    if (!id_token){ showMsg('Google sign-in failed: missing id_token','red'); return; }
+    const r = await post('login_coach_google', { id_token });
+    if(!r.ok){ showMsg(r.msg || 'Sign-in failed','red'); return; }
+    coach = r.coach;
+    COACH_ID_TOKEN = id_token;
+    document.getElementById('info').textContent = `${coach.coach_name} (${coach.coach_id}) signed in`;
+    showMsg('Signed in','green');
+    localStorage.setItem('TXT_COACH_EMAIL', coach.coach_email || '');
+
+    if(r.clientMap) fillClientNamesFromMap(r.clientMap);
+
+    const sessions = r.sessions || [];
+    document.getElementById('upcoming').style.display = 'block';
+    document.getElementById('done').style.display = 'block';
+    document.getElementById('gcal-wrap').style.display = 'block';
+    document.getElementById('late').style.display = 'block';
+
+    renderAll(sessions);
+
+    const missingIds = sessions.map(s => s.client_id || s.clientId || s.clientID).filter(Boolean);
+    await hydrateMissingClientNames(missingIds);
+    renderAll(sessions);
+  }catch(e){
+    console.error(e);
+    showMsg('Sign-in exception','red');
+  }
+}
+window.onCoachGoogleCredential = onCoachGoogleCredential;
+
+function coachGooglePrompt(){
+  try{
+    google.accounts.id.initialize({
+      client_id: '126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com',
+      callback: onCoachGoogleCredential
+    });
+    google.accounts.id.prompt();
+  }catch(e){
+    showMsg('Unable to open Google sign-in: '+e,'red');
+  }
+}
+window.coachGooglePrompt = coachGooglePrompt;
+
+function coachLogout(){
+  coach=null;
+  COACH_ID_TOKEN=null;
+  document.getElementById('info').textContent='';
+  showMsg('Signed out','green');
+  document.getElementById('upcoming').style.display = 'none';
+  document.getElementById('done').style.display = 'none';
+  document.getElementById('late').style.display = 'none';
+  document.getElementById('gcal-wrap').style.display = 'none';
+  const tbs = ['tblUpcoming','tblDone','tblLate'];
+  tbs.forEach(id=>{ const tb=document.querySelector('#'+id+' tbody'); if(tb) tb.innerHTML=''; });
+}
+window.coachLogout = coachLogout;
+
+async function refresh(){
+  if(!COACH_ID_TOKEN){
+    showMsg('Please sign in with Google first','red');
+    return;
+  }
+  showMsg('Refreshing…','gray');
+  const r = await post('login_coach_google', { id_token: COACH_ID_TOKEN });
+  if(!r.ok){ showMsg(r.msg || 'Refresh failed','red'); return; }
+
+  coach = r.coach;
+  document.getElementById('info').textContent = `${coach.coach_name} (${coach.coach_id}) signed in`;
+  if(r.clientMap) fillClientNamesFromMap(r.clientMap);
+
+  const sessions = r.sessions || [];
+  document.getElementById('upcoming').style.display = 'block';
+  document.getElementById('done').style.display = 'block';
+  document.getElementById('late').style.display = 'block';
+  document.getElementById('gcal-wrap').style.display = 'block';
+
+  renderAll(sessions);
+
+  const missingIds = sessions.map(s => s.client_id || s.clientId || s.clientID).filter(Boolean);
+  await hydrateMissingClientNames(missingIds);
+  renderAll(sessions);
+  showMsg('Refreshed','green');
+}
+window.refresh = refresh;
+
+function renderAll(list){
+  const now = new Date();
+  const withStart = list.map(s => ({...s, ...sessionStartEnd(s), _ns: normStatus(s.status)}));
+  const upcoming = withStart.filter(x=>{
+    const future = x.start && x.start.getTime() >= (now.getTime() - 60*1000);
+    return future && (x._ns==='pending' || x._ns==='scheduled' || x._ns==='coach_proposed' || x._ns==='cancelled');
+  });
+  const done = withStart.filter(x=> (x._ns==='done' || x._ns==='no_show') && x.start);
+
+  const pendings = upcoming.filter(x=>x._ns==='pending').sort((a,b)=>a.start-b.start);
+  const scheduled = upcoming.filter(x=>x._ns==='scheduled').sort((a,b)=>a.start-b.start);
+  const proposed = upcoming.filter(x=>x._ns==='coach_proposed').sort((a,b)=>a.start-b.start);
+  const cancelled = upcoming.filter(x=>x._ns==='cancelled').sort((a,b)=>a.start-b.start);
+  const upcomingSorted = [...pendings, ...scheduled, ...proposed, ...cancelled];
+
+  const H24 = 24*3600*1000;
+  const lateCancelled = withStart.filter(x=> x._ns==='cancelled' && x.start && x.start>=now && (x.start - now) <= H24);
+  const noShowList = withStart.filter(x=> x._ns==='no_show');
+  const doneSorted = done.sort((a,b)=>b.start - a.start);
+
+  renderUpcoming(upcomingSorted);
+  renderLateCancelNoShow(lateCancelled, noShowList);
+  renderDone(doneSorted, DONE_PAGE);
+}
+
+function renderUpcoming(list){
+  const tb = document.querySelector('#tblUpcoming tbody'); tb.innerHTML='';
+  const now = new Date();
+
+  list.forEach(s=>{
+    const tr = document.createElement('tr');
+    tr.className = 'status-'+(s.status||'');
+    const dateDisp = formatDateWithWeek(s.date || s.session_date);
+    const timeDisp = formatTimeHHmm(s.time || s.session_time);
+    const clientName = displayClientName(s);
+    const pkgName = s.package_name || s.package || s.pkg_name || s.pkg || s.package_id || '';
+    const start = s.start;
+    const hoursToStart = start ? (start - now)/3600000 : 99999;
+
+    let stateHTML = (s._ns==='cancelled' ? 'Cancelled' :
+                     s._ns==='pending' ? 'Pending' :
+                     s._ns==='scheduled' ? 'Scheduled' :
+                     s._ns==='coach_proposed' ? 'Reschedule proposed' :
+                     s.status || '');
+    let warnHTML = '';
+
+    if ((s._ns === 'pending' || s._ns === 'coach_proposed') && start && start > now){
+      if (hoursToStart <= 24){
+        warnHTML = `<span class="warn-red">Unconfirmed and starting within 24h. Please handle ASAP!</span>`;
+      } else if (hoursToStart <= 48){
+        warnHTML = `<span class="warn-orange">Please confirm this session soon.</span>`;
+      }
+    }
+    if (s._ns === 'coach_proposed' && hoursToStart <= 48){
+      warnHTML = `<span class="warn-red">Client has not confirmed yet. Please contact support.</span>`;
+    }
+
+    let opsHTML = '';
+    if (s._ns !== 'cancelled') {
+      const titleForCalendar = `${coach?.coach_name||''}-${coach?.coach_id||''}-${clientName}-${pkgName}`.replace(/\s+/g,' ').trim();
+
+      if (s._ns === 'pending') {
+        const canReschedule = hoursToStart > 24;
+        const addBtn = `<button class="btn-secondary" onclick='addToMyCalendar(${JSON.stringify({id:s.session_id||'',title:titleForCalendar}).replace(/'/g,"&#39;")}, "${dateDisp}", "${timeDisp}", "${s.duration_hours ?? s.duration ?? 1}")'>Add to my calendar</button>`;
+        const changeBtn = canReschedule
+          ? `<button class="btn-secondary" onclick='openRescheduleDialog(${JSON.stringify(s).replace(/'/g,"&#39;")})'>Reschedule</button>`
+          : `<button class="btn-secondary" disabled title="Cannot reschedule within 24h of start">Reschedule</button>`;
+        const confirmBtn = `<button class="btn-secondary" onclick="confirmSess('${s.session_id}')">Confirm</button>`;
+        opsHTML = `<div class="op-row">${confirmBtn}${changeBtn}${addBtn}</div>`;
+      } else if (s._ns === 'scheduled') {
+        const addBtn = `<button class="btn-secondary" onclick='addToMyCalendar(${JSON.stringify({id:s.session_id||'',title:titleForCalendar}).replace(/'/g,"&#39;")}, "${dateDisp}", "${timeDisp}", "${s.duration_hours ?? s.duration ?? 1}")'>Add to my calendar</button>`;
+        opsHTML = `<div class="op-row">${addBtn}</div>`;
+      } else if (s._ns === 'coach_proposed') {
+        opsHTML = `<span class="muted">Waiting for client to submit new time</span>`;
+      }
+    }
+
+    tr.innerHTML = `
+      <td>${s.session_id || ''}</td>
+      <td>${dateDisp}</td>
+      <td>${timeDisp}</td>
+      <td>${clientName}</td>
+      <td>${s.duration_hours ?? s.duration ?? 1}</td>
+      <td>${stateHTML} ${warnHTML}</td>
+      <td>${opsHTML}</td>`;
+    tb.appendChild(tr);
+  });
+
+  document.getElementById('upcoming').style.display = 'block';
+}
+
+function renderLateCancelNoShow(lateCancelled, noShowList){
+  const tb = document.querySelector('#tblLate tbody'); tb.innerHTML='';
+  const rows = [
+    ...lateCancelled.map(s=>({s, type:'Late cancellation (≤24h)'})),
+    ...noShowList.map(s=>({s, type:'No Show'})),
+  ];
+  rows.forEach(({s,type})=>{
+    const tr = document.createElement('tr');
+    const dateDisp = formatDateWithWeek(s.date || s.session_date);
+    const timeDisp = formatTimeHHmm(s.time || s.session_time);
+    const clientName = displayClientName(s);
+    tr.innerHTML = `
+      <td>${s.session_id || ''}</td>
+      <td>${dateDisp}</td>
+      <td>${timeDisp}</td>
+      <td>${clientName}</td>
+      <td>${s.duration_hours ?? s.duration ?? 1}</td>
+      <td>${type}</td>`;
+    tb.appendChild(tr);
+  });
+  document.getElementById('late').style.display = 'block';
+}
+
+function renderDone(list, page){
+  const total = list.length;
+  const pages = Math.max(1, Math.ceil(total / DONE_PAGE_SIZE));
+  DONE_PAGE = Math.min(Math.max(1, page), pages);
+
+  const start = (DONE_PAGE-1)*DONE_PAGE_SIZE;
+  const slice = list.slice(start, start + DONE_PAGE_SIZE);
+
+  const tb = document.querySelector('#tblDone tbody'); tb.innerHTML='';
+  slice.forEach(s=>{
+    const tr = document.createElement('tr');
+    tr.className = 'status-done';
+    const dateDisp = formatDateWithWeek(s.date || s.session_date);
+    const timeDisp = formatTimeHHmm(s.time || s.session_time);
+    const clientName = displayClientName(s);
+    const label = (normStatus(s.status)==='no_show') ? 'Completed (no show)' : 'Completed';
+    tr.innerHTML = `
+      <td>${s.session_id || ''}</td>
+      <td>${dateDisp}</td>
+      <td>${timeDisp}</td>
+      <td>${clientName}</td>
+      <td>${s.duration_hours ?? s.duration ?? 1}</td>
+      <td>${label}</td>`;
+    tb.appendChild(tr);
+  });
+
+  document.getElementById('doneInfo').textContent = `${DONE_PAGE} / ${pages}`;
+  document.getElementById('donePrev').disabled = DONE_PAGE<=1;
+  document.getElementById('doneNext').disabled = DONE_PAGE>=pages;
+
+  document.getElementById('donePrev').onclick = ()=>{ renderDone(list, DONE_PAGE-1); };
+  document.getElementById('doneNext').onclick = ()=>{ renderDone(list, DONE_PAGE+1); };
+
+  document.getElementById('done').style.display = 'block';
+}
+
+async function confirmSess(id){
+  if(!COACH_ID_TOKEN){ showMsg('Please sign in with Google first','red'); return; }
+  const r = await post('coach_confirm_session', { session_id:id, id_token: COACH_ID_TOKEN });
+  if(!r.ok){ showMsg(r.msg || 'Confirm failed','red'); return; }
+  showMsg('Confirmed. Status set to scheduled/due','green');
+  refresh();
+}
+window.confirmSess = confirmSess;
+
+function addToMyCalendar(meta, dateDisp, timeDisp, durHours){
+  if (!gcalIsSignedIn()){
+    showMsg('Calendar not signed in. Click “Sign in with Google” first.','red');
+    return;
+  }
+  const dateStr = (dateDisp||'').slice(0,10);
+  const startISO = `${dateStr}T${timeDisp}:00`;
+  const start = new Date(startISO);
+  const end   = new Date(start.getTime() + (Number(durHours)||1)*3600*1000);
+
+  gcalEnsurePrimaryWriteTarget();
+
+  gcalInsertEventToPrimary({
+    summary: meta.title || 'Session',
+    start, end
+  }).then(()=>{ showMsg('Added to your Google Calendar (primary)','green'); })
+    .catch(err=>{ console.error(err); showMsg('Write failed: ' + (err?.result?.error?.message || err?.message || 'Unknown error'),'red'); });
+}
+window.addToMyCalendar = addToMyCalendar;
+
+(function(){
+  const savedMail = localStorage.getItem('TXT_COACH_EMAIL');
+  if(savedMail){
+    document.getElementById('info').textContent = `Found previous email: ${savedMail}. Please click "Sign in with popup" to verify.`;
+  }
+})();
+</script>
+
+<script>
+  const GCAL_CLIENT_ID = "126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com";
+  const GCAL_SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events";
+  const GCAL_TZ = "America/Toronto";
+  const GCAL_FETCH_BUFFER_MS = 36 * 60 * 60 * 1000;
+
+  let gcal_tokenClient, gcal_accessToken=null, gapiReady=false, gisReady=false, gcal_calendar;
+  let calendarListCache=[], showCalendarIds=new Set(), writeCalendarId="primary";
+
+  function gcalShowDiag(obj){
+    const b=document.getElementById('gcal-diag');
+    const p=document.getElementById('gcal-diagText');
+    b.style.display='';
+    try{ p.textContent=(typeof obj==='string')?obj:JSON.stringify(obj,null,2); }
+    catch(e){ p.textContent=String(obj); }
+  }
+
+  function gapiLoaded(){ gapi.load('client', async ()=>{
+    await gapi.client.init({discoveryDocs:["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"]});
+    gapiReady=true;
+  });}
+  window.gapiLoaded=gapiLoaded;
+
+  function gisLoaded(){ gcal_tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:GCAL_CLIENT_ID, scope:GCAL_SCOPES,
+    callback:(resp)=>{ if(resp&&resp.access_token){ gcal_accessToken=resp.access_token; gapi.client.setToken({access_token:gcal_accessToken}); gcalOnSignedIn(); } else { gcalShowDiag({oauth_callback_resp:resp}); } }
+  }); gisReady=true; }
+  window.gisLoaded=gisLoaded;
+
+  async function gcalSignIn(){ if(!gapiReady||!gisReady) return; gcal_tokenClient.requestAccessToken({prompt:'consent'}); }
+  function gcalSignOut(){ if(!gcal_accessToken) return; google.accounts.oauth2.revoke(gcal_accessToken,()=>{
+    gcal_accessToken=null; gapi.client.setToken(null);
+    document.getElementById('gcal-signin').style.display='';
+    document.getElementById('gcal-signout').style.display='none';
+    document.getElementById('gcal-refreshBtn').style.display='none';
+    document.getElementById('gcal-status').textContent='Signed out';
+    document.getElementById('gcal-writeCal').style.display='none';
+    document.getElementById('gcal-picker').style.display='none';
+    if(gcal_calendar) gcal_calendar.destroy();
+  });}
+  document.getElementById('gcal-signin').onclick=gcalSignIn;
+  document.getElementById('gcal-signout').onclick=gcalSignOut;
+  document.getElementById('gcal-refreshBtn').onclick=()=>{ if(gcal_calendar) gcal_calendar.refetchEvents(); };
+  document.getElementById('gcal-status').textContent='Signed out';
+
+  function gcalIsSignedIn(){ return !!gcal_accessToken; }
+  function gcalPrimaryId(){
+    const primary = calendarListCache.find(c=>c.primary);
+    return primary ? primary.id : 'primary';
+  }
+  function gcalEnsurePrimaryWriteTarget(){
+    const primaryId = gcalPrimaryId();
+    if (writeCalendarId !== primaryId){
+      writeCalendarId = primaryId;
+      const sel = document.getElementById('gcal-writeCal');
+      if (sel && [...sel.options].some(o=>o.value===primaryId)) sel.value = primaryId;
+      document.getElementById('gcal-currCal').textContent = writeCalendarId;
+    }
+  }
+  async function gcalInsertEventToPrimary({summary,start,end,allDay=false}){
+    if(!gcalIsSignedIn()) throw new Error('calendar not signed in');
+    const resource = {
+      summary,
+      start: allDay ? {date: start.toISOString().slice(0,10)} : {dateTime: start.toISOString(), timeZone: GCAL_TZ},
+      end:   allDay ? {date: end.toISOString().slice(0,10)}   : {dateTime: end.toISOString(),   timeZone: GCAL_TZ}
+    };
+    const res = await gapi.client.calendar.events.insert({calendarId: gcalPrimaryId(), resource});
+    return res.result;
+  }
+
+  async function gcalOnSignedIn(){
+    document.getElementById('gcal-signin').style.display='none';
+    document.getElementById('gcal-signout').style.display='';
+    document.getElementById('gcal-refreshBtn').style.display='';
+    document.getElementById('gcal-status').textContent='Signed in';
+
+    try{
+      const res=await gapi.client.calendar.calendarList.list({maxResults:250});
+      calendarListCache=(res.result.items||[]);
+
+      const writeSel=document.getElementById('gcal-writeCal'); writeSel.innerHTML='';
+      const writable=calendarListCache.filter(c=>c.accessRole==='owner'||c.accessRole==='writer');
+      for(const cal of writable){
+        const opt=document.createElement('option');
+        opt.value=cal.id; opt.textContent=cal.summary+(cal.primary?" (primary)":"");
+        writeSel.appendChild(opt);
+      }
+      const primary=writable.find(c=>c.primary);
+      writeCalendarId=primary?primary.id:(writable[0]?.id||'primary');
+      writeSel.value=writeCalendarId;
+      document.getElementById('gcal-currCal').textContent=writeCalendarId;
+      writeSel.style.display='';
+      writeSel.onchange=()=>{ writeCalendarId=writeSel.value; document.getElementById('gcal-currCal').textContent=writeCalendarId; };
+
+      const picker=document.getElementById('gcal-picker');
+      const listDiv=document.getElementById('gcal-calList');
+      const legend=document.getElementById('gcal-legend');
+      listDiv.innerHTML=''; legend.innerHTML='';
+      showCalendarIds=new Set(calendarListCache.map(c=>c.id));
+      for(const cal of calendarListCache){
+        const wrap=document.createElement('label'); wrap.className='item';
+        const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=true; cb.value=cal.id;
+        cb.onchange=()=>{ if(cb.checked) showCalendarIds.add(cal.id); else showCalendarIds.delete(cal.id); if(gcal_calendar) gcal_calendar.refetchEvents(); };
+        const sw=document.createElement('span'); sw.className='sw'; sw.style.background=cal.backgroundColor||'#bbb';
+        const txt=document.createElement('span'); txt.textContent=cal.summary+(cal.accessRole==='reader'?' (read-only)':'');
+        wrap.appendChild(cb); wrap.appendChild(sw); wrap.appendChild(txt); listDiv.appendChild(wrap);
+
+        const pill=document.createElement('span'); pill.className='pill';
+        const sw2=document.createElement('span'); sw2.className='sw'; sw2.style.background=cal.backgroundColor||'#bbb';
+        const name=document.createElement('span'); name.textContent=cal.summary;
+        pill.appendChild(sw2); pill.appendChild(name); legend.appendChild(pill);
+      }
+      picker.style.display='';
+
+      document.getElementById('gcal-checkAll').onclick=()=>{ showCalendarIds=new Set(calendarListCache.map(c=>c.id)); listDiv.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=true); if(gcal_calendar) gcal_calendar.refetchEvents(); };
+      document.getElementById('gcal-uncheckAll').onclick=()=>{ showCalendarIds=new Set(); listDiv.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false); if(gcal_calendar) gcal_calendar.refetchEvents(); };
+
+    }catch(e){ gcalShowDiag(e); }
+
+    gcalRenderCalendar();
+  }
+
+  function gcalRenderCalendar(){
+    const el=document.getElementById('gcal-calendar'); if(gcal_calendar) gcal_calendar.destroy();
+
+    gcal_calendar=new FullCalendar.Calendar(el,{
+      initialView:'timeGridWeek',
+      timeZone:GCAL_TZ,
+      firstDay:1,
+      slotMinTime:"08:00:00",
+      slotMaxTime:"23:59:59",
+      scrollTime:"08:00:00",
+      slotLabelFormat:{hour:'2-digit',minute:'2-digit',hour12:false},
+      selectable:true,
+      editable:true,
+      nowIndicator:true,
+      eventMaxStack: 50,
+      headerToolbar:{ left:'prev,next today', center:'title', right:'dayGridMonth,timeGridWeek,timeGridDay' },
+
+      events: async (info, success, failure)=>{
+        try{
+          const timeMinISO=new Date(info.start.getTime()-GCAL_FETCH_BUFFER_MS).toISOString();
+          const timeMaxISO=new Date(info.end.getTime()+GCAL_FETCH_BUFFER_MS).toISOString();
+          const ids=(showCalendarIds.size?Array.from(showCalendarIds):[writeCalendarId]);
+
+          const fetchOne=async(cid)=>{
+            const res=await gapi.client.calendar.events.list({
+              calendarId:cid,
+              timeMin:timeMinISO, timeMax:timeMaxISO,
+              singleEvents:true, orderBy:'startTime', showDeleted:false, maxResults:2500,
+            });
+            const meta=calendarListCache.find(x=>x.id===cid);
+            const color=meta?.backgroundColor;
+            const canEdit=meta && (meta.accessRole==='owner'||meta.accessRole==='writer');
+
+            return (res.result.items||[]).map(ev=>({
+              id:(ev.id||Math.random().toString(36).slice(2))+'::'+cid,
+              title:ev.summary||'(untitled)',
+              start:ev.start.dateTime||ev.start.date,
+              end:ev.end?.dateTime||ev.end?.date,
+              allDay:!!ev.start.date,
+              backgroundColor:color, borderColor:color,
+              extendedProps:{calendarId:cid, eventId:ev.id, canEdit}
+            }));
+          };
+
+          const chunks=await Promise.all(ids.map(cid=>fetchOne(cid)));
+          success(chunks.flat());
+        }catch(err){ gcalShowDiag(err); failure(err); }
+      },
+
+      eventAllow:(dropInfo, draggedEvent)=>{
+        const canEdit=draggedEvent.extendedProps?.canEdit;
+        if(!canEdit){ alert('This is a read-only calendar event and cannot be edited.'); return false; }
+        return true;
+      },
+
+      select: async (selInfo)=>{
+        const title=prompt('Event title:','New event');
+        if(!title){ gcal_calendar.unselect(); return; }
+        const isAllDay=selInfo.allDay;
+        const resource={
+          summary:title,
+          start:isAllDay?{date:selInfo.startStr}:{dateTime:selInfo.startStr,timeZone:GCAL_TZ},
+          end:  isAllDay?{date:selInfo.endStr}:{dateTime:selInfo.endStr,timeZone:GCAL_TZ},
+        };
+        try{
+          const res=await gapi.client.calendar.events.insert({calendarId:gcalPrimaryId(), resource});
+          const meta=calendarListCache.find(x=>x.id===gcalPrimaryId());
+          const color=meta?.backgroundColor;
+          if(showCalendarIds.has(gcalPrimaryId())){
+            gcal_calendar.addEvent({
+              id:(res.result.id||Math.random().toString(36).slice(2))+'::'+gcalPrimaryId(),
+              title:res.result.summary||'(untitled)',
+              start:res.result.start.dateTime||res.result.start.date,
+              end:res.result.end?.dateTime||res.result.end?.date,
+              allDay:!!res.result.start.date,
+              backgroundColor:color, borderColor:color,
+              extendedProps:{calendarId:gcalPrimaryId(), eventId:res.result.id, canEdit:true}
+            });
+          }
+        }catch(e){ gcalShowDiag(e); alert('Create failed: '+(e.result?.error?.message||e.message)); }
+      },
+
+      eventChange: async (chg)=>{
+        const e=chg.event;
+        const {calendarId,eventId,canEdit}=e.extendedProps||{};
+        if(!canEdit){ chg.revert(); return; }
+        try{
+          await gapi.client.calendar.events.update({
+            calendarId,eventId,
+            resource:{
+              summary:e.title,
+              start:e.allDay?{date:e.startStr}:{dateTime:e.start.toISOString(),timeZone:GCAL_TZ},
+              end:  e.allDay?{date:e.endStr}:{dateTime:e.end?.toISOString(),timeZone:GCAL_TZ},
+            }
+          });
+        }catch(err){ gcalShowDiag(err); alert('Update failed; reverted: '+(err.result?.error?.message||err.message)); chg.revert(); }
+      },
+
+      eventClick: async (clickInfo)=>{
+        const {calendarId,eventId,canEdit}=clickInfo.event.extendedProps||{};
+        if(!canEdit){ alert('This is a read-only calendar event and cannot be deleted.'); return; }
+        if(!confirm('Delete this event?')) return;
+        try{
+          await gapi.client.calendar.events.delete({calendarId,eventId});
+          clickInfo.event.remove();
+          gcal_calendar.refetchEvents();
+        }catch(err){ gcalShowDiag(err); alert('Delete failed: '+(err.result?.error?.message||err.message)); }
+      }
+    });
+
+    gcal_calendar.render();
+  }
+
+  window.addEventListener('load', ()=>{
+    if(window.gapi) gapiLoaded();
+    if(window.google) gisLoaded();
+  });
+</script>
+
+<script>
+let RS_SESSION=null;
+function fillHourSel(id){ const sel=document.getElementById(id); if(sel.options.length) return; for(let h=8;h<=23;h++){ const v=String(h).padStart(2,'0'); sel.add(new Option(v,v)); } }
+['rsH1','rsH2','rsH3','rsH4','rsH5'].forEach(fillHourSel);
+
+function openRescheduleDialog(s){
+  const now = new Date();
+  const {start} = sessionStartEnd(s);
+  if (start && (start - now) / 3600000 <= 24){
+    showMsg('Cannot propose reschedule within 24 hours of start','red');
+    return;
+  }
+  RS_SESSION = s;
+  document.getElementById('rsSid').textContent = `session_id: ${s.session_id}`;
+  ['D1','D2','D3','D4','D5'].forEach(k=>document.getElementById('rs'+k).value='');
+  ['H1','H2','H3','H4','H5'].forEach(k=>document.getElementById('rs'+k).value='08');
+  ['M1','M2','M3','M4','M5'].forEach(k=>document.getElementById('rs'+k).value='00');
+  document.getElementById('rsReason').value='';
+  document.getElementById('rsDlg').style.display='flex';
+}
+function closeRs(){ document.getElementById('rsDlg').style.display='none'; RS_SESSION=null; }
+
+async function submitReschedule(){
+  const reason = document.getElementById('rsReason').value;
+  if (!reason){ showMsg('Please select a reason','red'); return; }
+
+  const opts=[];
+  for (let i=1;i<=5;i++){
+    const d = document.getElementById('rsD'+i).value;
+    const h = document.getElementById('rsH'+i).value;
+    const m = document.getElementById('rsM'+i).value;
+    if (d && h){ opts.push({date:d, time:`${h}:${m}`}); }
+  }
+  if (opts.length===0){ showMsg('Please provide at least one alternative time','red'); return; }
+
+  const r = await post('propose_reschedule', {
+    session_id: RS_SESSION.session_id,
+    reason,
+    options: opts
+  });
+  if (!r.ok){ showMsg(r.msg||'Submit failed','red'); return; }
+  closeRs();
+  showMsg('Reschedule submitted. Waiting for client confirmation','green');
+  refresh();
+}
+</script>
+</body>
+</html>
