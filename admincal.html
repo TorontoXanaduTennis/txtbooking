@@ -21,7 +21,7 @@ h1{font-size:28px;margin:0 0 16px}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 input,select,button{padding:10px 12px;border:1px solid var(--bdr);border-radius:10px;background:#fff}
 button{background:var(--primary);color:#fff;cursor:pointer}
-.btn{padding:8px 12px;border-radius:10px;border:1px solid透明}
+.btn{padding:8px 12px;border-radius:10px;border:1px solid transparent;}
 .btn.success{background:var(--success)}
 .btn.danger{background:var(--danger)}
 .btn.blue{background:var(--blue)}
@@ -1548,74 +1548,77 @@ async function icCompute(){
   const tbody = document.getElementById('ic_tbody');
   const totalEl = document.getElementById('ic_total');
   const countEl = document.getElementById('ic_count');
+
   tbody.innerHTML=''; totalEl.textContent='0'; countEl.textContent='0';
   msg.style.color='var(--gcal-muted)'; msg.textContent='读取中…';
 
   if(!fromStr || !toStr){ msg.textContent='请选择起止日期'; return; }
   const from = icYmdStart(fromStr), to = icYmdEnd(toStr);
 
-  /* 1) 尝试后端标准接口 */
   let txs = [];
   try{
-    const r = await post('list_transactions', { from: fromStr, to: toStr, method: (method==='所有收款方式（总和）'?'':method) });
+    // 标准后端接口（若存在）
+    const r = await post('list_transactions', {
+      from: fromStr,
+      to: toStr,
+      method: (method==='所有收款方式（总和）' ? '' : method)
+    });
     if (r && r.ok && Array.isArray(r.items)){
       txs = r.items;
       msg.textContent='';
     }else{
       throw new Error(r && r.msg || 'unknown action');
     }
-  }catch(e){
-    /* 2) 兼容回退：扫描所有客户套餐 -> pkg_payment -> 聚合交易 */
+  }catch(_){
+    // 兼容回退方案：扫描所有套餐并聚合交易
     msg.style.color='var(--orange)';
     msg.textContent='后端未提供 list_transactions，正使用兼容模式扫描…';
-    try{
-      const sc = await post('search_clients', { q:'', limit: 5000 });
-      const clients = (sc && sc.ok && Array.isArray(sc.items)) ? sc.items : [];
-      const idNameMap = new Map();
-      const pkgIds = [];
-      clients.forEach(it=>{
-        const c = it.client||{};
-        if (c.client_id && c.name) idNameMap.set(String(c.client_id), String(c.name));
-        (it.packages||[]).forEach(p=>{ if(p.package_id) pkgIds.push(String(p.package_id)); });
-      });
 
-      /* 并发拉取每个套餐的支付明细 */
-      const limit = pLimit(8);
-      const results = await Promise.all(pkgIds.map(pid=>limit(async ()=>{
-        try{
-          const r = await post('pkg_payment', { package_id: pid });
-          if (r && r.ok){
-            const arr = Array.isArray(r.transactions)?r.transactions:[];
-            /* 把 pkgName 放进缓存，便于展示 */
-            if (r.package_name) PKG_NAME_CACHE.set(String(pid), String(r.package_name));
-            return arr.map(t=>({ ...t, package_id: pid }));
-          }
-        }catch(_){}
-        return [];
-      })));
-      txs = results.flat().map(t=>{
-        const cid = String(t.client_id||'').trim();
-        const pid = String(t.package_id||'').trim();
-        return {
-          date: t.date, time: t.time, amount: Number(t.amount||0),
-          method: t.method||'', client_id: cid, package_id: pid,
-          transaction_id: t.transaction_id || t.id || '',
-          client_name: CLIENT_NAME_CACHE.get(cid) || idNameMap.get(cid) || '',
-          package_name: PKG_NAME_CACHE.get(pid) || ''
-        };
-      });
-      msg.textContent='（兼容模式完成）';
-    }catch(err){
-      msg.style.color='var(--danger)';
-      msg.textContent='读取失败： ' + (err.message||'');
-      return;
-    }
+    const sc = await post('search_clients', { q:'', limit: 5000 });
+    const clients = (sc && sc.ok && Array.isArray(sc.items)) ? sc.items : [];
+    const idNameMap = new Map();
+    const pkgIds = [];
+    clients.forEach(it=>{
+      const c = it.client||{};
+      if (c.client_id && c.name) idNameMap.set(String(c.client_id), String(c.name));
+      (it.packages||[]).forEach(p=>{ if(p.package_id) pkgIds.push(String(p.package_id)); });
+    });
+
+    const limit = pLimit(8);
+    const results = await Promise.all(pkgIds.map(pid=>limit(async ()=>{
+      try{
+        const r = await post('pkg_payment', { package_id: pid });
+        if (r && r.ok){
+          const arr = Array.isArray(r.transactions)?r.transactions:[];
+          if (r.package_name) PKG_NAME_CACHE.set(String(pid), String(r.package_name));
+          return arr.map(t=>({ ...t, package_id: pid }));
+        }
+      }catch(e){}
+      return [];
+    })));
+    txs = results.flat().map(t=>{
+      const cid = String(t.client_id||'').trim();
+      const pid = String(t.package_id||'').trim();
+      return {
+        date: t.date,
+        time: t.time,
+        method: t.method || '',
+        amount: Number(t.amount||0),
+        client_id: cid,
+        package_id: pid,
+        transaction_id: t.transaction_id || t.id || '',
+        client_name: CLIENT_NAME_CACHE.get(cid) || idNameMap.get(cid) || '',
+        package_name: PKG_NAME_CACHE.get(pid) || ''
+      };
+    });
+    msg.textContent='（兼容模式完成）';
   }
 
-  /* 统一标准化 & 过滤/排序 */
+  // 统一标准化
   const norm = txs.map(t=>{
     return {
-      date: t.date, time: t.time,
+      date: t.date,
+      time: t.time,
       method: t.method || '',
       amount: Number(t.amount||0),
       client_id: String(t.client_id||'').trim(),
@@ -1626,7 +1629,7 @@ async function icCompute(){
     };
   });
 
-  /* 规范时间戳，便于过滤/排序 */
+  // 规范时间戳
   norm.forEach(n=>{
     const d = parseMaybeDate(n.date);
     const tm = parseMaybeDate(n.time);
@@ -1635,18 +1638,17 @@ async function icCompute(){
       : (d || null);
   });
 
-  /* 如果缺少姓名/套餐名，补齐缓存后再填入 */
+  // 若缺少姓名/套餐名，补齐缓存
   const missC = [...new Set(norm.filter(x=>!x.client_name && x.client_id).map(x=>x.client_id))];
   if (missC.length) await ensureClientNames(missC);
   const missP = [...new Set(norm.filter(x=>!x.package_name && x.package_id).map(x=>x.package_id))];
   if (missP.length) await ensurePackageNames(missP);
-
   norm.forEach(x=>{
     if (!x.client_name && x.client_id) x.client_name = CLIENT_NAME_CACHE.get(x.client_id) || '';
     if (!x.package_name && x.package_id) x.package_name = PKG_NAME_CACHE.get(x.package_id) || '';
   });
 
-  /* 过滤（日期区间 + 收款方式） */
+  // 过滤（日期区间 + 收款方式）
   let list = norm.filter(x=>{
     if (!(x.dt instanceof Date)) return false;
     if (x.dt.getTime() < from.getTime() || x.dt.getTime() > to.getTime()) return false;
@@ -1654,10 +1656,10 @@ async function icCompute(){
     return true;
   });
 
-  /* 排序：时间升序 */
+  // 排序：时间升序
   list.sort((a,b)=>(a.dt?.getTime()||0)-(b.dt?.getTime()||0));
 
-  /* 汇总与渲染 */
+  // 汇总 & 渲染
   const total = Math.round(list.reduce((s,v)=>s+(isFinite(v.amount)?v.amount:0),0)*100)/100;
   totalEl.textContent = String(total);
   countEl.textContent = String(list.length);
@@ -1678,6 +1680,7 @@ async function icCompute(){
 
   msg.textContent = '';
 }
+
 </script>
 </body>
 </html>
