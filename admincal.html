@@ -63,7 +63,7 @@ tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:1
 .b-cancelled{background:#FECACA;color:#991B1B;border:1px solid #fecaca}
 
 .pay-badge{padding:2px 8px;border-radius:999px;font-size:12px;margin-left:6px}
-.pay-paid{背景:#D1FAE5;color:#065f46;border:1px solid #a7f3d0}
+.pay-paid{background:#D1FAE5;color:#065f46;border:1px solid #a7f3d0}
 .pay-out{background:#FEF3C7;color:#92400e;border:1px solid #fde68a}
 
 .client-card{background:#fff;border:1px solid var(--bdr);border-radius:12px;box-shadow:var(--shadow);padding:12px;margin:10px 0}
@@ -338,7 +338,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 </div>
 </div>
 
-<!-- ✅ 新增：教练课时统计 -->
+<!-- ✅ 新增：教练课时统计（保留） -->
 <div class="card" id="hoursCalcCard">
   <h3>教练课时统计</h3>
   <div class="toolbar" style="gap:12px;align-items:flex-end;flex-wrap:wrap">
@@ -530,6 +530,41 @@ function badge(status){
   return status||'';
 }
 
+/* ================== 客户/教练/字段 索引规范化 & 客户名渲染修复 ================== */
+function idxOf(H, names){ for (const n of names){ const i = H.indexOf(n); if (i !== -1) return i; } return -1; }
+function normalizeIdx(idx, H){
+  const n=(cands, key)=>{ const i=idxOf(H, cands); if(i!==-1) idx[key]=i; };
+  n(['client_id','clientId','clientID','cid'],'client_id');
+  n(['client_name','clientName','client'],'client_name');
+
+  n(['coach_id','coachId','coachID'],'coach_id');
+  n(['coach_name','coachName'],'coach_name');
+
+  n(['date','session_date','lesson_date'],'date');
+  n(['time','session_time','lesson_time'],'time');
+
+  n(['duration_hours','duration','dur'],'duration_hours');
+  n(['status','state'],'status');
+  n(['notes','remark','备注'],'notes');
+
+  n(['session_id','sessionId','sid'],'session_id');
+  n(['package_id','packageId','pkg_id','pkgId'],'package_id');
+  // packageName 从多字段兜底读取，不强制
+}
+
+/* 用于表格显示：始终输出 “全名 (id)”；若没拿到姓名，也至少显示 (id) */
+function clientLabelFromRow(row, idx){
+  const cid = idx && idx.client_id!=null ? row[idx.client_id] : '';
+  const sid = String(cid||'').trim();
+  const cached = sid ? CLIENT_NAME_CACHE.get(sid) : '';
+  const fallback = (idx && idx.client_name!=null) ? String(row[idx.client_name]||'').trim() : '';
+  const name = cached || fallback;
+  if (name && sid) return `${name} (${sid})`;
+  if (sid) return `(${sid})`;
+  return name || '';
+}
+/* =========================================================================== */
+
 let COACHES = [];
 async function loadCoaches(){
   const r = await post('list_coaches', {});
@@ -537,7 +572,7 @@ async function loadCoaches(){
   const sel = document.getElementById('coach_sel');
   sel.innerHTML = '<option value="">选择教练…</option>' +
   (COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('');
-  /* 新增：把教练填充到课时统计下拉 */
+  /* 同步填充课时统计下拉 */
   populateHoursCoachSel();
 }
 
@@ -551,9 +586,9 @@ async function ensureClientNames(ids){
     const r = await post('client_names', { ids: missing });
     if (r && r.ok && r.map){
       for (const [id, nm] of Object.entries(r.map)){ CLIENT_NAME_CACHE.set(String(id), String(nm||'')); }
-      return;
     }
   }catch(e){}
+  /* 逐个兜底 */
   for (const id of missing){
     try{
       const rr = await post('client_name_by_id', { id });
@@ -686,7 +721,6 @@ async function searchClients(){
       </div>`;
     }).join('') || '<div class="muted">无</div>';
 
-    /* 修改处：课程行增加 session_id 与时长 */
     const sessLines = (sess||[]).map(s=>{
       const dur = (s && (s.duration_hours!=null && s.duration_hours!==''))
         ? s.duration_hours : (s?.duration ?? s?.dur ?? 1);
@@ -816,8 +850,6 @@ async function changeAssignedCoach(client_id){
   searchClients();
 }
 
-function idxOf(H, names){ for (const n of names){ const i = H.indexOf(n); if (i !== -1) return i; } return -1; }
-
 let DONE_ALL = []; let donePage=1; const donePageSize=50;
 function pageDone(delta){
   const totalPages = Math.max(1, Math.ceil(DONE_ALL.length/donePageSize));
@@ -836,6 +868,9 @@ async function loadSessions(){
     const H = r.headers; CURRENT_HEADERS = H;
     const idx = Object.fromEntries(H.map((h,i)=>[h,i])); CURRENT_IDX = idx;
     const rows = r.data || [];
+
+    /* 统一索引，让后续 idx.xxx 都可用 */
+    normalizeIdx(idx, H);
 
     const createdIdx = idxOf(r.headers, ['created_at','created_time','created','createdAt','createdAtUtc']);
     const now = Date.now(), tenDaysMs = 10*24*3600*1000;
@@ -866,12 +901,13 @@ async function loadSessions(){
       return (eb?eb.getTime():0) - (ea?ea.getTime():0);
     });
 
-    const clientIdIdx = idxOf(H, ['client_id','clientId','clientID']);
+    /* 预取客户名，保证列表能显示 “全名 (id)” */
+    const clientIdIdx = idx.client_id ?? idxOf(H, ['client_id','clientId','clientID']);
     if (clientIdIdx!==-1){
       const allClientIds = rows.map(rw=>rw[clientIdIdx]).filter(Boolean);
       await ensureClientNames(allClientIds);
     }
-    const pkgIdIdx = idxOf(H, ['package_id','packageId','pkg_id']);
+    const pkgIdIdx = idx.package_id ?? idxOf(H, ['package_id','packageId','pkg_id']);
     if (pkgIdIdx !== -1){
       const allPkgIds = rows.map(rw=>rw[pkgIdIdx]).filter(Boolean);
       await ensurePackageNames(allPkgIds);
@@ -973,8 +1009,7 @@ function renderPendingGroup(tbodyId, rows, idx, createdIdx){
   tb.innerHTML='';
   rows.forEach(row=>{
     const status = (row[idx.status]+'') || '';
-    const clientId = row[idx.client_id];
-    const clientStr = clientLabel(clientId);
+    const clientStr = clientLabelFromRow(row, idx);   // ★ 修复：显示“全名 (id)”
     const pkgName = packageNameFromRow(row, idx);
     const session_id = row[idx.session_id] || '';
     const pkg_id = row[idx.package_id] || '';
@@ -1004,8 +1039,7 @@ function renderTable(tbodyId, rows, idx, listType, createdIdx){
   tb.innerHTML='';
   rows.forEach(row=>{
     const status = (row[idx.status]+'') || '';
-    const clientId = row[idx.client_id];
-    const clientStr = clientLabel(clientId);
+    const clientStr = clientLabelFromRow(row, idx);   // ★ 修复：显示“全名 (id)”
     const pkgName = packageNameFromRow(row, idx);
     const session_id = row[idx.session_id] || '';
     const pkg_id = row[idx.package_id] || '';
@@ -1371,7 +1405,7 @@ function bindVisibilityToggles(){
   };
 }
 
-/* ✅ 新增：课时统计功能脚本 */
+/* ✅ 课时统计功能脚本（保留） */
 function populateHoursCoachSel(){
   const sel = document.getElementById('hc_coach');
   if(!sel) return;
