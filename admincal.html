@@ -545,9 +545,9 @@ function fmtDateTime(dateVal, timeVal){
     const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
     const ds = dt.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'});
     const ts = dt.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'});
-    return `${ds} ${ts}`;
+    return ${ds} ${ts};
   }
-  if (d) return `${fmtDate(d)} ${t?fmtTime(t):''}`.trim();
+  if (d) return ${fmtDate(d)} ${t?fmtTime(t):''}.trim();
   if (t) return fmtTime(t);
   return '';
 }
@@ -613,7 +613,7 @@ async function loadCoaches(){
   if (r.ok) COACHES = r.items||[];
   const sel = document.getElementById('coach_sel');
   sel.innerHTML = '<option value="">选择教练…</option>' +
-  (COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('');
+  (COACHES||[]).map(c=><option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>).join('');
   populateHoursCoachSel();
 }
 
@@ -685,15 +685,15 @@ function pickCoach(title='选择教练'){
     const box = document.createElement('div'); box.className='dialog';
     Object.assign(ov.style,{position:'fixed',inset:'0',background:'rgba(0,0,0,.3)',display:'grid',placeItems:'center',zIndex:9999});
     Object.assign(box.style,{background:'#fff',border:'1px solid #e5e7eb',borderRadius:'12px',boxShadow:'0 10px 24px rgba(0,0,0,.14)',padding:'14px',width:'min(420px,92vw)'});
-    box.innerHTML = `
+    box.innerHTML = 
     <div style="font-weight:600;margin-bottom:8px">${title}</div>
     <select id="dlg_sel" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px">
-    ${(COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('')}
+    ${(COACHES||[]).map(c=><option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>).join('')}
     </select>
     <div class="actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
       <button class="btn gray" id="dlg_cancel">取消</button>
       <button class="btn" id="dlg_ok">确定</button>
-    </div>`;
+    </div>;
     ov.appendChild(box); document.body.appendChild(ov);
     box.querySelector('#dlg_cancel').onclick=()=>{ document.body.removeChild(ov); resolve(null); };
     box.querySelector('#dlg_ok').onclick=()=>{ const v=box.querySelector('#dlg_sel').value; document.body.removeChild(ov); resolve(v); };
@@ -739,7 +739,7 @@ async function createClient(){
     if (r && r.ok){
       clearCreateForm(true);
       el.style.color = 'var(--success)';
-      el.textContent = `成功录入：client_id=${r.client_id}，package_id=${r.package_id}${r.transaction_id?('，transaction_id='+r.transaction_id):''}`;
+      el.textContent = 成功录入：client_id=${r.client_id}，package_id=${r.package_id}${r.transaction_id?('，transaction_id='+r.transaction_id):''};
     }else{
       el.style.color = 'var(--danger)';
       el.textContent = '失败：' + (r && r.msg || 'Network error');
@@ -753,9 +753,9 @@ async function searchClients(){
   const keyword = q.value.trim();
   searchRes.innerHTML = '<div class="muted">搜索中…</div>';
   const r = await post('search_clients', { q: keyword, limit: 50 });
-  if(!r.ok){ searchRes.innerHTML = `<div class="muted">搜索失败：${r.msg||''}</div>`; return; }
+  if(!r.ok){ searchRes.innerHTML = <div class="muted">搜索失败：${r.msg||''}</div>; return; }
   const items = r.items || [];
-  srCount.textContent = `共 ${items.length} 条`;
+  srCount.textContent = 共 ${items.length} 条;
   searchRes.innerHTML = items.map(it=>{
     const c = it.client || {};
     const pkgs = it.packages || [];
@@ -763,28 +763,28 @@ async function searchClients(){
 
     const assignedId = c.assigned_coach || c.coach_id || '';
     const coachObj = (COACHES||[]).find(x=>x.coach_id===assignedId) || {};
-    const assignedLabel = assignedId ? `${coachObj.coach_name||''} (${assignedId})` : '未指定';
+    const assignedLabel = assignedId ? ${coachObj.coach_name||''} (${assignedId}) : '未指定';
 
     if (c.client_id && c.name){ CLIENT_NAME_CACHE.set(String(c.client_id), String(c.name)); }
 
     const pkgLines = (pkgs||[]).map(p=>{
       const pid = p.package_id || '';
       const pname = p.package_name || pid || '(未命名)';
-      const rest = `总 ${p.total_hours||''} / 剩余 ${p.remaining_hours||''}`;
-      const holderId = `pkgpay-${pid}`;
-      return `<div style="margin-top:8px">
+      const rest = 总 ${p.total_hours||''} / 剩余 ${p.remaining_hours||''};
+      const holderId = pkgpay-${pid};
+      return <div style="margin-top:8px">
       <b>${pname}</b> <span class="muted">[${pid}] · ${rest}</span>
       <div id="${holderId}" class="pkg-payline">载入支付信息中…</div>
-      </div>`;
+      </div>;
     }).join('') || '<div class="muted">无</div>';
 
     const sessLines = (sess||[]).map(s=>{
       const dur = (s && (s.duration_hours!=null && s.duration_hours!==''))
         ? s.duration_hours : (s?.duration ?? s?.dur ?? 1);
-      return `• ${fmtDate(s.date)} ${fmtTime(s.time)} | ${s.coach_name||''} | ${s.status} | ${s.session_id||''} | ${dur}小时`;
+      return • ${fmtDate(s.date)} ${fmtTime(s.time)} | ${s.coach_name||''} | ${s.status} | ${s.session_id||''} | ${dur}小时;
     }).join('<br/>') || '无';
 
-    return `
+    return 
     <div class="client-card">
       <div class="grid-2">
         <div><b>${c.name||''}</b> <span class="muted">(${c.client_id||''})</span></div>
@@ -804,7 +804,7 @@ async function searchClients(){
       <details style="margin-top:6px"><summary>课程 (${sess.length})</summary>
         <div class="muted" style="margin-top:4px">${sessLines}</div>
       </details>
-    </div>`;
+    </div>;
   }).join('') || '<div class="muted">未找到匹配客户</div>';
 
   for (const it of (items||[])){
@@ -818,7 +818,7 @@ async function searchClients(){
 
 /* 套餐付款信息卡片（保留） */
 async function loadPackagePaymentBlock(package_id, client_id){
-  const holder = document.getElementById(`pkgpay-${package_id}`);
+  const holder = document.getElementById(pkgpay-${package_id});
   if(!holder) return;
   try{
     const r = await post('pkg_payment', { package_id });
@@ -834,13 +834,13 @@ async function loadPackagePaymentBlock(package_id, client_id){
       const when = fmtDateTime(tx.date, tx.time);
       const a = typeof tx.amount==='number'? tx.amount : Number(tx.amount||0);
       const m = tx.method || '';
-      return `${when} · ${a} · ${m}`;
+      return ${when} · ${a} · ${m};
     }).join(' ｜ ') : '无交易记录';
 
-    const badge = is_paid ? `<span class="pay-badge pay-paid">PAID</span>`
-                          : `<span class="pay-badge pay-out">OUTSTANDING</span>`;
+    const badge = is_paid ? <span class="pay-badge pay-paid">PAID</span>
+                          : <span class="pay-badge pay-out">OUTSTANDING</span>;
 
-    const ops = !is_paid ? `
+    const ops = !is_paid ? 
     <div class="pkg-payops">
       <input id="topup-${package_id}" placeholder="客户已补差价：收款金额输入" />
       <select id="topupm-${package_id}">
@@ -851,22 +851,22 @@ async function loadPackagePaymentBlock(package_id, client_id){
         <option>马丁收现金</option>
       </select>
       <button class="btn success" onclick="doTopup('${package_id}','${client_id}')">登记收款</button>
-    </div>` : '';
+    </div> : '';
 
-    holder.innerHTML = `
+    holder.innerHTML = 
     <div>
       <span>应付：<b>${amount_due}</b>，已付：<b>${amount_paid}</b>，未结：<b>${outstanding}</b></span>
       ${badge}
     </div>
     <div class="pkg-payline">${txLine}</div>
-    ${ops}`;
+    ${ops};
   }catch(e){
     holder.textContent = '读取异常';
   }
 }
 async function doTopup(package_id, client_id){
-  const amtEl = document.getElementById(`topup-${package_id}`);
-  const metEl = document.getElementById(`topupm-${package_id}`);
+  const amtEl = document.getElementById(topup-${package_id});
+  const metEl = document.getElementById(topupm-${package_id});
   if(!amtEl || !metEl) return;
   const amount = Number((amtEl.value||'').trim());
   const method = metEl.value;
@@ -991,34 +991,32 @@ function renderDonePaged(idx, createdIdx){
   const s = (donePage-1)*donePageSize, e = s+donePageSize;
   const pageRows = DONE_ALL.slice(s,e);
   renderTable('tbodyDone', pageRows, CURRENT_IDX || {}, 'done', createdIdx);
-  document.getElementById('donePageInfo').textContent = `第 ${donePage} / 共 ${totalPages} 页（每页 50）`;
+  document.getElementById('donePageInfo').textContent = 第 ${donePage} / 共 ${totalPages} 页（每页 50）;
   document.getElementById('donePrev').disabled = donePage<=1;
   document.getElementById('doneNext').disabled = donePage>=totalPages;
 }
 
 function coachLabelFromRow(row, idx){
   const cid = row[idx.coach_id]; const cname = row[idx.coach_name];
-  return (cname?cname:'') + (cid?` (${cid})`:'');
+  return (cname?cname:'') + (cid? (${cid}):'');
 }
 
-/* 行操作渲染（事件标题为 客户名-教练名-套餐名；写入至下拉框所选日历） */
+/* 行操作渲染（事件标题已调整为 客户名-教练名-套餐名-日历名） */
 function buildOpsHTMLForRow(row, idx, status, clientName, pkgName, coachLabel){
   const sid = row[idx.session_id];
   const et = endDT(row, idx);
   const finished = et ? (Date.now() >= et.getTime()) : false;
   const canComplete = (status === 'scheduled') && finished;
 
-  // 这里用当前下拉框选择的目标日历来判断“已添加”提示
-  const selEl = document.getElementById('gcal-writeCal');
-  const currCalId = (selEl && selEl.value) ? selEl.value : writeCalendarId;
+  const currCalId = writeCalendarId;
   const addedToName = sid ? getAddedName(sid, currCalId) : null;
 
   let addBtn = '';
   if (addedToName){
-    addBtn = `<span class="muted">已添加到球馆${addedToName}</span>`;
+    addBtn = <span class="muted">已添加到球馆${addedToName}</span>;
   }else{
     const coachName = String(row[idx.coach_name]||'').trim();
-    addBtn = `<button class="btn gray" onclick='addToFacilityCalendar(${JSON.stringify({
+    addBtn = <button class="btn gray" onclick='addToFacilityCalendar(${JSON.stringify({
       session_id:sid,
       date:fmtDate(row[idx.date]),
       time:fmtTime(row[idx.time]),
@@ -1026,14 +1024,14 @@ function buildOpsHTMLForRow(row, idx, status, clientName, pkgName, coachLabel){
       coachName,
       clientName:clientName,
       packageName:pkgName
-    }).replace(/'/g,"&#39;")})'>添加到球馆日历</button>`;
+    }).replace(/'/g,"&#39;")})'>添加到球馆日历</button>;
   }
 
-  const completeBtn = `<button class="btn success ${canComplete?'':'disabled'}" onclick="${canComplete?`complete('${sid}')`:'void(0)'}">已完成</button>`;
-  const cancelBtn = `<button class="btn danger" onclick="cancelSession('${sid}')">取消</button>`;
-  const switchBtn = `<button class="btn blue" onclick="sw('${sid}','${status}')">换教练</button>`;
+  const completeBtn = <button class="btn success ${canComplete?'':'disabled'}" onclick="${canComplete?complete('${sid}'):'void(0)'}">已完成</button>;
+  const cancelBtn = <button class="btn danger" onclick="cancelSession('${sid}')">取消</button>;
+  const switchBtn = <button class="btn blue" onclick="sw('${sid}','${status}')">换教练</button>;
 
-  return `${completeBtn} ${cancelBtn} ${switchBtn} ${addBtn}`;
+  return ${completeBtn} ${cancelBtn} ${switchBtn} ${addBtn};
 }
 
 function renderPendingGroup(tbodyId, rows, idx){
@@ -1051,7 +1049,7 @@ function renderPendingGroup(tbodyId, rows, idx){
     const opHTML = buildOpsHTMLForRow(row, idx, status, clientName, pkgName, coachLabel);
 
     const tr = document.createElement('tr');
-    tr.innerHTML = `
+    tr.innerHTML = 
     <td>${fmtDate(row[idx.date])}</td>
     <td>${fmtTime(row[idx.time])}</td>
     <td>${clientName}</td>
@@ -1063,7 +1061,7 @@ function renderPendingGroup(tbodyId, rows, idx){
     <td class="row-actions">${opHTML}</td>
     <td>${session_id}</td>
     <td>${pkg_id}</td>
-    <td>${client_id}</td>`;
+    <td>${client_id}</td>;
     tb.appendChild(tr);
   });
 }
@@ -1082,7 +1080,7 @@ function renderTable(tbodyId, rows, idx){
     const opHTML = buildOpsHTMLForRow(row, idx, status, clientName, pkgName, coachLabel);
 
     const tr = document.createElement('tr');
-    tr.innerHTML = `
+    tr.innerHTML = 
     <td>${fmtDate(row[idx.date])}</td>
     <td>${fmtTime(row[idx.time])}</td>
     <td>${clientName}</td>
@@ -1094,7 +1092,7 @@ function renderTable(tbodyId, rows, idx){
     <td class="row-actions">${opHTML}</td>
     <td>${session_id}</td>
     <td>${pkg_id}</td>
-    <td>${client_id}</td>`;
+    <td>${client_id}</td>;
     tb.appendChild(tr);
   });
 }
@@ -1168,11 +1166,6 @@ document.getElementById('gcal-status').textContent='未登录';
 
 function gcalIsSignedIn(){ return !!gcal_accessToken; }
 function currentWriteCalSummary(){ const meta=calendarListCache.find(c=>c.id===writeCalendarId); return meta ? meta.summary : writeCalendarId; }
-// 新增：通过 id 获取该日历的显示名（供写入提示用）
-function calendarSummaryById(id){
-  const meta = calendarListCache.find(c => c.id === id);
-  return meta ? meta.summary : id;
-}
 
 async function gcalOnSignedIn(){
   document.getElementById('gcal-signin').style.display='none';
@@ -1293,22 +1286,18 @@ function gcalRenderCalendar(){
         end: isAllDay?{date:selInfo.endStr}:{dateTime:selInfo.endStr,timeZone:GCAL_TZ},
       };
       try{
-        // 关键：写入到当前下拉框所选的日历
-        const selEl = document.getElementById('gcal-writeCal');
-        const targetId = (selEl && selEl.value) ? selEl.value : writeCalendarId;
-
-        const res=await gapi.client.calendar.events.insert({calendarId: targetId, resource});
-        const meta=calendarListCache.find(x=>x.id===targetId);
+        const res=await gapi.client.calendar.events.insert({calendarId:writeCalendarId, resource});
+        const meta=calendarListCache.find(x=>x.id===writeCalendarId);
         const color=meta?.backgroundColor;
-        if(showCalendarIds.has(targetId)){
+        if(showCalendarIds.has(writeCalendarId)){
           gcal_calendar.addEvent({
-            id:(res.result.id||Math.random().toString(36).slice(2))+'::'+targetId,
+            id:(res.result.id||Math.random().toString(36).slice(2))+'::'+writeCalendarId,
             title:res.result.summary||'(无标题)',
             start:res.result.start.dateTime||res.result.start.date,
             end:res.result.end?.dateTime||res.result.end?.date,
             allDay:!!res.result.start.date,
             backgroundColor:color, borderColor:color,
-            extendedProps:{calendarId:targetId, eventId:res.result.id, canEdit:true}
+            extendedProps:{calendarId:writeCalendarId, eventId:res.result.id, canEdit:true}
           });
         }
       }catch(e){ gcalShowDiag(e); alert('创建失败：'+(e.result?.error?.message||e.message)); }
@@ -1345,7 +1334,7 @@ function gcalRenderCalendar(){
   gcal_calendar.render();
 }
 
-/* 写入球馆日历：标题=客户名-教练名-套餐名（不带日历名）；目标=下拉框所选日历 */
+/* 写入球馆日历：标题=客户名-教练名-套餐名-日历名（无ID） */
 async function addToFacilityCalendar(meta){
   if (!gcalIsSignedIn()){
     alert('日历未登录，请先在上方使用 Google 登录。');
@@ -1358,31 +1347,23 @@ async function addToFacilityCalendar(meta){
   }
 
   const dateStr = (meta.date||'').replace(/\//g,'-');
-  const startISO = `${dateStr}T${meta.time||'00:00'}:00`;
+  const startISO = ${dateStr}T${meta.time||'00:00'}:00;
   const start = new Date(startISO);
   const end = new Date(start.getTime() + (Number(meta.dur)||1)*3600*1000);
 
-  // 关键：用下拉框的当前值作为真正写入目标
-  const selEl = document.getElementById('gcal-writeCal');
-  const targetCalId = (selEl && selEl.value) ? selEl.value : writeCalendarId;
-  const calName = calendarSummaryById(targetCalId);
-
-  // 标题仅：客户-教练-package
-  const title = `${(meta.clientName||'').trim()}-${(meta.coachName||'').trim()}-${(meta.packageName||'').trim()}`
-    .replace(/\s+/g,' ')
-    .replace(/^[-\s]+|[-\s]+$/g,'');
+  const calName = currentWriteCalSummary();
+  const title = ${(meta.clientName||'').trim()}-${(meta.coachName||'').trim()}-${(meta.packageName||'').trim()}-${calName}.replace(/\s+/g,' ').trim();
 
   try{
     await gapi.client.calendar.events.insert({
-      calendarId: targetCalId,
+      calendarId: writeCalendarId,
       resource:{
         summary:title,
         start:{dateTime:start.toISOString(), timeZone:GCAL_TZ},
         end:{dateTime:end.toISOString(), timeZone:GCAL_TZ}
       }
     });
-    // 标记时也使用目标日历 id
-    markAdded(meta.session_id, targetCalId, calName);
+    markAdded(meta.session_id, writeCalendarId, calName);
     alert('已添加到当前写入目标日历：' + calName);
     if(gcal_calendar) gcal_calendar.refetchEvents();
   }catch(err){
@@ -1392,7 +1373,7 @@ async function addToFacilityCalendar(meta){
 }
 
 /* 已写入标记（保留） */
-function addedKey(sessionId, calId){ return `SESSION_CAL_ADDED::${sessionId}::${calId}`; }
+function addedKey(sessionId, calId){ return SESSION_CAL_ADDED::${sessionId}::${calId}; }
 function markAdded(sessionId, calId, calName){ try{ localStorage.setItem(addedKey(sessionId, calId), calName||''); }catch(e){} }
 function getAddedName(sessionId, calId){ try{ return localStorage.getItem(addedKey(sessionId, calId)); }catch(e){ return null; } }
 function unmarkAdded(sessionId, calId){ try{ localStorage.removeItem(addedKey(sessionId, calId)); }catch(e){} }
@@ -1401,7 +1382,7 @@ function getAddedEntries(sessionId){
   try{
     for(let i=0;i<localStorage.length;i++){
       const k=localStorage.key(i);
-           if(k && k.startsWith(`SESSION_CAL_ADDED::${sessionId}::`)){
+      if(k && k.startsWith(SESSION_CAL_ADDED::${sessionId}::)){
         out.push({ calId:(k.split('::')[2]||''), calName:(localStorage.getItem(k)||'') });
       }
     }
@@ -1463,7 +1444,7 @@ function populateHoursCoachSel(){
   if(!sel) return;
   const keep = sel.value || '*ALL*';
   sel.innerHTML = '<option value="*ALL*">所有教练（合计）</option>' +
-    (COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_name||''} (${c.coach_id})</option>`).join('');
+    (COACHES||[]).map(c=><option value="${c.coach_id}">${c.coach_name||''} (${c.coach_id})</option>).join('');
   sel.value = keep;
 }
 function hcParseYmdLocal(ymd){
@@ -1504,7 +1485,7 @@ function hcComputeHours(){
 
   hours = Math.round(hours * 100) / 100;
   outEl.textContent = String(hours);
-  msgEl.textContent = `计入 ${count} 节课`;
+  msgEl.textContent = 计入 ${count} 节课;
 }
 function hcComputePay(){
   const hrs = Number(document.getElementById('hc_hours')?.textContent||'0');
@@ -1544,7 +1525,7 @@ const PAY_METHODS = [
 function icInit(){
   const sel = document.getElementById('ic_method');
   if(!sel) return;
-  sel.innerHTML = PAY_METHODS.map(m=>`<option value="${m}">${m}</option>`).join('');
+  sel.innerHTML = PAY_METHODS.map(m=><option value="${m}">${m}</option>).join('');
   /* 默认 60 天区间 */
   const to = new Date(); const from = new Date(to.getTime() - 60*24*3600*1000);
   document.getElementById('ic_from').value = from.toISOString().slice(0,10);
@@ -1576,6 +1557,7 @@ async function icCompute(){
 
   let txs = [];
   try{
+    // 标准后端接口（若存在）
     const r = await post('list_transactions', {
       from: fromStr,
       to: toStr,
@@ -1683,9 +1665,9 @@ async function icCompute(){
   countEl.textContent = String(list.length);
 
   tbody.innerHTML = list.map(x=>{
-    const cname = x.client_name || (x.client_id ? `(${x.client_id})` : '');
+    const cname = x.client_name || (x.client_id ? (${x.client_id}) : '');
     const pname = x.package_name || '';
-    return `<tr>
+    return <tr>
       <td>${fmtDate(x.date)}</td>
       <td>${fmtTime(x.time)}</td>
       <td>${cname}</td>
@@ -1693,15 +1675,13 @@ async function icCompute(){
       <td>${x.method||''}</td>
       <td>${x.amount}</td>
       <td>${x.transaction_id||''}</td>
-    </tr>`;
+    </tr>;
   }).join('');
 
   totalEl.textContent = String(Math.round(total*100)/100);
-  countEl.textContent = String(list.length);
-  msg.textContent = list.length ? '' : '无记录';
+  countEl.textContent = String(filtered.length);
+  msg.textContent = filtered.length ? '' : '无记录';
 }
-
-/* 启动 */
 window.addEventListener('load', ()=>{
   ensureSignedIn();       // 显示登录/应用界面
   if (window.gapi)   gapiLoaded();
@@ -1710,4 +1690,3 @@ window.addEventListener('load', ()=>{
 </script>
 </body>
 </html>
-
