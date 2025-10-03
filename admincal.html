@@ -59,7 +59,7 @@ tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:1
 .b-pending{background:var(--st-pending);color:#92400e}
 .b-scheduled{background:var(--st-scheduled);color:#374151}
 .b-done{background:var(--st-done);color:#065f46}
-/* 新增：取消状态徽章 */
+/* 取消状态徽章 */
 .b-cancelled{background:#FECACA;color:#991B1B;border:1px solid #fecaca}
 
 .pay-badge{padding:2px 8px;border-radius:999px;font-size:12px;margin-left:6px}
@@ -254,7 +254,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <tr>
 <th>date</th><th>time</th><th>client</th>
 <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
-<th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
+<th style="width:280px">操作</th><th>session_id</th><th>package_id</th><th>client_id</th>
 </tr>
 </thead>
 <tbody id="tbodyPendingSoon"></tbody>
@@ -276,7 +276,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <tr>
 <th>date</th><th>time</th><th>client</th>
 <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
-<th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
+<th style="width:280px">操作</th><th>session_id</th><th>package_id</th><th>client_id</th>
 </tr>
 </thead>
 <tbody id="tbodyPendingLater"></tbody>
@@ -298,7 +298,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <tr>
 <th>date</th><th>time</th><th>client</th>
 <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
-<th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
+<th style="width:280px">操作</th><th>session_id</th><th>package_id</th><th>client_id</th>
 </tr>
 </thead>
 <tbody id="tbodyScheduled"></tbody>
@@ -327,7 +327,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <tr>
 <th>date</th><th>time</th><th>client</th>
 <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
-<th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
+<th style="width:280px">操作</th><th>session_id</th><th>package_id</th><th>client_id</th>
 </tr>
 </thead>
 <tbody id="tbodyDone"></tbody>
@@ -338,7 +338,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 </div>
 </div>
 
-<!-- ✅ 新增：教练课时统计（保留） -->
+<!-- ✅ 教练课时统计（保留） -->
 <div class="card" id="hoursCalcCard">
   <h3>教练课时统计</h3>
   <div class="toolbar" style="gap:12px;align-items:flex-end;flex-wrap:wrap">
@@ -374,6 +374,43 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
     <button class="btn gray" onclick="hcReset()">清空</button>
   </div>
 </div>
+
+<!-- ✅ 新增：收入计算 -->
+<div class="card" id="incomeCard">
+  <h3>收入计算</h3>
+  <div class="toolbar" style="gap:16px;align-items:flex-end;flex-wrap:wrap">
+    <label style="display:grid;gap:4px">
+      <span class="muted">收款方式</span>
+      <select id="ic_method" style="min-width:240px"></select>
+    </label>
+    <label style="display:grid;gap:4px">
+      <span class="muted">从</span>
+      <input id="ic_from" type="date" />
+    </label>
+    <label style="display:grid;gap:4px">
+      <span class="muted">到</span>
+      <input id="ic_to" type="date" />
+    </label>
+    <button class="btn" onclick="icCompute()">计算收入</button>
+    <button class="btn gray" onclick="icReset()">清空</button>
+    <span id="ic_msg" class="muted"></span>
+  </div>
+
+  <div class="toolbar" style="gap:16px;margin-top:8px;flex-wrap:wrap">
+    <div>总金额：<b id="ic_total">0</b>（共 <b id="ic_count">0</b> 笔）</div>
+  </div>
+
+  <div class="table-wrap" style="margin-top:8px">
+    <table>
+      <thead>
+        <tr>
+          <th>date</th><th>time</th><th>client</th><th>package</th><th>method</th><th>amount</th><th>transaction_id</th>
+        </tr>
+      </thead>
+      <tbody id="ic_tbody"></tbody>
+    </table>
+  </div>
+</div>
 <!-- ✅ 新增结束 -->
 
 </div>
@@ -382,6 +419,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <script>
 const API_BASE = 'https://script.google.com/macros/s/AKfycbzIRAc4FhAGl_v-1m59lbHg4zl5Kth6z-1TIuM4en2CS0i8fBV26b5Gi-c0wNL1LPawyA/exec';
 
+/* ========== 登录状态 & 公共 ========== */
 const ADMIN_ID_TOKEN_KEY = 'TXT_ADMIN_ID_TOKEN';
 function adminToken(){ return localStorage.getItem(ADMIN_ID_TOKEN_KEY) || ''; }
 function setAdminToken(t){ if(t) localStorage.setItem(ADMIN_ID_TOKEN_KEY, t); }
@@ -440,6 +478,7 @@ async function ensureSignedIn(){
     await loadSessions();
     bindVisibilityToggles();
     applyVisibilityFromStorage();
+    icInit(); /* 初始化收入计算 UI */
   }else{
     clearAdminToken();
     showLogin('登录已过期，请重新登录。');
@@ -464,6 +503,7 @@ function renderGsiButton(){
         await loadSessions();
         bindVisibilityToggles();
         applyVisibilityFromStorage();
+        icInit();
       }else{
         showLogin(r && r.msg ? ('登录失败：'+r.msg) : '登录失败');
       }
@@ -473,6 +513,7 @@ function renderGsiButton(){
   google.accounts.id.renderButton(document.getElementById('gsiBtn'), { theme:'outline', size:'large', type:'standard', width:280 });
 }
 
+/* ========== 工具 & 格式化 ========== */
 const isDate = v => Object.prototype.toString.call(v)==='[object Date]' && !isNaN(v);
 function parseMaybeDate(x){
   if (x==null || x==='') return null;
@@ -530,12 +571,13 @@ function badge(status){
   return status||'';
 }
 
-/* ================== 客户/教练/字段 索引规范化 & 客户名渲染修复 ================== */
+/* ========== 字段索引规范化 & 名称解析修复/提速 ========== */
 function idxOf(H, names){ for (const n of names){ const i = H.indexOf(n); if (i !== -1) return i; } return -1; }
 function normalizeIdx(idx, H){
   const n=(cands, key)=>{ const i=idxOf(H, cands); if(i!==-1) idx[key]=i; };
   n(['client_id','clientId','clientID','cid'],'client_id');
-  n(['client_name','clientName','client'],'client_name');
+  /* 兼容你 client sheet 用 name 的情况 */
+  n(['client_name','clientName','client','name','姓名'],'client_name');
 
   n(['coach_id','coachId','coachID'],'coach_id');
   n(['coach_name','coachName'],'coach_name');
@@ -549,21 +591,21 @@ function normalizeIdx(idx, H){
 
   n(['session_id','sessionId','sid'],'session_id');
   n(['package_id','packageId','pkg_id','pkgId'],'package_id');
-  // packageName 从多字段兜底读取，不强制
+  /* package_name 不强制，后面有兜底函数 */
 }
 
-/* 用于表格显示：始终输出 “全名 (id)”；若没拿到姓名，也至少显示 (id) */
-function clientLabelFromRow(row, idx){
-  const cid = idx && idx.client_id!=null ? row[idx.client_id] : '';
-  const sid = String(cid||'').trim();
-  const cached = sid ? CLIENT_NAME_CACHE.get(sid) : '';
+/* 仅名字（用于表格第三列） */
+function clientNameOnlyFromRow(row, idx){
+  const cid = idx && idx.client_id!=null ? String(row[idx.client_id]||'').trim() : '';
+  const cached = cid ? CLIENT_NAME_CACHE.get(cid) : '';
   const fallback = (idx && idx.client_name!=null) ? String(row[idx.client_name]||'').trim() : '';
   const name = cached || fallback;
-  if (name && sid) return `${name} (${sid})`;
-  if (sid) return `(${sid})`;
   return name || '';
 }
-/* =========================================================================== */
+/* 单独拿 id（放最后一列） */
+function clientIdFromRow(row, idx){
+  return idx && idx.client_id!=null ? (row[idx.client_id]||'') : '';
+}
 
 let COACHES = [];
 async function loadCoaches(){
@@ -572,46 +614,59 @@ async function loadCoaches(){
   const sel = document.getElementById('coach_sel');
   sel.innerHTML = '<option value="">选择教练…</option>' +
   (COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('');
-  /* 同步填充课时统计下拉 */
   populateHoursCoachSel();
 }
 
 const CLIENT_NAME_CACHE = new Map();
 const PKG_NAME_CACHE = new Map();
 
+/* 并发限速工具，避免蜂拥/阻塞 */
+function pLimit(concurrency){
+  const queue=[]; let active=0;
+  const run=async fn=>{
+    active++; try{ return await fn(); } finally{ active--; next(); }
+  };
+  const next=()=>{ if(active>=concurrency) return; const job=queue.shift(); if(job) job(); };
+  return fn=> new Promise((resolve,reject)=>{
+    const task=()=>run(fn).then(resolve,reject);
+    if(active<concurrency) task(); else queue.push(task);
+  });
+}
+
+/* 批量获取客户名：优先走批量接口；失败则并发走单条接口 */
 async function ensureClientNames(ids){
-  const missing = [...new Set(ids.filter(Boolean))].filter(id=>!CLIENT_NAME_CACHE.has(String(id)));
+  const missing = [...new Set(ids.filter(Boolean).map(String))].filter(id=>!CLIENT_NAME_CACHE.has(id));
   if (!missing.length) return;
+
   try{
     const r = await post('client_names', { ids: missing });
     if (r && r.ok && r.map){
       for (const [id, nm] of Object.entries(r.map)){ CLIENT_NAME_CACHE.set(String(id), String(nm||'')); }
+      return;
     }
   }catch(e){}
-  /* 逐个兜底 */
-  for (const id of missing){
+
+  const limit = pLimit(8);
+  await Promise.all(missing.map(id=>limit(async ()=>{
     try{
       const rr = await post('client_name_by_id', { id });
-      if (rr && rr.ok && rr.name) CLIENT_NAME_CACHE.set(String(id), String(rr.name));
-    }catch(e){}
-  }
-}
-function clientLabel(id){
-  const sid = String(id||'').trim();
-  const nm = CLIENT_NAME_CACHE.get(sid);
-  return nm ? `${nm} (${sid})` : (sid ? `(${sid})` : '');
+      if (rr && rr.ok) CLIENT_NAME_CACHE.set(String(id), String(rr.name||''));
+    }catch(_){}
+  })));
 }
 
+/* 套餐名：没有批量接口时并发拉取 */
 async function ensurePackageNames(ids){
   const miss = [...new Set(ids.filter(Boolean).map(String))].filter(id=>!PKG_NAME_CACHE.has(id));
   if (!miss.length) return;
-  for (const pid of miss){ PKG_NAME_CACHE.set(pid, ''); }
-  for (const pid of miss){
+  const limit = pLimit(8);
+  miss.forEach(pid=>PKG_NAME_CACHE.set(pid, PKG_NAME_CACHE.get(pid)||'')); // 先占位
+  await Promise.all(miss.map(pid=>limit(async ()=>{
     try{
       const rr = await post('package_name_by_id', { id: pid });
-      if (rr && rr.ok) PKG_NAME_CACHE.set(String(pid), String(rr.name||'')); 
-    }catch(e){}
-  }
+      if (rr && rr.ok) PKG_NAME_CACHE.set(String(pid), String(rr.name||''));
+    }catch(_){}
+  })));
 }
 function packageNameFromRow(row, idx){
   const byField = (k)=> (idx[k]!=null && row[idx[k]]) ? String(row[idx[k]]) : '';
@@ -623,6 +678,7 @@ function packageNameFromRow(row, idx){
   return cached || pid;
 }
 
+/* 选择教练弹窗（保留） */
 function pickCoach(title='选择教练'){
   return new Promise(resolve=>{
     const ov = document.createElement('div'); ov.className='overlay';
@@ -644,6 +700,7 @@ function pickCoach(title='选择教练'){
   });
 }
 
+/* 录入新客户（保留） */
 function clearCreateForm(keepMsg){
   ['c_name','c_phone','c_wechat','c_email','c_pass','p_name','p_hours','amount_due','amount_paid'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
@@ -653,7 +710,6 @@ function clearCreateForm(keepMsg){
   if(!keepMsg){ const msg = document.getElementById('createClientMsg'); if (msg) msg.textContent=''; }
 }
 function mustNumber(v){ const n=Number(v); return isFinite(n) ? n : NaN; }
-
 async function createClient(){
   try{
     const name = c_name.value.trim();
@@ -691,6 +747,7 @@ async function createClient(){
   }catch(err){ alert('创建失败：' + err.message); }
 }
 
+/* 客户搜索（保留） */
 function resetSearch(){ q.value=''; srCount.textContent=''; searchRes.innerHTML=''; }
 async function searchClients(){
   const keyword = q.value.trim();
@@ -759,6 +816,7 @@ async function searchClients(){
   }
 }
 
+/* 套餐付款信息卡片（保留） */
 async function loadPackagePaymentBlock(package_id, client_id){
   const holder = document.getElementById(`pkgpay-${package_id}`);
   if(!holder) return;
@@ -806,7 +864,6 @@ async function loadPackagePaymentBlock(package_id, client_id){
     holder.textContent = '读取异常';
   }
 }
-
 async function doTopup(package_id, client_id){
   const amtEl = document.getElementById(`topup-${package_id}`);
   const metEl = document.getElementById(`topupm-${package_id}`);
@@ -821,26 +878,23 @@ async function doTopup(package_id, client_id){
   await loadPackagePaymentBlock(package_id, client_id);
 }
 
+/* 客户固定教练（保留） */
 async function addPackage(client_id){
   const package_name = prompt('输入新套餐名称（如 800/10hr）');
   if(!package_name) return;
-
   const total_hours = Number(prompt('输入套餐总小时（如 10）') || 0);
   if(!(total_hours>0)) return alert('总小时需大于 0');
-
   const amount_due = Number(prompt('输入该套餐 税后课程总价（应付）') || 0);
   if(!(amount_due>0)) return alert('应付需大于 0');
 
   const r = await post('add_package', { client_id, package_name, total_hours, amount_due });
   if(!r || !r.ok) return alert('创建失败：' + (r && r.msg || ''));
   const pid = r.package_id;
-
-  try{ const check = await post('pkg_payment', { package_id: pid }); }catch(_){}
+  try{ await post('pkg_payment', { package_id: pid }); }catch(_){}
   try{ await loadPackagePaymentBlock(pid, client_id); }catch(_){}
   alert('创建成功：' + pid);
   searchClients();
 }
-
 async function changeAssignedCoach(client_id){
   const coach_id = await pickCoach('选择新的固定指派教练');
   if (!coach_id) return;
@@ -850,6 +904,7 @@ async function changeAssignedCoach(client_id){
   searchClients();
 }
 
+/* ========== Session 列表加载/渲染（提速&修复名字） ========== */
 let DONE_ALL = []; let donePage=1; const donePageSize=50;
 function pageDone(delta){
   const totalPages = Math.max(1, Math.ceil(DONE_ALL.length/donePageSize));
@@ -869,7 +924,6 @@ async function loadSessions(){
     const idx = Object.fromEntries(H.map((h,i)=>[h,i])); CURRENT_IDX = idx;
     const rows = r.data || [];
 
-    /* 统一索引，让后续 idx.xxx 都可用 */
     normalizeIdx(idx, H);
 
     const createdIdx = idxOf(r.headers, ['created_at','created_time','created','createdAt','createdAtUtc']);
@@ -901,16 +955,20 @@ async function loadSessions(){
       return (eb?eb.getTime():0) - (ea?ea.getTime():0);
     });
 
-    /* 预取客户名，保证列表能显示 “全名 (id)” */
+    /* 仅对“待确认+已排期”做预取，提升速度 */
+    const notDoneRows = [...pendingSoon, ...pendingLater, ...scheduled];
+
+    /* 预取客户名（并发限速） */
     const clientIdIdx = idx.client_id ?? idxOf(H, ['client_id','clientId','clientID']);
     if (clientIdIdx!==-1){
-      const allClientIds = rows.map(rw=>rw[clientIdIdx]).filter(Boolean);
-      await ensureClientNames(allClientIds);
+      const ids = notDoneRows.map(rw=>rw[clientIdIdx]).filter(Boolean);
+      await ensureClientNames(ids);
     }
+    /* 预取套餐名（并发限速） */
     const pkgIdIdx = idx.package_id ?? idxOf(H, ['package_id','packageId','pkg_id']);
     if (pkgIdIdx !== -1){
-      const allPkgIds = rows.map(rw=>rw[pkgIdIdx]).filter(Boolean);
-      await ensurePackageNames(allPkgIds);
+      const pids = notDoneRows.map(rw=>rw[pkgIdIdx]).filter(Boolean);
+      await ensurePackageNames(pids);
     }
 
     renderPendingGroup('tbodyPendingSoon', pendingSoon, idx, createdIdx);
@@ -918,9 +976,7 @@ async function loadSessions(){
     renderTable('tbodyScheduled', scheduled, idx, 'scheduled', createdIdx);
     donePage = 1; renderDonePaged(idx, createdIdx);
 
-    const notDoneRows = [...pendingSoon, ...pendingLater, ...scheduled];
     reconcileAddedMarksForVisible(notDoneRows, idx);
-
     applyVisibilityFromStorage();
     setRefreshing(false,'刷新已完成');
   }catch(e){
@@ -944,35 +1000,9 @@ function coachLabelFromRow(row, idx){
   const cid = row[idx.coach_id]; const cname = row[idx.coach_name];
   return (cname?cname:'') + (cid?` (${cid})`:'');
 }
-function createdTimeStr(row, createdIdx){
-  if (createdIdx===-1) return '-';
-  const d = parseMaybeDate(row[createdIdx]); if(!d) return '-';
-  const dt = d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'});
-  const tm = d.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'});
-  return `${dt} ${tm}`;
-}
 
-/* 已写入日历的本地标记 */
-function addedKey(sessionId, calId){ return `SESSION_CAL_ADDED::${sessionId}::${calId}`; }
-function markAdded(sessionId, calId, calName){ try{ localStorage.setItem(addedKey(sessionId, calId), calName||''); }catch(e){} }
-function getAddedName(sessionId, calId){ try{ return localStorage.getItem(addedKey(sessionId, calId)); }catch(e){ return null; } }
-function unmarkAdded(sessionId, calId){ try{ localStorage.removeItem(addedKey(sessionId, calId)); }catch(e){} }
-/* 查询某session是否被添加到任意日历 */
-function getAddedEntries(sessionId){
-  const out=[];
-  try{
-    for(let i=0;i<localStorage.length;i++){
-      const k=localStorage.key(i);
-      if(k && k.startsWith(`SESSION_CAL_ADDED::${sessionId}::`)){
-        out.push({ calId:(k.split('::')[2]||''), calName:(localStorage.getItem(k)||'') });
-      }
-    }
-  }catch(e){}
-  return out;
-}
-
-/* 行操作渲染 */
-function buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel){
+/* 行操作渲染（事件标题已调整为 客户名-教练名-套餐名-日历名） */
+function buildOpsHTMLForRow(row, idx, status, clientName, pkgName, coachLabel){
   const sid = row[idx.session_id];
   const et = endDT(row, idx);
   const finished = et ? (Date.now() >= et.getTime()) : false;
@@ -985,15 +1015,15 @@ function buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel){
   if (addedToName){
     addBtn = `<span class="muted">已添加到球馆${addedToName}</span>`;
   }else{
-    const coachName = String(row[idx.coach_name]||'');
-    const coachId = String(row[idx.coach_id]||'');
-    const clientFullName = (clientStr||'').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    const coachName = String(row[idx.coach_name]||'').trim();
     addBtn = `<button class="btn gray" onclick='addToFacilityCalendar(${JSON.stringify({
       session_id:sid,
       date:fmtDate(row[idx.date]),
       time:fmtTime(row[idx.time]),
       dur:(row[idx.duration_hours]||1),
-      coachName, coachId, clientFullName
+      coachName,
+      clientName:clientName,
+      packageName:pkgName
     }).replace(/'/g,"&#39;")})'>添加到球馆日历</button>`;
   }
 
@@ -1004,24 +1034,25 @@ function buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel){
   return `${completeBtn} ${cancelBtn} ${switchBtn} ${addBtn}`;
 }
 
-function renderPendingGroup(tbodyId, rows, idx, createdIdx){
+function renderPendingGroup(tbodyId, rows, idx){
   const tb = document.getElementById(tbodyId);
   tb.innerHTML='';
   rows.forEach(row=>{
     const status = (row[idx.status]+'') || '';
-    const clientStr = clientLabelFromRow(row, idx);   // ★ 修复：显示“全名 (id)”
+    const clientName = clientNameOnlyFromRow(row, idx); // ★ 第三列只显示名字
     const pkgName = packageNameFromRow(row, idx);
     const session_id = row[idx.session_id] || '';
     const pkg_id = row[idx.package_id] || '';
+    const client_id = clientIdFromRow(row, idx) || '';
     const coachLabel = coachLabelFromRow(row, idx);
 
-    const opHTML = buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel);
+    const opHTML = buildOpsHTMLForRow(row, idx, status, clientName, pkgName, coachLabel);
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
     <td>${fmtDate(row[idx.date])}</td>
     <td>${fmtTime(row[idx.time])}</td>
-    <td>${clientStr}</td>
+    <td>${clientName}</td>
     <td>${coachLabel}</td>
     <td>${pkgName}</td>
     <td>${row[idx.duration_hours]||1}</td>
@@ -1029,29 +1060,30 @@ function renderPendingGroup(tbodyId, rows, idx, createdIdx){
     <td>${row[idx.notes]||''}</td>
     <td class="row-actions">${opHTML}</td>
     <td>${session_id}</td>
-    <td>${pkg_id}</td>`;
+    <td>${pkg_id}</td>
+    <td>${client_id}</td>`;
     tb.appendChild(tr);
   });
 }
-
-function renderTable(tbodyId, rows, idx, listType, createdIdx){
+function renderTable(tbodyId, rows, idx){
   const tb = document.getElementById(tbodyId);
   tb.innerHTML='';
   rows.forEach(row=>{
     const status = (row[idx.status]+'') || '';
-    const clientStr = clientLabelFromRow(row, idx);   // ★ 修复：显示“全名 (id)”
+    const clientName = clientNameOnlyFromRow(row, idx);
     const pkgName = packageNameFromRow(row, idx);
     const session_id = row[idx.session_id] || '';
     const pkg_id = row[idx.package_id] || '';
+    const client_id = clientIdFromRow(row, idx) || '';
     const coachLabel = coachLabelFromRow(row, idx);
 
-    const opHTML = buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel);
+    const opHTML = buildOpsHTMLForRow(row, idx, status, clientName, pkgName, coachLabel);
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
     <td>${fmtDate(row[idx.date])}</td>
     <td>${fmtTime(row[idx.time])}</td>
-    <td>${clientStr}</td>
+    <td>${clientName}</td>
     <td>${coachLabel}</td>
     <td>${pkgName}</td>
     <td>${row[idx.duration_hours]||1}</td>
@@ -1059,7 +1091,8 @@ function renderTable(tbodyId, rows, idx, listType, createdIdx){
     <td>${row[idx.notes]||''}</td>
     <td class="row-actions">${opHTML}</td>
     <td>${session_id}</td>
-    <td>${pkg_id}</td>`;
+    <td>${pkg_id}</td>
+    <td>${client_id}</td>`;
     tb.appendChild(tr);
   });
 }
@@ -1092,7 +1125,7 @@ async function sw(session_id, status){
   loadSessions();
 }
 
-/* Google Calendar 嵌入 */
+/* ========== Google Calendar ========== */
 const GCAL_CLIENT_ID = "126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com";
 const GCAL_SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events";
 const GCAL_TZ = "America/Toronto";
@@ -1301,19 +1334,12 @@ function gcalRenderCalendar(){
   gcal_calendar.render();
 }
 
-window.addEventListener('load', ()=>{
-  ensureSignedIn();
-  if(window.gapi) gapiLoaded();
-  if(window.google) gisLoaded();
-});
-
-/* Admin：添加到球馆日历（含重复拦截） */
+/* 写入球馆日历：标题=客户名-教练名-套餐名-日历名（无ID） */
 async function addToFacilityCalendar(meta){
   if (!gcalIsSignedIn()){
     alert('日历未登录，请先在上方使用 Google 登录。');
     return;
   }
-
   const existing = getAddedEntries(meta.session_id);
   if (existing.length){
     alert('该课程已被添加到日历：' + existing.map(e=>e.calName || e.calId).join(', '));
@@ -1326,7 +1352,7 @@ async function addToFacilityCalendar(meta){
   const end = new Date(start.getTime() + (Number(meta.dur)||1)*3600*1000);
 
   const calName = currentWriteCalSummary();
-  const title = `${(meta.coachName||'').trim()}-${(meta.coachId||'').trim()}-${(meta.clientFullName||'').trim()}-${calName}`.replace(/\s+/g,' ').trim();
+  const title = `${(meta.clientName||'').trim()}-${(meta.coachName||'').trim()}-${(meta.packageName||'').trim()}-${calName}`.replace(/\s+/g,' ').trim();
 
   try{
     await gapi.client.calendar.events.insert({
@@ -1346,19 +1372,26 @@ async function addToFacilityCalendar(meta){
   }
 }
 
-/* 对账（保留标记，不自动清除，避免误判导致可重复添加） */
-async function reconcileAddedMarksForVisible(rows, idx){
+/* 已写入标记（保留） */
+function addedKey(sessionId, calId){ return `SESSION_CAL_ADDED::${sessionId}::${calId}`; }
+function markAdded(sessionId, calId, calName){ try{ localStorage.setItem(addedKey(sessionId, calId), calName||''); }catch(e){} }
+function getAddedName(sessionId, calId){ try{ return localStorage.getItem(addedKey(sessionId, calId)); }catch(e){ return null; } }
+function unmarkAdded(sessionId, calId){ try{ localStorage.removeItem(addedKey(sessionId, calId)); }catch(e){} }
+function getAddedEntries(sessionId){
+  const out=[];
   try{
-    if (!gcalIsSignedIn()) return;
-    const calId = writeCalendarId;
-    if (!calId) return;
-    return;
-  }catch(err){
-    console.warn('reconcile error', err);
-  }
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(k && k.startsWith(`SESSION_CAL_ADDED::${sessionId}::`)){
+        out.push({ calId:(k.split('::')[2]||''), calName:(localStorage.getItem(k)||'') });
+      }
+    }
+  }catch(e){}
+  return out;
 }
+async function reconcileAddedMarksForVisible(){}
 
-/* 列表可见性存取 */
+/* 列表可见性（保留） */
 const VIS_KEYS = {
   vis_pendingSoon: 'sec_pendingSoon',
   vis_pendingLater: 'sec_pendingLater',
@@ -1405,7 +1438,7 @@ function bindVisibilityToggles(){
   };
 }
 
-/* ✅ 课时统计功能脚本（保留） */
+/* ========== 课时统计（保留） ========== */
 function populateHoursCoachSel(){
   const sel = document.getElementById('hc_coach');
   if(!sel) return;
@@ -1437,7 +1470,6 @@ function hcComputeHours(){
   const toEnd = new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23,59,59,999);
 
   const idx = CURRENT_IDX;
-  // 仅统计完成的课（done）
   const rows = (DONE_ALL||[]).filter(r => String(r[idx.status])==='done');
 
   let hours = 0;
@@ -1480,8 +1512,173 @@ function hcReset(){
   if(pay) pay.textContent='0';
   if(msg) msg.textContent='';
 }
-/* ✅ 新增结束 */
 
+/* ========== 新增：收入计算 ========== */
+const PAY_METHODS = [
+  '所有收款方式（总和）',
+  '线下刷卡',
+  'Interac e-transfer',
+  '吴嘉启收现金',
+  '董昱莹收现金',
+  '马丁收现金'
+];
+function icInit(){
+  const sel = document.getElementById('ic_method');
+  if(!sel) return;
+  sel.innerHTML = PAY_METHODS.map(m=>`<option value="${m}">${m}</option>`).join('');
+  /* 默认 60 天区间 */
+  const to = new Date(); const from = new Date(to.getTime() - 60*24*3600*1000);
+  document.getElementById('ic_from').value = from.toISOString().slice(0,10);
+  document.getElementById('ic_to').value   = to.toISOString().slice(0,10);
+}
+function icReset(){
+  icInit();
+  document.getElementById('ic_total').textContent='0';
+  document.getElementById('ic_count').textContent='0';
+  document.getElementById('ic_tbody').innerHTML='';
+  document.getElementById('ic_msg').textContent='';
+}
+function icYmdStart(d){ const [y,m,dd]=d.split('-').map(Number); return new Date(y,m-1,dd,0,0,0,0); }
+function icYmdEnd(d){ const [y,m,dd]=d.split('-').map(Number); return new Date(y,m-1,dd,23,59,59,999); }
+async function icCompute(){
+  const method = document.getElementById('ic_method').value;
+  const fromStr = document.getElementById('ic_from').value;
+  const toStr = document.getElementById('ic_to').value;
+  const msg = document.getElementById('ic_msg');
+  const tbody = document.getElementById('ic_tbody');
+  const totalEl = document.getElementById('ic_total');
+  const countEl = document.getElementById('ic_count');
+  tbody.innerHTML=''; totalEl.textContent='0'; countEl.textContent='0';
+  msg.style.color='var(--gcal-muted)'; msg.textContent='读取中…';
+
+  if(!fromStr || !toStr){ msg.textContent='请选择起止日期'; return; }
+  const from = icYmdStart(fromStr), to = icYmdEnd(toStr);
+
+  /* 1) 尝试后端标准接口 */
+  let txs = [];
+  try{
+    const r = await post('list_transactions', { from: fromStr, to: toStr, method: (method==='所有收款方式（总和）'?'':method) });
+    if (r && r.ok && Array.isArray(r.items)){
+      txs = r.items;
+      msg.textContent='';
+    }else{
+      throw new Error(r && r.msg || 'unknown action');
+    }
+  }catch(e){
+    /* 2) 兼容回退：扫描所有客户套餐 -> pkg_payment -> 聚合交易 */
+    msg.style.color='var(--orange)';
+    msg.textContent='后端未提供 list_transactions，正使用兼容模式扫描…';
+    try{
+      const sc = await post('search_clients', { q:'', limit: 5000 });
+      const clients = (sc && sc.ok && Array.isArray(sc.items)) ? sc.items : [];
+      const idNameMap = new Map();
+      const pkgIds = [];
+      clients.forEach(it=>{
+        const c = it.client||{};
+        if (c.client_id && c.name) idNameMap.set(String(c.client_id), String(c.name));
+        (it.packages||[]).forEach(p=>{ if(p.package_id) pkgIds.push(String(p.package_id)); });
+      });
+
+      /* 并发拉取每个套餐的支付明细 */
+      const limit = pLimit(8);
+      const results = await Promise.all(pkgIds.map(pid=>limit(async ()=>{
+        try{
+          const r = await post('pkg_payment', { package_id: pid });
+          if (r && r.ok){
+            const arr = Array.isArray(r.transactions)?r.transactions:[];
+            /* 把 pkgName 放进缓存，便于展示 */
+            if (r.package_name) PKG_NAME_CACHE.set(String(pid), String(r.package_name));
+            return arr.map(t=>({ ...t, package_id: pid }));
+          }
+        }catch(_){}
+        return [];
+      })));
+      txs = results.flat().map(t=>{
+        const cid = String(t.client_id||'').trim();
+        const pid = String(t.package_id||'').trim();
+        return {
+          date: t.date, time: t.time, amount: Number(t.amount||0),
+          method: t.method||'', client_id: cid, package_id: pid,
+          transaction_id: t.transaction_id || t.id || '',
+          client_name: CLIENT_NAME_CACHE.get(cid) || idNameMap.get(cid) || '',
+          package_name: PKG_NAME_CACHE.get(pid) || ''
+        };
+      });
+      msg.textContent='（兼容模式完成）';
+    }catch(err){
+      msg.style.color='var(--danger)';
+      msg.textContent='读取失败： ' + (err.message||'');
+      return;
+    }
+  }
+
+  /* 统一标准化 & 过滤/排序 */
+  const norm = txs.map(t=>{
+    return {
+      date: t.date, time: t.time,
+      method: t.method || '',
+      amount: Number(t.amount||0),
+      client_id: String(t.client_id||'').
+      client_id: String(t.client_id||'').trim(),
+      package_id: String(t.package_id||'').trim(),
+      client_name: String(t.client_name||'').trim(),
+      package_name: String(t.package_name||'').trim(),
+      transaction_id: t.transaction_id || t.id || ''
+    };
+  });
+
+  /* 规范时间戳，便于过滤/排序 */
+  norm.forEach(n=>{
+    const d = parseMaybeDate(n.date);
+    const tm = parseMaybeDate(n.time);
+    n.dt = (d && tm)
+      ? new Date(d.getFullYear(), d.getMonth(), d.getDate(), tm.getHours(), tm.getMinutes(), 0, 0)
+      : (d || null);
+  });
+
+  /* 如果缺少姓名/套餐名，补齐缓存后再填入 */
+  const missC = [...new Set(norm.filter(x=>!x.client_name && x.client_id).map(x=>x.client_id))];
+  if (missC.length) await ensureClientNames(missC);
+  const missP = [...new Set(norm.filter(x=>!x.package_name && x.package_id).map(x=>x.package_id))];
+  if (missP.length) await ensurePackageNames(missP);
+
+  norm.forEach(x=>{
+    if (!x.client_name && x.client_id) x.client_name = CLIENT_NAME_CACHE.get(x.client_id) || '';
+    if (!x.package_name && x.package_id) x.package_name = PKG_NAME_CACHE.get(x.package_id) || '';
+  });
+
+  /* 过滤（日期区间 + 收款方式） */
+  let list = norm.filter(x=>{
+    if (!(x.dt instanceof Date)) return false;
+    if (x.dt.getTime() < from.getTime() || x.dt.getTime() > to.getTime()) return false;
+    if (method !== '所有收款方式（总和）' && String(x.method||'') !== method) return false;
+    return true;
+  });
+
+  /* 排序：时间升序 */
+  list.sort((a,b)=>(a.dt?.getTime()||0)-(b.dt?.getTime()||0));
+
+  /* 汇总与渲染 */
+  const total = Math.round(list.reduce((s,v)=>s+(isFinite(v.amount)?v.amount:0),0)*100)/100;
+  totalEl.textContent = String(total);
+  countEl.textContent = String(list.length);
+
+  tbody.innerHTML = list.map(x=>{
+    const cname = x.client_name || (x.client_id ? `(${x.client_id})` : '');
+    const pname = x.package_name || '';
+    return `<tr>
+      <td>${fmtDate(x.date)}</td>
+      <td>${fmtTime(x.time)}</td>
+      <td>${cname}</td>
+      <td>${pname}</td>
+      <td>${x.method||''}</td>
+      <td>${x.amount}</td>
+      <td>${x.transaction_id||''}</td>
+    </tr>`;
+  }).join('');
+
+  msg.textContent = '';
+}
 </script>
 </body>
 </html>
