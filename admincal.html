@@ -1001,14 +1001,16 @@ function coachLabelFromRow(row, idx){
   return (cname?cname:'') + (cid?` (${cid})`:'');
 }
 
-/* 行操作渲染（事件标题已调整为 客户名-教练名-套餐名-日历名） */
+/* 行操作渲染（事件标题为 客户名-教练名-套餐名；写入至下拉框所选日历） */
 function buildOpsHTMLForRow(row, idx, status, clientName, pkgName, coachLabel){
   const sid = row[idx.session_id];
   const et = endDT(row, idx);
   const finished = et ? (Date.now() >= et.getTime()) : false;
   const canComplete = (status === 'scheduled') && finished;
 
-  const currCalId = writeCalendarId;
+  // 这里用当前下拉框选择的目标日历来判断“已添加”提示
+  const selEl = document.getElementById('gcal-writeCal');
+  const currCalId = (selEl && selEl.value) ? selEl.value : writeCalendarId;
   const addedToName = sid ? getAddedName(sid, currCalId) : null;
 
   let addBtn = '';
@@ -1166,6 +1168,11 @@ document.getElementById('gcal-status').textContent='未登录';
 
 function gcalIsSignedIn(){ return !!gcal_accessToken; }
 function currentWriteCalSummary(){ const meta=calendarListCache.find(c=>c.id===writeCalendarId); return meta ? meta.summary : writeCalendarId; }
+// 新增：通过 id 获取该日历的显示名（供写入提示用）
+function calendarSummaryById(id){
+  const meta = calendarListCache.find(c => c.id === id);
+  return meta ? meta.summary : id;
+}
 
 async function gcalOnSignedIn(){
   document.getElementById('gcal-signin').style.display='none';
@@ -1286,18 +1293,22 @@ function gcalRenderCalendar(){
         end: isAllDay?{date:selInfo.endStr}:{dateTime:selInfo.endStr,timeZone:GCAL_TZ},
       };
       try{
-        const res=await gapi.client.calendar.events.insert({calendarId:writeCalendarId, resource});
-        const meta=calendarListCache.find(x=>x.id===writeCalendarId);
+        // 关键：写入到当前下拉框所选的日历
+        const selEl = document.getElementById('gcal-writeCal');
+        const targetId = (selEl && selEl.value) ? selEl.value : writeCalendarId;
+
+        const res=await gapi.client.calendar.events.insert({calendarId: targetId, resource});
+        const meta=calendarListCache.find(x=>x.id===targetId);
         const color=meta?.backgroundColor;
-        if(showCalendarIds.has(writeCalendarId)){
+        if(showCalendarIds.has(targetId)){
           gcal_calendar.addEvent({
-            id:(res.result.id||Math.random().toString(36).slice(2))+'::'+writeCalendarId,
+            id:(res.result.id||Math.random().toString(36).slice(2))+'::'+targetId,
             title:res.result.summary||'(无标题)',
             start:res.result.start.dateTime||res.result.start.date,
             end:res.result.end?.dateTime||res.result.end?.date,
             allDay:!!res.result.start.date,
             backgroundColor:color, borderColor:color,
-            extendedProps:{calendarId:writeCalendarId, eventId:res.result.id, canEdit:true}
+            extendedProps:{calendarId:targetId, eventId:res.result.id, canEdit:true}
           });
         }
       }catch(e){ gcalShowDiag(e); alert('创建失败：'+(e.result?.error?.message||e.message)); }
@@ -1334,7 +1345,7 @@ function gcalRenderCalendar(){
   gcal_calendar.render();
 }
 
-/* 写入球馆日历：标题=客户名-教练名-套餐名-日历名（无ID） */
+/* 写入球馆日历：标题=客户名-教练名-套餐名（不带日历名）；目标=下拉框所选日历 */
 async function addToFacilityCalendar(meta){
   if (!gcalIsSignedIn()){
     alert('日历未登录，请先在上方使用 Google 登录。');
@@ -1351,19 +1362,27 @@ async function addToFacilityCalendar(meta){
   const start = new Date(startISO);
   const end = new Date(start.getTime() + (Number(meta.dur)||1)*3600*1000);
 
-  const calName = currentWriteCalSummary();
-  const title = `${(meta.clientName||'').trim()}-${(meta.coachName||'').trim()}-${(meta.packageName||'').trim()}-${calName}`.replace(/\s+/g,' ').trim();
+  // 关键：用下拉框的当前值作为真正写入目标
+  const selEl = document.getElementById('gcal-writeCal');
+  const targetCalId = (selEl && selEl.value) ? selEl.value : writeCalendarId;
+  const calName = calendarSummaryById(targetCalId);
+
+  // 标题仅：客户-教练-package
+  const title = `${(meta.clientName||'').trim()}-${(meta.coachName||'').trim()}-${(meta.packageName||'').trim()}`
+    .replace(/\s+/g,' ')
+    .replace(/^[-\s]+|[-\s]+$/g,'');
 
   try{
     await gapi.client.calendar.events.insert({
-      calendarId: writeCalendarId,
+      calendarId: targetCalId,
       resource:{
         summary:title,
         start:{dateTime:start.toISOString(), timeZone:GCAL_TZ},
         end:{dateTime:end.toISOString(), timeZone:GCAL_TZ}
       }
     });
-    markAdded(meta.session_id, writeCalendarId, calName);
+    // 标记时也使用目标日历 id
+    markAdded(meta.session_id, targetCalId, calName);
     alert('已添加到当前写入目标日历：' + calName);
     if(gcal_calendar) gcal_calendar.refetchEvents();
   }catch(err){
@@ -1382,7 +1401,7 @@ function getAddedEntries(sessionId){
   try{
     for(let i=0;i<localStorage.length;i++){
       const k=localStorage.key(i);
-      if(k && k.startsWith(`SESSION_CAL_ADDED::${sessionId}::`)){
+           if(k && k.startsWith(`SESSION_CAL_ADDED::${sessionId}::`)){
         out.push({ calId:(k.split('::')[2]||''), calName:(localStorage.getItem(k)||'') });
       }
     }
@@ -1557,7 +1576,6 @@ async function icCompute(){
 
   let txs = [];
   try{
-    // 标准后端接口（若存在）
     const r = await post('list_transactions', {
       from: fromStr,
       to: toStr,
@@ -1679,9 +1697,11 @@ async function icCompute(){
   }).join('');
 
   totalEl.textContent = String(Math.round(total*100)/100);
-  countEl.textContent = String(filtered.length);
-  msg.textContent = filtered.length ? '' : '无记录';
+  countEl.textContent = String(list.length);
+  msg.textContent = list.length ? '' : '无记录';
 }
+
+/* 启动 */
 window.addEventListener('load', ()=>{
   ensureSignedIn();       // 显示登录/应用界面
   if (window.gapi)   gapiLoaded();
@@ -1690,3 +1710,4 @@ window.addEventListener('load', ()=>{
 </script>
 </body>
 </html>
+
