@@ -59,6 +59,7 @@ tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:1
 .b-pending{background:var(--st-pending);color:#92400e}
 .b-scheduled{background:var(--st-scheduled);color:#374151}
 .b-done{background:var(--st-done);color:#065f46}
+/* 新增：取消状态徽章 */
 .b-cancelled{background:#FECACA;color:#991B1B;border:1px solid #fecaca}
 
 .pay-badge{padding:2px 8px;border-radius:999px;font-size:12px;margin-left:6px}
@@ -69,7 +70,7 @@ tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:1
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 
-/* Google Calendar */
+/* Google Calendar 样式 */
 #gcal-wrap * { box-sizing: border-box; }
 #gcal-wrap .bar{display:flex;gap:8px;align-items:center}
 #gcal-wrap .right{margin-left:auto;display:flex;gap:8px;align-items:center}
@@ -93,7 +94,9 @@ tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:1
   box-shadow:0 1px 2px rgba(0,0,0,.18) !important;
   border-radius:8px !important;
 }
-#gcal-calendar .fc-timegrid-slot{ border-bottom:1.5px dashed var(--gcal-border); }
+#gcal-calendar .fc-timegrid-slot{
+  border-bottom:1.5px dashed var(--gcal-border);
+}
 
 /* 列表可见性条 */
 .vis-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px}
@@ -335,7 +338,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 </div>
 </div>
 
-<!-- ✅ 教练课时统计（保留） -->
+<!-- ✅ 新增：教练课时统计（保留） -->
 <div class="card" id="hoursCalcCard">
   <h3>教练课时统计</h3>
   <div class="toolbar" style="gap:12px;align-items:flex-end;flex-wrap:wrap">
@@ -370,39 +373,6 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
     <div>报酬：<b id="hc_pay">0</b></div>
     <button class="btn gray" onclick="hcReset()">清空</button>
   </div>
-</div>
-
-<!-- ✅ 新增：收入计算 -->
-<div class="card" id="revenueCard">
-  <h3>收入计算</h3>
-  <div class="toolbar" style="gap:12px;align-items:flex-end;flex-wrap:wrap">
-    <label style="display:grid;gap:4px">
-      <span class="muted">收款方式</span>
-      <select id="rev_method" style="min-width:220px">
-        <option value="*ALL*">所有收款方式（总和）</option>
-        <option>线下刷卡</option>
-        <option>Interac e-transfer</option>
-        <option>吴嘉启收现金</option>
-        <option>董昱莹收现金</option>
-        <option>马丁收现金</option>
-      </select>
-    </label>
-    <label style="display:grid;gap:4px">
-      <span class="muted">从</span>
-      <input id="rev_from" type="date" />
-    </label>
-    <label style="display:grid;gap:4px">
-      <span class="muted">到</span>
-      <input id="rev_to" type="date" />
-    </label>
-    <button class="btn" onclick="revCompute()">计算收入</button>
-    <button class="btn gray" onclick="revReset()">清空</button>
-    <span id="rev_msg" class="muted"></span>
-  </div>
-  <div class="toolbar" style="gap:12px;margin-top:10px;flex-wrap:wrap">
-    <div>总金额：<b id="rev_total">0</b></div>
-  </div>
-  <div id="rev_list" class="muted" style="margin-top:6px"></div>
 </div>
 <!-- ✅ 新增结束 -->
 
@@ -516,7 +486,9 @@ function parseMaybeDate(x){
     if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)){
       const [h,m]=s.split(':').map(Number); const d=new Date(); d.setHours(h||0,m||0,0,0); return d;
     }
-    if (/^\d{10,13}$/.test(s)){ const n=Number(s); return new Date(s.length===10?n*1000:n); }
+    if (/^\d{10,13}$/.test(s)){
+      const n=Number(s); return new Date(s.length===10?n*1000:n);
+    }
     const m1=s.match(/^(\d{4}[\/-]\d{1,2}[\/-]\d{1,2})[ T](\d{1,2}:\d{2}(:\d{2})?)$/);
     if (m1){ const ds=m1[1].replace(/\//g,'-'); return new Date(ds+'T'+m1[2]); }
     const d = new Date(s); if(!isNaN(d)) return d;
@@ -563,17 +535,21 @@ function idxOf(H, names){ for (const n of names){ const i = H.indexOf(n); if (i 
 function normalizeIdx(idx, H){
   const n=(cands, key)=>{ const i=idxOf(H, cands); if(i!==-1) idx[key]=i; };
   n(['client_id','clientId','clientID','cid'],'client_id');
-  n(['client_name','clientName','client','name','姓名'],'client_name'); /* ← 兼容 name */
+  n(['client_name','clientName','client'],'client_name');
+
   n(['coach_id','coachId','coachID'],'coach_id');
   n(['coach_name','coachName'],'coach_name');
+
   n(['date','session_date','lesson_date'],'date');
   n(['time','session_time','lesson_time'],'time');
+
   n(['duration_hours','duration','dur'],'duration_hours');
   n(['status','state'],'status');
   n(['notes','remark','备注'],'notes');
+
   n(['session_id','sessionId','sid'],'session_id');
   n(['package_id','packageId','pkg_id','pkgId'],'package_id');
-  // packageName 从多字段兜底读取
+  // packageName 从多字段兜底读取，不强制
 }
 
 /* 用于表格显示：始终输出 “全名 (id)”；若没拿到姓名，也至少显示 (id) */
@@ -596,6 +572,7 @@ async function loadCoaches(){
   const sel = document.getElementById('coach_sel');
   sel.innerHTML = '<option value="">选择教练…</option>' +
   (COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('');
+  /* 同步填充课时统计下拉 */
   populateHoursCoachSel();
 }
 
@@ -611,6 +588,7 @@ async function ensureClientNames(ids){
       for (const [id, nm] of Object.entries(r.map)){ CLIENT_NAME_CACHE.set(String(id), String(nm||'')); }
     }
   }catch(e){}
+  /* 逐个兜底 */
   for (const id of missing){
     try{
       const rr = await post('client_name_by_id', { id });
@@ -846,8 +824,10 @@ async function doTopup(package_id, client_id){
 async function addPackage(client_id){
   const package_name = prompt('输入新套餐名称（如 800/10hr）');
   if(!package_name) return;
+
   const total_hours = Number(prompt('输入套餐总小时（如 10）') || 0);
   if(!(total_hours>0)) return alert('总小时需大于 0');
+
   const amount_due = Number(prompt('输入该套餐 税后课程总价（应付）') || 0);
   if(!(amount_due>0)) return alert('应付需大于 0');
 
@@ -855,7 +835,7 @@ async function addPackage(client_id){
   if(!r || !r.ok) return alert('创建失败：' + (r && r.msg || ''));
   const pid = r.package_id;
 
-  try{ await post('pkg_payment', { package_id: pid }); }catch(_){}
+  try{ const check = await post('pkg_payment', { package_id: pid }); }catch(_){}
   try{ await loadPackagePaymentBlock(pid, client_id); }catch(_){}
   alert('创建成功：' + pid);
   searchClients();
@@ -891,14 +871,6 @@ async function loadSessions(){
 
     /* 统一索引，让后续 idx.xxx 都可用 */
     normalizeIdx(idx, H);
-
-    /* 将行内姓名写入缓存（若存在），避免只显示 ID */
-    if (idx.client_id!=null && idx.client_name!=null){
-      for (const rw of rows){
-        const cid = rw[idx.client_id], nm = rw[idx.client_name];
-        if (cid && nm) CLIENT_NAME_CACHE.set(String(cid), String(nm));
-      }
-    }
 
     const createdIdx = idxOf(r.headers, ['created_at','created_time','created','createdAt','createdAtUtc']);
     const now = Date.now(), tenDaysMs = 10*24*3600*1000;
@@ -985,6 +957,7 @@ function addedKey(sessionId, calId){ return `SESSION_CAL_ADDED::${sessionId}::${
 function markAdded(sessionId, calId, calName){ try{ localStorage.setItem(addedKey(sessionId, calId), calName||''); }catch(e){} }
 function getAddedName(sessionId, calId){ try{ return localStorage.getItem(addedKey(sessionId, calId)); }catch(e){ return null; } }
 function unmarkAdded(sessionId, calId){ try{ localStorage.removeItem(addedKey(sessionId, calId)); }catch(e){} }
+/* 查询某session是否被添加到任意日历 */
 function getAddedEntries(sessionId){
   const out=[];
   try{
@@ -1020,8 +993,7 @@ function buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel){
       date:fmtDate(row[idx.date]),
       time:fmtTime(row[idx.time]),
       dur:(row[idx.duration_hours]||1),
-      coachName, coachId, clientFullName,
-      pkgName
+      coachName, coachId, clientFullName
     }).replace(/'/g,"&#39;")})'>添加到球馆日历</button>`;
   }
 
@@ -1037,7 +1009,7 @@ function renderPendingGroup(tbodyId, rows, idx, createdIdx){
   tb.innerHTML='';
   rows.forEach(row=>{
     const status = (row[idx.status]+'') || '';
-    const clientStr = clientLabelFromRow(row, idx);
+    const clientStr = clientLabelFromRow(row, idx);   // ★ 修复：显示“全名 (id)”
     const pkgName = packageNameFromRow(row, idx);
     const session_id = row[idx.session_id] || '';
     const pkg_id = row[idx.package_id] || '';
@@ -1067,7 +1039,7 @@ function renderTable(tbodyId, rows, idx, listType, createdIdx){
   tb.innerHTML='';
   rows.forEach(row=>{
     const status = (row[idx.status]+'') || '';
-    const clientStr = clientLabelFromRow(row, idx);
+    const clientStr = clientLabelFromRow(row, idx);   // ★ 修复：显示“全名 (id)”
     const pkgName = packageNameFromRow(row, idx);
     const session_id = row[idx.session_id] || '';
     const pkg_id = row[idx.package_id] || '';
@@ -1354,9 +1326,7 @@ async function addToFacilityCalendar(meta){
   const end = new Date(start.getTime() + (Number(meta.dur)||1)*3600*1000);
 
   const calName = currentWriteCalSummary();
-  /* 标题：客户名字-教练名字(教练id)-package名称-session id */
-  const coachPart = `${(meta.coachName||'').trim()}${meta.coachId?`(${String(meta.coachId).trim()})`:''}`;
-  const title = `${(meta.clientFullName||'').trim()}-${coachPart}-${(meta.pkgName||'').trim()}-${(meta.session_id||'').trim()}`.replace(/\s+/g,' ').trim();
+  const title = `${(meta.coachName||'').trim()}-${(meta.coachId||'').trim()}-${(meta.clientFullName||'').trim()}-${calName}`.replace(/\s+/g,' ').trim();
 
   try{
     await gapi.client.calendar.events.insert({
@@ -1467,6 +1437,7 @@ function hcComputeHours(){
   const toEnd = new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23,59,59,999);
 
   const idx = CURRENT_IDX;
+  // 仅统计完成的课（done）
   const rows = (DONE_ALL||[]).filter(r => String(r[idx.status])==='done');
 
   let hours = 0;
@@ -1508,61 +1479,6 @@ function hcReset(){
   if(hrs) hrs.textContent='0';
   if(pay) pay.textContent='0';
   if(msg) msg.textContent='';
-}
-/* ✅ 新增：收入计算逻辑 */
-function revParseYmd(ymd){ if(!ymd) return null; const [y,m,d]=ymd.split('-').map(Number); if(!y||!m||!d) return null; return new Date(y, m-1, d, 0,0,0,0); }
-function revFormatTx(tx){
-  const when = fmtDateTime(tx.date, tx.time);
-  const a = typeof tx.amount==='number'? tx.amount : Number(tx.amount||0);
-  const m = tx.method || '';
-  return `${when} · ${a} · ${m}`;
-}
-async function revCompute(){
-  const methodSel = document.getElementById('rev_method');
-  const fromEl = document.getElementById('rev_from');
-  const toEl = document.getElementById('rev_to');
-  const totalEl = document.getElementById('rev_total');
-  const listEl = document.getElementById('rev_list');
-  const msgEl = document.getElementById('rev_msg');
-
-  const method = methodSel.value || '*ALL*';
-  const fromStr = fromEl.value, toStr = toEl.value;
-  msgEl.textContent=''; totalEl.textContent='0'; listEl.innerHTML='';
-
-  if(!fromStr || !toStr){ msgEl.textContent='请选择起止日期'; return; }
-  const from = revParseYmd(fromStr), to = revParseYmd(toStr);
-  if(!from || !to){ msgEl.textContent='日期格式不正确'; return; }
-  if(to.getTime() < from.getTime()){ msgEl.textContent='结束日期需不早于开始日期'; return; }
-
-  const payload = { method, from: fromStr, to: toStr };
-  let r=null;
-  const tries=['transactions_report','list_transactions','search_transactions','report_transactions'];
-  for (const act of tries){
-    try{ r = await post(act, payload); if (r && (r.ok || Array.isArray(r.transactions))) { r.ok = true; break; } }catch(_){}
-  }
-  if(!r || !r.ok){ msgEl.textContent='读取失败'; return; }
-
-  const txs = Array.isArray(r.transactions) ? r.transactions : [];
-  let sum = 0;
-  txs.forEach(t=>{ const v = Number(t.amount||0); if (isFinite(v)) sum += v; });
-  sum = Math.round(sum*100)/100;
-
-  totalEl.textContent = String(sum);
-  listEl.innerHTML = txs.length ? txs.map(revFormatTx).join(' ｜ ') : '<span class="muted">无交易记录</span>';
-}
-function revReset(){
-  const methodSel = document.getElementById('rev_method');
-  const fromEl = document.getElementById('rev_from');
-  const toEl = document.getElementById('rev_to');
-  const totalEl = document.getElementById('rev_total');
-  const listEl = document.getElementById('rev_list');
-  const msgEl = document.getElementById('rev_msg');
-  if(methodSel) methodSel.value='*ALL*';
-  if(fromEl) fromEl.value='';
-  if(toEl) toEl.value='';
-  if(totalEl) totalEl.textContent='0';
-  if(listEl) listEl.innerHTML='';
-  if(msgEl) msgEl.textContent='';
 }
 /* ✅ 新增结束 */
 
