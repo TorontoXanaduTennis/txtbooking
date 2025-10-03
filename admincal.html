@@ -1678,9 +1678,15 @@ async function icCompute(){
     </tr>`;
   }).join('');
 
-  msg.textContent = '';
+  totalEl.textContent = String(Math.round(total*100)/100);
+  countEl.textContent = String(filtered.length);
+  msg.textContent = filtered.length ? '' : '无记录';
 }
-
+window.addEventListener('load', ()=>{
+  ensureSignedIn();       // 显示登录/应用界面
+  if (window.gapi)   gapiLoaded();
+  if (window.google) gisLoaded();
+});
 </script>
 </body>
 </html>
