@@ -1,0 +1,1453 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>管理端 · TXT 订课</title>
+<style>
+:root{
+--bg:#f6f7fb; --card:#fff; --text:#111; --muted:#6b7280; --bdr:#e5e7eb;
+--shadow:0 8px 20px rgba(0,0,0,.08);
+--success:#10b981; --danger:#ef4444; --primary:#111; --blue:#2563eb; --orange:#f59e0b; --gray:#6b7280; --deep:#374151;
+--row-gap:10px; --radius:14px;
+--st-pending:#FEF3C7; --st-scheduled:#E5E7EB; --st-done:#D1FAE5;
+--gcal-border:#e5e7eb; --gcal-bg:#f8fafc; --gcal-text:#111827; --gcal-muted:#6b7280;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
+.wrap{max-width:1180px;margin:28px auto;padding:0 16px}
+h1{font-size:28px;margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:18px}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input,select,button{padding:10px 12px;border:1px solid var(--bdr);border-radius:10px;background:#fff}
+button{background:var(--primary);color:#fff;cursor:pointer}
+.btn{padding:8px 12px;border-radius:10px;border:1px solid透明}
+.btn.success{background:var(--success)}
+.btn.danger{background:var(--danger)}
+.btn.blue{background:var(--blue)}
+.btn.orange{background:var(--orange)}
+.btn.gray{background:var(--gray)}
+.muted{color:var(--muted)}
+.section-title{font-weight:700;margin:8px 0 10px}
+
+.section{border:2px solid var(--deep);border-radius:16px;overflow:hidden;background:#fff;}
+.section-inner{padding:12px 12px 4px}
+
+.pattern{
+height:12px;
+background:
+repeating-linear-gradient(135deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px),
+repeating-linear-gradient(225deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px);
+opacity:.5;
+}
+.divider{height:12px; margin:12px 0; background:
+repeating-linear-gradient(135deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px),
+repeating-linear-gradient(225deg, #4b5563 0 8px, rgba(75,85,99,0) 8px 16px);
+border-radius:6px; opacity:.45;}
+
+.table-wrap{position:relative;overflow:auto;padding-top:6px}
+table{width:100%;border-collapse:separate;border-spacing:0 10px}
+thead th{position:sticky;top:0;background:var(--bg);z-index:1;font-weight:600;padding:10px}
+tbody tr{background:#fff;box-shadow:var(--shadow)}
+th,td{padding:10px 12px;font-size:14px;vertical-align:middle;white-space:nowrap}
+tbody tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px}
+tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
+.row-actions button{margin-right:6px}
+.disabled{opacity:.45;pointer-events:none}
+
+.badge{padding:2px 10px;border-radius:999px;font-size:12px;display:inline-block}
+.b-pending{background:var(--st-pending);color:#92400e}
+.b-scheduled{background:var(--st-scheduled);color:#374151}
+.b-done{background:var(--st-done);color:#065f46}
+/* 新增：取消状态徽章 */
+.b-cancelled{background:#FECACA;color:#991B1B;border:1px solid #fecaca}
+
+.pay-badge{padding:2px 8px;border-radius:999px;font-size:12px;margin-left:6px}
+.pay-paid{背景:#D1FAE5;color:#065f46;border:1px solid #a7f3d0}
+.pay-out{background:#FEF3C7;color:#92400e;border:1px solid #fde68a}
+
+.client-card{background:#fff;border:1px solid var(--bdr);border-radius:12px;box-shadow:var(--shadow);padding:12px;margin:10px 0}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+
+/* Google Calendar 样式 */
+#gcal-wrap * { box-sizing: border-box; }
+#gcal-wrap .bar{display:flex;gap:8px;align-items:center}
+#gcal-wrap .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+#gcal-wrap .help{font-size:12px;color:var(--gcal-muted)}
+#gcal-calendar{width:100%}
+#gcal-wrap button{padding:8px 12px;border:1px solid var(--gcal-border);border-radius:8px;background:#fff;cursor:pointer;color:#111}
+#gcal-wrap select{padding:6px 8px;border:1px solid var(--gcal-border);border-radius:8px;background:#fff}
+#gcal-picker .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+#gcal-picker .list{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+#gcal-picker .item{display:flex;align-items:center;gap:6px;font-size:12px;border:1px dashed var(--gcal-border);padding:3px 8px;border-radius:8px;background:#fff}
+#gcal-picker .item input{transform:translateY(1px)}
+#gcal-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+#gcal-legend .pill{display:flex;align-items:center;gap:6px;border:1px solid var(--gcal-border);border-radius:999px;padding:2px 8px;background:#fff;font-size:12px}
+#gcal-legend .sw{width:10px;height:10px;border-radius:3px;border:1px solid #00000022}
+#gcal-picker .sw{width:10px;height:10px;border-radius:3px;border:1px solid #00000022}
+
+/* 更明显的事件分隔 */
+#gcal-calendar .fc-timegrid-event{
+  margin:3px !important;
+  border:1.5px solid rgba(0,0,0,.28) !important;
+  box-shadow:0 1px 2px rgba(0,0,0,.18) !important;
+  border-radius:8px !important;
+}
+#gcal-calendar .fc-timegrid-slot{
+  border-bottom:1.5px dashed var(--gcal-border);
+}
+
+/* 列表可见性条 */
+.vis-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.vis-bar label{display:flex;gap:6px;align-items:center;font-size:13px}
+.pkg-payline{font-size:12px;color:#6b7280;margin-top:4px}
+.pkg-payops{display:flex;gap:6px;align-items:center;margin-top:6px}
+.pkg-payops input, .pkg-payops select{padding:6px 8px;border-radius:8px}
+</style>
+
+<link id="gcal-fc-css" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.min.css" rel="stylesheet" />
+<script>
+(function ensureFullCalendarCSS(){
+function loaded(l){ try{ return !!l.sheet && l.sheet.cssRules!==null; }catch(e){ return !!l.sheet; } }
+function swap(){
+const l=document.getElementById('gcal-fc-css');
+const tried=l.getAttribute('data-tried')||'';
+if(!tried.includes('jsdelivr')){
+l.href="https://unpkg.com/fullcalendar@6.1.19/index.min.css";
+l.setAttribute('data-tried', tried+' jsdelivr');
+setTimeout(swap, 4000);
+}else if(!tried.includes('unpkg')){
+l.href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.9/index.min.css";
+l.setAttribute('data-tried', tried+' unpkg');
+}
+}
+setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) swap(); }, 5000);
+})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.global.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js"></script>
+</head>
+
+<body>
+<div class="wrap">
+<h1>管理端 · TXT 订课</h1>
+
+<div id="loginPane" class="card" style="display:none;">
+  <h3>管理员登录</h3>
+  <p class="muted">使用被授权的 Google 账号登录</p>
+  <div id="gsiBtn" style="margin:12px 0;"></div>
+  <div id="loginMsg" class="muted"></div>
+</div>
+
+<div id="appPane" style="display:none;">
+
+<div class="card">
+  <div class="toolbar">
+    <span class="muted">已登录：<b id="meEmail">-</b></span>
+    <button class="btn gray" onclick="signOutAdmin()">退出登录</button>
+    <button class="btn" onclick="loadSessions()">刷新列表</button>
+    <button class="btn orange" onclick="softReset()">刷新页面</button>
+    <span id="refreshHint" class="muted" style="margin-left:8px"></span>
+  </div>
+</div>
+
+<div class="card">
+<h3>录入新客户</h3>
+<div class="grid">
+<input id="c_name" placeholder="姓名" />
+<input id="c_phone" placeholder="电话" />
+<input id="c_wechat" placeholder="微信" />
+<input id="c_email" placeholder="邮箱" />
+<input id="c_pass" placeholder="登录密码" />
+<input id="p_name" placeholder="Package 名称(如 零基础1v2，3000vip)" />
+<input id="p_hours" placeholder="总小时(如 10)" />
+<select id="coach_sel"><option value="">选择教练…</option></select>
+
+<input id="amount_due" placeholder="税后课程总价（必填）" />
+<input id="amount_paid" placeholder="已付金额（必填）" />
+<select id="pay_method">
+<option value="">收款方式（必选）</option>
+<option>线下刷卡</option>
+<option>Interac e-transfer</option>
+<option>吴嘉启收现金</option>
+<option>董昱莹收现金</option>
+<option>马丁收现金</option>
+</select>
+
+<div class="toolbar" style="gap:8px">
+<button class="btn" onclick="createClient()">确认录入</button>
+<button class="btn gray" onclick="clearCreateForm()">清空</button>
+</div>
+</div>
+<div id="createClientMsg" style="margin-top:8px;color:var(--success)"></div>
+<div class="muted" style="margin-top:6px">提示：教练名单来自 Coach List</div>
+</div>
+
+<div class="card">
+<h3>搜索客户</h3>
+<div class="toolbar" style="gap:12px">
+<input id="q" style="min-width:320px" placeholder="输入 client_id / 姓名 / 电话 / 微信 / 邮箱（任意其一匹配）" />
+<button class="btn blue" onclick="searchClients()">搜索</button>
+<button class="btn gray" onclick="resetSearch()">重新搜索</button>
+<span id="srCount" class="muted"></span>
+</div>
+<div id="searchRes" style="margin-top:10px"></div>
+</div>
+
+<div class="card" id="gcal-wrap">
+<div class="bar">
+<strong>球馆日历</strong>
+<div class="right">
+<button id="gcal-signin">使用 Google 登录</button>
+<button id="gcal-signout" style="display:none;">退出</button>
+<button id="gcal-refreshBtn" style="display:none;">刷新</button>
+<span id="gcal-status" class="help">未登录</span>
+</div>
+</div>
+
+<div id="gcal-picker" class="card" style="padding:10px;margin:12px 0;display:none;">
+<div class="row">
+<div class="help">选择要显示的日历（可多选；只读也可显示）：</div>
+<button id="gcal-checkAll" class="help">全选</button>
+<button id="gcal-uncheckAll" class="help">全不选</button>
+<select id="gcal-writeCal" title="写入目标（只列可写）" style="display:none;"></select>
+<div class="help">当前写入目标：<code id="gcal-currCal">primary</code></div>
+</div>
+<div id="gcal-calList" class="list"></div>
+<div id="gcal-legend"></div>
+</div>
+
+<div id="gcal-calendar"></div>
+
+<div id="gcal-diag" class="card" style="padding:10px;display:none;">
+<b>诊断</b>
+<pre id="gcal-diagText"></pre>
+</div>
+</div>
+
+<div class="card">
+<strong>列表显示/隐藏</strong>
+<div class="vis-bar" style="margin-top:10px">
+<label><input type="checkbox" id="vis_pendingSoon" checked /> 待确认·10天内</label>
+<label><input type="checkbox" id="vis_pendingLater" checked /> 待确认·超过10天</label>
+<label><input type="checkbox" id="vis_scheduled" checked /> 已排期</label>
+<label><input type="checkbox" id="vis_done" checked /> 已完成</label>
+<span style="margin-left:auto;display:flex;gap:8px">
+<button class="btn gray" id="visSelectAll">全选</button>
+<button class="btn orange" id="visUnselectAll">全不选</button>
+</span>
+</div>
+</div>
+
+<div class="card">
+<h3 style="margin:0 0 8px">Session 列表</h3>
+
+<div class="section" id="sec_pendingSoon">
+<div class="pattern"></div>
+<div class="section-inner">
+<div class="section-title">待确认（pending） · 10天内</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>date</th><th>time</th><th>client</th>
+<th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
+<th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
+</tr>
+</thead>
+<tbody id="tbodyPendingSoon"></tbody>
+</table>
+</div>
+</div>
+<div class="pattern"></div>
+</div>
+
+<div style="height:16px"></div>
+
+<div class="section" id="sec_pendingLater">
+<div class="pattern"></div>
+<div class="section-inner">
+<div class="section-title">待确认（pending） · 超过10天</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>date</th><th>time</th><th>client</th>
+<th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
+<th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
+</tr>
+</thead>
+<tbody id="tbodyPendingLater"></tbody>
+</table>
+</div>
+</div>
+<div class="pattern"></div>
+</div>
+
+<div style="height:16px"></div>
+
+<div class="section" id="sec_scheduled">
+<div class="pattern"></div>
+<div class="section-inner">
+<div class="section-title">已排期（scheduled）</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>date</th><th>time</th><th>client</th>
+<th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
+<th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
+</tr>
+</thead>
+<tbody id="tbodyScheduled"></tbody>
+</table>
+</div>
+</div>
+<div class="pattern"></div>
+</div>
+
+<div style="height:16px"></div>
+
+<div class="section" id="sec_done">
+<div class="pattern"></div>
+<div class="section-inner">
+<div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+<span>已完成（done）</span>
+<span class="toolbar" style="gap:8px">
+<button class="btn gray" id="donePrev" onclick="pageDone(-1)">上一页</button>
+<span id="donePageInfo" class="muted"></span>
+<button class="btn gray" id="doneNext" onclick="pageDone(1)">下一页</button>
+</span>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>date</th><th>time</th><th>client</th>
+<th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
+<th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
+</tr>
+</thead>
+<tbody id="tbodyDone"></tbody>
+</table>
+</div>
+</div>
+<div class="pattern"></div>
+</div>
+</div>
+
+<!-- ✅ 新增：教练课时统计 -->
+<div class="card" id="hoursCalcCard">
+  <h3>教练课时统计</h3>
+  <div class="toolbar" style="gap:12px;align-items:flex-end;flex-wrap:wrap">
+    <label style="display:grid;gap:4px">
+      <span class="muted">选择教练</span>
+      <select id="hc_coach" style="min-width:240px">
+        <option value="*ALL*">所有教练（合计）</option>
+      </select>
+    </label>
+    <label style="display:grid;gap:4px">
+      <span class="muted">从</span>
+      <input id="hc_from" type="date" />
+    </label>
+    <label style="display:grid;gap:4px">
+      <span class="muted">到</span>
+      <input id="hc_to" type="date" />
+    </label>
+    <button class="btn" onclick="hcComputeHours()">计算课时</button>
+    <span id="hc_msg" class="muted"></span>
+  </div>
+
+  <div class="toolbar" style="gap:12px;margin-top:10px;flex-wrap:wrap">
+    <div>总课时：<b id="hc_hours">0</b> 小时</div>
+  </div>
+
+  <div class="toolbar" style="gap:12px;margin-top:6px;align-items:flex-end;flex-wrap:wrap">
+    <label style="display:grid;gap:4px">
+      <span class="muted">时薪</span>
+      <input id="hc_rate" type="number" placeholder="输入时薪" />
+    </label>
+    <button class="btn blue" onclick="hcComputePay()">计算报酬</button>
+    <div>报酬：<b id="hc_pay">0</b></div>
+    <button class="btn gray" onclick="hcReset()">清空</button>
+  </div>
+</div>
+<!-- ✅ 新增结束 -->
+
+</div>
+</div>
+
+<script>
+const API_BASE = 'https://script.google.com/macros/s/AKfycbzIRAc4FhAGl_v-1m59lbHg4zl5Kth6z-1TIuM4en2CS0i8fBV26b5Gi-c0wNL1LPawyA/exec';
+
+const ADMIN_ID_TOKEN_KEY = 'TXT_ADMIN_ID_TOKEN';
+function adminToken(){ return localStorage.getItem(ADMIN_ID_TOKEN_KEY) || ''; }
+function setAdminToken(t){ if(t) localStorage.setItem(ADMIN_ID_TOKEN_KEY, t); }
+function clearAdminToken(){ localStorage.removeItem(ADMIN_ID_TOKEN_KEY); }
+function softReset(){ clearCreateForm(); resetSearch(); loadSessions(); }
+
+function setRefreshing(on,msg){
+  const el = document.getElementById('refreshHint');
+  if(!el) return;
+  if(on){
+    el.style.color='var(--orange)';
+    el.textContent = msg || '正在刷新…';
+  }else{
+    el.style.color='var(--success)';
+    el.textContent = msg || '刷新已完成';
+    setTimeout(()=>{ if(el.textContent==='刷新已完成'){ el.textContent=''; } }, 1200);
+  }
+}
+
+async function post(action, payload={}){
+  const t = adminToken();
+  if (t && !payload.id_token) payload.id_token = t;
+  try{
+    const res = await fetch(API_BASE, {
+      method: 'POST',
+      headers: {'Content-Type':'text/plain'},
+      body: JSON.stringify({ action, ...payload })
+    });
+    return await res.json();
+  }catch(err){
+    console.error('POST error', err);
+    return { ok:false, msg:'Network error' };
+  }
+}
+
+const ADMIN_GOOGLE_CLIENT_ID = "126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com";
+
+function showLogin(msg){
+  document.getElementById('appPane').style.display='none';
+  document.getElementById('loginPane').style.display='';
+  if (msg) document.getElementById('loginMsg').textContent = msg;
+  renderGsiButton();
+}
+function showApp(email){
+  document.getElementById('loginPane').style.display='none';
+  document.getElementById('appPane').style.display='';
+  document.getElementById('meEmail').textContent = email || '-';
+}
+async function ensureSignedIn(){
+  const t = adminToken();
+  if (!t) { showLogin(); return; }
+  const r = await post('admin_login', { id_token: t });
+  if (r && r.ok){
+    showApp(r.email||'');
+    await loadCoaches();
+    await loadSessions();
+    bindVisibilityToggles();
+    applyVisibilityFromStorage();
+  }else{
+    clearAdminToken();
+    showLogin('登录已过期，请重新登录。');
+  }
+}
+function signOutAdmin(){
+  clearAdminToken();
+  location.reload();
+}
+function renderGsiButton(){
+  if (!window.google || !google.accounts || !google.accounts.id) return;
+  google.accounts.id.initialize({
+    client_id: ADMIN_GOOGLE_CLIENT_ID,
+    callback: async (resp)=>{
+      const idt = resp && resp.credential;
+      if (!idt){ showLogin('未获取到登录凭据'); return; }
+      const r = await post('admin_login', { id_token: idt });
+      if (r && r.ok){
+        setAdminToken(idt);
+        showApp(r.email||'');
+        await loadCoaches();
+        await loadSessions();
+        bindVisibilityToggles();
+        applyVisibilityFromStorage();
+      }else{
+        showLogin(r && r.msg ? ('登录失败：'+r.msg) : '登录失败');
+      }
+    },
+    auto_select:false
+  });
+  google.accounts.id.renderButton(document.getElementById('gsiBtn'), { theme:'outline', size:'large', type:'standard', width:280 });
+}
+
+const isDate = v => Object.prototype.toString.call(v)==='[object Date]' && !isNaN(v);
+function parseMaybeDate(x){
+  if (x==null || x==='') return null;
+  if (x instanceof Date && !isNaN(x)) return x;
+  if (typeof x==='number'){
+    if (x < 1e11){ const base=Date.UTC(1899,11,30); return new Date(base + x*86400000); }
+    return new Date(x);
+  }
+  if (typeof x==='string'){
+    const s=x.trim();
+    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)){
+      const [h,m]=s.split(':').map(Number); const d=new Date(); d.setHours(h||0,m||0,0,0); return d;
+    }
+    if (/^\d{10,13}$/.test(s)){
+      const n=Number(s); return new Date(s.length===10?n*1000:n);
+    }
+    const m1=s.match(/^(\d{4}[\/-]\d{1,2}[\/-]\d{1,2})[ T](\d{1,2}:\d{2}(:\d{2})?)$/);
+    if (m1){ const ds=m1[1].replace(/\//g,'-'); return new Date(ds+'T'+m1[2]); }
+    const d = new Date(s); if(!isNaN(d)) return d;
+  }
+  return null;
+}
+function fmtDate(x){ const d=parseMaybeDate(x); return d?d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}):(x||''); }
+function fmtTime(x){ const d=parseMaybeDate(x); return d?d.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'}):(x||''); }
+function fmtDateTime(dateVal, timeVal){
+  const d = parseMaybeDate(dateVal);
+  const t = parseMaybeDate(timeVal);
+  if (d && t){
+    const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
+    const ds = dt.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'});
+    const ts = dt.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'});
+    return `${ds} ${ts}`;
+  }
+  if (d) return `${fmtDate(d)} ${t?fmtTime(t):''}`.trim();
+  if (t) return fmtTime(t);
+  return '';
+}
+function startDT(row, idx){
+  const d = parseMaybeDate(row[idx.date]);
+  const t = parseMaybeDate(row[idx.time]);
+  if(!d || !t) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
+}
+function endDT(row, idx){
+  const st = startDT(row, idx);
+  if(!st) return null;
+  const dur = Number(row[idx.duration_hours]||1);
+  return new Date(st.getTime() + dur*3600*1000);
+}
+function badge(status){
+  if(status==='done') return '<span class="badge b-done">done</span>';
+  if(status==='scheduled') return '<span class="badge b-scheduled">scheduled</span>';
+  if(status==='pending') return '<span class="badge b-pending">pending</span>';
+  if(status==='cancelled') return '<span class="badge b-cancelled">cancelled</span>';
+  return status||'';
+}
+
+let COACHES = [];
+async function loadCoaches(){
+  const r = await post('list_coaches', {});
+  if (r.ok) COACHES = r.items||[];
+  const sel = document.getElementById('coach_sel');
+  sel.innerHTML = '<option value="">选择教练…</option>' +
+  (COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('');
+  /* 新增：把教练填充到课时统计下拉 */
+  populateHoursCoachSel();
+}
+
+const CLIENT_NAME_CACHE = new Map();
+const PKG_NAME_CACHE = new Map();
+
+async function ensureClientNames(ids){
+  const missing = [...new Set(ids.filter(Boolean))].filter(id=>!CLIENT_NAME_CACHE.has(String(id)));
+  if (!missing.length) return;
+  try{
+    const r = await post('client_names', { ids: missing });
+    if (r && r.ok && r.map){
+      for (const [id, nm] of Object.entries(r.map)){ CLIENT_NAME_CACHE.set(String(id), String(nm||'')); }
+      return;
+    }
+  }catch(e){}
+  for (const id of missing){
+    try{
+      const rr = await post('client_name_by_id', { id });
+      if (rr && rr.ok && rr.name) CLIENT_NAME_CACHE.set(String(id), String(rr.name));
+    }catch(e){}
+  }
+}
+function clientLabel(id){
+  const sid = String(id||'').trim();
+  const nm = CLIENT_NAME_CACHE.get(sid);
+  return nm ? `${nm} (${sid})` : (sid ? `(${sid})` : '');
+}
+
+async function ensurePackageNames(ids){
+  const miss = [...new Set(ids.filter(Boolean).map(String))].filter(id=>!PKG_NAME_CACHE.has(id));
+  if (!miss.length) return;
+  for (const pid of miss){ PKG_NAME_CACHE.set(pid, ''); }
+  for (const pid of miss){
+    try{
+      const rr = await post('package_name_by_id', { id: pid });
+      if (rr && rr.ok) PKG_NAME_CACHE.set(String(pid), String(rr.name||'')); 
+    }catch(e){}
+  }
+}
+function packageNameFromRow(row, idx){
+  const byField = (k)=> (idx[k]!=null && row[idx[k]]) ? String(row[idx[k]]) : '';
+  const byName = byField('package_name') || byField('package') || byField('pkg_name') || byField('pkg');
+  if (byName) return byName;
+  const pid = String(row[idx.package_id]||'').trim();
+  if (!pid) return '';
+  const cached = PKG_NAME_CACHE.get(pid);
+  return cached || pid;
+}
+
+function pickCoach(title='选择教练'){
+  return new Promise(resolve=>{
+    const ov = document.createElement('div'); ov.className='overlay';
+    const box = document.createElement('div'); box.className='dialog';
+    Object.assign(ov.style,{position:'fixed',inset:'0',background:'rgba(0,0,0,.3)',display:'grid',placeItems:'center',zIndex:9999});
+    Object.assign(box.style,{background:'#fff',border:'1px solid #e5e7eb',borderRadius:'12px',boxShadow:'0 10px 24px rgba(0,0,0,.14)',padding:'14px',width:'min(420px,92vw)'});
+    box.innerHTML = `
+    <div style="font-weight:600;margin-bottom:8px">${title}</div>
+    <select id="dlg_sel" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px">
+    ${(COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('')}
+    </select>
+    <div class="actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn gray" id="dlg_cancel">取消</button>
+      <button class="btn" id="dlg_ok">确定</button>
+    </div>`;
+    ov.appendChild(box); document.body.appendChild(ov);
+    box.querySelector('#dlg_cancel').onclick=()=>{ document.body.removeChild(ov); resolve(null); };
+    box.querySelector('#dlg_ok').onclick=()=>{ const v=box.querySelector('#dlg_sel').value; document.body.removeChild(ov); resolve(v); };
+  });
+}
+
+function clearCreateForm(keepMsg){
+  ['c_name','c_phone','c_wechat','c_email','c_pass','p_name','p_hours','amount_due','amount_paid'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  const sel1 = document.getElementById('coach_sel'); if (sel1) sel1.value='';
+  const sel2 = document.getElementById('pay_method'); if (sel2) sel2.value='';
+  if(!keepMsg){ const msg = document.getElementById('createClientMsg'); if (msg) msg.textContent=''; }
+}
+function mustNumber(v){ const n=Number(v); return isFinite(n) ? n : NaN; }
+
+async function createClient(){
+  try{
+    const name = c_name.value.trim();
+    const phone = c_phone.value.trim();
+    const wechat = c_wechat.value.trim();
+    const email = c_email.value.trim();
+    const password = c_pass.value.trim();
+    const package_name = p_name.value.trim();
+    const total_hours = Number(p_hours.value.trim() || 10);
+    const coach_id = coach_sel.value;
+
+    const amount_due_v = mustNumber(amount_due.value.trim());
+    const amount_paid_v = mustNumber(amount_paid.value.trim());
+    const method = pay_method.value.trim();
+
+    if(!isFinite(amount_due_v) || amount_due_v<=0){ alert('请填写有效的 税后课程总价'); return; }
+    if(!isFinite(amount_paid_v) || amount_paid_v<0){ alert('请填写有效的 已付金额（可为 0）'); return; }
+    if(!method){ alert('请选择 收款方式'); return; }
+
+    const payload = { 
+      name, phone, wechat, email, password, package_name, total_hours, coach_id,
+      amount_due: amount_due_v, amount_paid: amount_paid_v, transaction_method: method
+    };
+
+    const r = await post('create_client', payload);
+    const el = document.getElementById('createClientMsg');
+    if (r && r.ok){
+      clearCreateForm(true);
+      el.style.color = 'var(--success)';
+      el.textContent = `成功录入：client_id=${r.client_id}，package_id=${r.package_id}${r.transaction_id?('，transaction_id='+r.transaction_id):''}`;
+    }else{
+      el.style.color = 'var(--danger)';
+      el.textContent = '失败：' + (r && r.msg || 'Network error');
+    }
+  }catch(err){ alert('创建失败：' + err.message); }
+}
+
+function resetSearch(){ q.value=''; srCount.textContent=''; searchRes.innerHTML=''; }
+async function searchClients(){
+  const keyword = q.value.trim();
+  searchRes.innerHTML = '<div class="muted">搜索中…</div>';
+  const r = await post('search_clients', { q: keyword, limit: 50 });
+  if(!r.ok){ searchRes.innerHTML = `<div class="muted">搜索失败：${r.msg||''}</div>`; return; }
+  const items = r.items || [];
+  srCount.textContent = `共 ${items.length} 条`;
+  searchRes.innerHTML = items.map(it=>{
+    const c = it.client || {};
+    const pkgs = it.packages || [];
+    const sess = it.sessions || [];
+
+    const assignedId = c.assigned_coach || c.coach_id || '';
+    const coachObj = (COACHES||[]).find(x=>x.coach_id===assignedId) || {};
+    const assignedLabel = assignedId ? `${coachObj.coach_name||''} (${assignedId})` : '未指定';
+
+    if (c.client_id && c.name){ CLIENT_NAME_CACHE.set(String(c.client_id), String(c.name)); }
+
+    const pkgLines = (pkgs||[]).map(p=>{
+      const pid = p.package_id || '';
+      const pname = p.package_name || pid || '(未命名)';
+      const rest = `总 ${p.total_hours||''} / 剩余 ${p.remaining_hours||''}`;
+      const holderId = `pkgpay-${pid}`;
+      return `<div style="margin-top:8px">
+      <b>${pname}</b> <span class="muted">[${pid}] · ${rest}</span>
+      <div id="${holderId}" class="pkg-payline">载入支付信息中…</div>
+      </div>`;
+    }).join('') || '<div class="muted">无</div>';
+
+    /* 修改处：课程行增加 session_id 与时长 */
+    const sessLines = (sess||[]).map(s=>{
+      const dur = (s && (s.duration_hours!=null && s.duration_hours!==''))
+        ? s.duration_hours : (s?.duration ?? s?.dur ?? 1);
+      return `• ${fmtDate(s.date)} ${fmtTime(s.time)} | ${s.coach_name||''} | ${s.status} | ${s.session_id||''} | ${dur}小时`;
+    }).join('<br/>') || '无';
+
+    return `
+    <div class="client-card">
+      <div class="grid-2">
+        <div><b>${c.name||''}</b> <span class="muted">(${c.client_id||''})</span></div>
+        <div class="muted">电话：${c.phone||''} · 微信：${c.wechat||''} · 邮箱：${c.email||''}</div>
+      </div>
+      <div style="margin-top:6px" class="muted">固定教练：<b>${assignedLabel}</b></div>
+      <div class="toolbar" style="margin-top:8px">
+        <button class="btn" onclick="addPackage('${c.client_id}')">添加续课套餐</button>
+        <button class="btn blue" onclick="changeAssignedCoach('${c.client_id}')">更换固定指派教练</button>
+      </div>
+      <details style="margin-top:8px" open>
+        <summary>套餐 (${pkgs.length})</summary>
+        <div class="muted" style="margin-top:4px">
+          ${pkgLines}
+        </div>
+      </details>
+      <details style="margin-top:6px"><summary>课程 (${sess.length})</summary>
+        <div class="muted" style="margin-top:4px">${sessLines}</div>
+      </details>
+    </div>`;
+  }).join('') || '<div class="muted">未找到匹配客户</div>';
+
+  for (const it of (items||[])){
+    const c = it.client || {};
+    for (const p of (it.packages||[])){
+      if (!p.package_id) continue;
+      loadPackagePaymentBlock(p.package_id, c.client_id);
+    }
+  }
+}
+
+async function loadPackagePaymentBlock(package_id, client_id){
+  const holder = document.getElementById(`pkgpay-${package_id}`);
+  if(!holder) return;
+  try{
+    const r = await post('pkg_payment', { package_id });
+    if (!r || !r.ok){ holder.textContent = '读取失败'; return; }
+
+    const amount_due = Number(r.amount_due||0);
+    const amount_paid = Number(r.amount_paid_total||0);
+    const outstanding = Number(r.outstanding||Math.max(0, amount_due - amount_paid));
+    const is_paid = !!r.is_paid;
+    const txs = Array.isArray(r.transactions)?r.transactions:[];
+
+    const txLine = txs.length ? txs.map(tx=>{
+      const when = fmtDateTime(tx.date, tx.time);
+      const a = typeof tx.amount==='number'? tx.amount : Number(tx.amount||0);
+      const m = tx.method || '';
+      return `${when} · ${a} · ${m}`;
+    }).join(' ｜ ') : '无交易记录';
+
+    const badge = is_paid ? `<span class="pay-badge pay-paid">PAID</span>`
+                          : `<span class="pay-badge pay-out">OUTSTANDING</span>`;
+
+    const ops = !is_paid ? `
+    <div class="pkg-payops">
+      <input id="topup-${package_id}" placeholder="客户已补差价：收款金额输入" />
+      <select id="topupm-${package_id}">
+        <option>线下刷卡</option>
+        <option>Interac e-transfer</option>
+        <option>吴嘉启收现金</option>
+        <option>董昱莹收现金</option>
+        <option>马丁收现金</option>
+      </select>
+      <button class="btn success" onclick="doTopup('${package_id}','${client_id}')">登记收款</button>
+    </div>` : '';
+
+    holder.innerHTML = `
+    <div>
+      <span>应付：<b>${amount_due}</b>，已付：<b>${amount_paid}</b>，未结：<b>${outstanding}</b></span>
+      ${badge}
+    </div>
+    <div class="pkg-payline">${txLine}</div>
+    ${ops}`;
+  }catch(e){
+    holder.textContent = '读取异常';
+  }
+}
+
+async function doTopup(package_id, client_id){
+  const amtEl = document.getElementById(`topup-${package_id}`);
+  const metEl = document.getElementById(`topupm-${package_id}`);
+  if(!amtEl || !metEl) return;
+  const amount = Number((amtEl.value||'').trim());
+  const method = metEl.value;
+  if(!isFinite(amount) || amount<=0){ alert('请输入有效的补款金额'); return; }
+  if(!method){ alert('请选择收款方式'); return; }
+
+  const r = await post('add_transaction', { package_id, client_id, amount, method });
+  if(!r || !r.ok){ alert('登记失败：' + (r&&r.msg||'')); return; }
+  await loadPackagePaymentBlock(package_id, client_id);
+}
+
+async function addPackage(client_id){
+  const package_name = prompt('输入新套餐名称（如 800/10hr）');
+  if(!package_name) return;
+
+  const total_hours = Number(prompt('输入套餐总小时（如 10）') || 0);
+  if(!(total_hours>0)) return alert('总小时需大于 0');
+
+  const amount_due = Number(prompt('输入该套餐 税后课程总价（应付）') || 0);
+  if(!(amount_due>0)) return alert('应付需大于 0');
+
+  const r = await post('add_package', { client_id, package_name, total_hours, amount_due });
+  if(!r || !r.ok) return alert('创建失败：' + (r && r.msg || ''));
+  const pid = r.package_id;
+
+  try{ const check = await post('pkg_payment', { package_id: pid }); }catch(_){}
+  try{ await loadPackagePaymentBlock(pid, client_id); }catch(_){}
+  alert('创建成功：' + pid);
+  searchClients();
+}
+
+async function changeAssignedCoach(client_id){
+  const coach_id = await pickCoach('选择新的固定指派教练');
+  if (!coach_id) return;
+  const r = await post('set_assigned_coach', { client_id, coach_id });
+  if (!r.ok) return alert('更换失败：' + (r.msg||'')); 
+  alert('已更换固定指派教练');
+  searchClients();
+}
+
+function idxOf(H, names){ for (const n of names){ const i = H.indexOf(n); if (i !== -1) return i; } return -1; }
+
+let DONE_ALL = []; let donePage=1; const donePageSize=50;
+function pageDone(delta){
+  const totalPages = Math.max(1, Math.ceil(DONE_ALL.length/donePageSize));
+  donePage = Math.min(totalPages, Math.max(1, donePage + delta));
+  renderDonePaged();
+}
+
+let CURRENT_IDX = null; let CURRENT_HEADERS = null;
+
+async function loadSessions(){
+  try{
+    setRefreshing(true,'正在刷新…');
+    const r = await post('list_sessions', { page:1, pageSize:10000 });
+    if (!r.ok){ alert(r.msg || '加载失败'); setRefreshing(false,'刷新失败'); return; }
+
+    const H = r.headers; CURRENT_HEADERS = H;
+    const idx = Object.fromEntries(H.map((h,i)=>[h,i])); CURRENT_IDX = idx;
+    const rows = r.data || [];
+
+    const createdIdx = idxOf(r.headers, ['created_at','created_time','created','createdAt','createdAtUtc']);
+    const now = Date.now(), tenDaysMs = 10*24*3600*1000;
+
+    const pendings = rows.filter(row => String(row[idx.status])==='pending')
+    .sort((a,b)=>{
+      const ca = createdIdx!==-1 ? parseMaybeDate(a[createdIdx]) : startDT(a, idx);
+      const cb = createdIdx!==-1 ? parseMaybeDate(b[createdIdx]) : startDT(b, idx);
+      return (ca?ca.getTime():0) - (cb?cb.getTime():0);
+    });
+    const pendingSoon = pendings.filter(row=>{ const st=startDT(row, idx); return !st || (st.getTime()-now)<=tenDaysMs; });
+    const pendingLater = pendings.filter(row=>{ const st=startDT(row, idx); return st && (st.getTime()-now)>tenDaysMs; });
+
+    const scheduled = rows.filter(row => String(row[idx.status])==='scheduled')
+    .sort((a,b)=>{
+      const sa=startDT(a, idx), sb=startDT(b, idx);
+      const da = sa?Math.abs(sa.getTime()-now):Number.MAX_SAFE_INTEGER;
+      const db = sb?Math.abs(sb.getTime()-now):Number.MAX_SAFE_INTEGER;
+      if (da !== db) return da - db;
+      return (sa?sa.getTime():0) - (sb?sb.getTime():0);
+    });
+
+    DONE_ALL = rows.filter(row => {
+      const s = String(row[idx.status]||'');
+      return s==='done' || s==='cancelled';
+    }).sort((a,b)=>{
+      const ea=endDT(a, idx), eb=endDT(b, idx);
+      return (eb?eb.getTime():0) - (ea?ea.getTime():0);
+    });
+
+    const clientIdIdx = idxOf(H, ['client_id','clientId','clientID']);
+    if (clientIdIdx!==-1){
+      const allClientIds = rows.map(rw=>rw[clientIdIdx]).filter(Boolean);
+      await ensureClientNames(allClientIds);
+    }
+    const pkgIdIdx = idxOf(H, ['package_id','packageId','pkg_id']);
+    if (pkgIdIdx !== -1){
+      const allPkgIds = rows.map(rw=>rw[pkgIdIdx]).filter(Boolean);
+      await ensurePackageNames(allPkgIds);
+    }
+
+    renderPendingGroup('tbodyPendingSoon', pendingSoon, idx, createdIdx);
+    renderPendingGroup('tbodyPendingLater', pendingLater, idx, createdIdx);
+    renderTable('tbodyScheduled', scheduled, idx, 'scheduled', createdIdx);
+    donePage = 1; renderDonePaged(idx, createdIdx);
+
+    const notDoneRows = [...pendingSoon, ...pendingLater, ...scheduled];
+    reconcileAddedMarksForVisible(notDoneRows, idx);
+
+    applyVisibilityFromStorage();
+    setRefreshing(false,'刷新已完成');
+  }catch(e){
+    console.error(e);
+    setRefreshing(false,'刷新失败');
+    alert('刷新失败：'+e.message);
+  }
+}
+
+function renderDonePaged(idx, createdIdx){
+  const totalPages = Math.max(1, Math.ceil(DONE_ALL.length/donePageSize));
+  const s = (donePage-1)*donePageSize, e = s+donePageSize;
+  const pageRows = DONE_ALL.slice(s,e);
+  renderTable('tbodyDone', pageRows, CURRENT_IDX || {}, 'done', createdIdx);
+  document.getElementById('donePageInfo').textContent = `第 ${donePage} / 共 ${totalPages} 页（每页 50）`;
+  document.getElementById('donePrev').disabled = donePage<=1;
+  document.getElementById('doneNext').disabled = donePage>=totalPages;
+}
+
+function coachLabelFromRow(row, idx){
+  const cid = row[idx.coach_id]; const cname = row[idx.coach_name];
+  return (cname?cname:'') + (cid?` (${cid})`:'');
+}
+function createdTimeStr(row, createdIdx){
+  if (createdIdx===-1) return '-';
+  const d = parseMaybeDate(row[createdIdx]); if(!d) return '-';
+  const dt = d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'});
+  const tm = d.toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'});
+  return `${dt} ${tm}`;
+}
+
+/* 已写入日历的本地标记 */
+function addedKey(sessionId, calId){ return `SESSION_CAL_ADDED::${sessionId}::${calId}`; }
+function markAdded(sessionId, calId, calName){ try{ localStorage.setItem(addedKey(sessionId, calId), calName||''); }catch(e){} }
+function getAddedName(sessionId, calId){ try{ return localStorage.getItem(addedKey(sessionId, calId)); }catch(e){ return null; } }
+function unmarkAdded(sessionId, calId){ try{ localStorage.removeItem(addedKey(sessionId, calId)); }catch(e){} }
+/* 查询某session是否被添加到任意日历 */
+function getAddedEntries(sessionId){
+  const out=[];
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(k && k.startsWith(`SESSION_CAL_ADDED::${sessionId}::`)){
+        out.push({ calId:(k.split('::')[2]||''), calName:(localStorage.getItem(k)||'') });
+      }
+    }
+  }catch(e){}
+  return out;
+}
+
+/* 行操作渲染 */
+function buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel){
+  const sid = row[idx.session_id];
+  const et = endDT(row, idx);
+  const finished = et ? (Date.now() >= et.getTime()) : false;
+  const canComplete = (status === 'scheduled') && finished;
+
+  const currCalId = writeCalendarId;
+  const addedToName = sid ? getAddedName(sid, currCalId) : null;
+
+  let addBtn = '';
+  if (addedToName){
+    addBtn = `<span class="muted">已添加到球馆${addedToName}</span>`;
+  }else{
+    const coachName = String(row[idx.coach_name]||'');
+    const coachId = String(row[idx.coach_id]||'');
+    const clientFullName = (clientStr||'').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    addBtn = `<button class="btn gray" onclick='addToFacilityCalendar(${JSON.stringify({
+      session_id:sid,
+      date:fmtDate(row[idx.date]),
+      time:fmtTime(row[idx.time]),
+      dur:(row[idx.duration_hours]||1),
+      coachName, coachId, clientFullName
+    }).replace(/'/g,"&#39;")})'>添加到球馆日历</button>`;
+  }
+
+  const completeBtn = `<button class="btn success ${canComplete?'':'disabled'}" onclick="${canComplete?`complete('${sid}')`:'void(0)'}">已完成</button>`;
+  const cancelBtn = `<button class="btn danger" onclick="cancelSession('${sid}')">取消</button>`;
+  const switchBtn = `<button class="btn blue" onclick="sw('${sid}','${status}')">换教练</button>`;
+
+  return `${completeBtn} ${cancelBtn} ${switchBtn} ${addBtn}`;
+}
+
+function renderPendingGroup(tbodyId, rows, idx, createdIdx){
+  const tb = document.getElementById(tbodyId);
+  tb.innerHTML='';
+  rows.forEach(row=>{
+    const status = (row[idx.status]+'') || '';
+    const clientId = row[idx.client_id];
+    const clientStr = clientLabel(clientId);
+    const pkgName = packageNameFromRow(row, idx);
+    const session_id = row[idx.session_id] || '';
+    const pkg_id = row[idx.package_id] || '';
+    const coachLabel = coachLabelFromRow(row, idx);
+
+    const opHTML = buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+    <td>${fmtDate(row[idx.date])}</td>
+    <td>${fmtTime(row[idx.time])}</td>
+    <td>${clientStr}</td>
+    <td>${coachLabel}</td>
+    <td>${pkgName}</td>
+    <td>${row[idx.duration_hours]||1}</td>
+    <td>${badge(status)}</td>
+    <td>${row[idx.notes]||''}</td>
+    <td class="row-actions">${opHTML}</td>
+    <td>${session_id}</td>
+    <td>${pkg_id}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function renderTable(tbodyId, rows, idx, listType, createdIdx){
+  const tb = document.getElementById(tbodyId);
+  tb.innerHTML='';
+  rows.forEach(row=>{
+    const status = (row[idx.status]+'') || '';
+    const clientId = row[idx.client_id];
+    const clientStr = clientLabel(clientId);
+    const pkgName = packageNameFromRow(row, idx);
+    const session_id = row[idx.session_id] || '';
+    const pkg_id = row[idx.package_id] || '';
+    const coachLabel = coachLabelFromRow(row, idx);
+
+    const opHTML = buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+    <td>${fmtDate(row[idx.date])}</td>
+    <td>${fmtTime(row[idx.time])}</td>
+    <td>${clientStr}</td>
+    <td>${coachLabel}</td>
+    <td>${pkgName}</td>
+    <td>${row[idx.duration_hours]||1}</td>
+    <td>${badge(status)}</td>
+    <td>${row[idx.notes]||''}</td>
+    <td class="row-actions">${opHTML}</td>
+    <td>${session_id}</td>
+    <td>${pkg_id}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+async function complete(session_id){
+  const r = await post('complete_session', { session_id });
+  if (!r.ok) return alert(r.msg || '失败');
+  loadSessions();
+}
+async function cancelSession(session_id){
+  if (!confirm('确认取消并删除该Session？(已完成的不可删除)')) return;
+  const r = await post('cancel_session', { session_id });
+  if (!r.ok) return alert(r.msg || '失败');
+  loadSessions();
+}
+async function sw(session_id, status){
+  if (status === 'done'){
+    const yes = confirm('这节课已完成，是否确认要更改上课教练？');
+    if (!yes) return;
+    const text = prompt('为继续，请输入：确认更换教练');
+    if (!text || text.trim() !== '确认更换教练'){
+      alert('未输入正确的确认文本，操作已取消。');
+      return;
+    }
+  }
+  const coach_id = await pickCoach('选择新的授课教练（仅本节课）');
+  if (!coach_id) return;
+  const r = await post('switch_coach', { session_id, coach_id });
+  if (!r.ok) return alert('失败：' + (r.msg||'')); 
+  loadSessions();
+}
+
+/* Google Calendar 嵌入 */
+const GCAL_CLIENT_ID = "126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com";
+const GCAL_SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events";
+const GCAL_TZ = "America/Toronto";
+const GCAL_FETCH_BUFFER_MS = 36 * 60 * 60 * 1000;
+
+let gcal_tokenClient, gcal_accessToken=null, gapiReady=false, gisReady=false, gcal_calendar;
+let calendarListCache=[], showCalendarIds=new Set(), writeCalendarId="primary";
+
+function gcalShowDiag(obj){
+  const b=document.getElementById('gcal-diag');
+  const p=document.getElementById('gcal-diagText');
+  b.style.display='';
+  try{ p.textContent=(typeof obj==='string')?obj:JSON.stringify(obj,null,2); }
+  catch(e){ p.textContent=String(obj); }
+}
+function gapiLoaded(){ gapi.load('client', async ()=>{ await gapi.client.init({discoveryDocs:["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"]}); gapiReady=true; }); }
+function gisLoaded(){ gcal_tokenClient=google.accounts.oauth2.initTokenClient({
+  client_id:GCAL_CLIENT_ID, scope:GCAL_SCOPES,
+  callback:(resp)=>{ if(resp&&resp.access_token){ gcal_accessToken=resp.access_token; gapi.client.setToken({access_token:gcal_accessToken}); gcalOnSignedIn(); } else { gcalShowDiag({oauth_callback_resp:resp}); } }
+}); gisReady=true; }
+window.gapiLoaded=gapiLoaded; window.gisLoaded=gisLoaded;
+
+async function gcalSignIn(){ if(!gapiReady||!gisReady) return; gcal_tokenClient.requestAccessToken({prompt:'consent'}); }
+function gcalSignOut(){ if(!gcal_accessToken) return; google.accounts.oauth2.revoke(gcal_accessToken,()=>{
+  gcal_accessToken=null; gapi.client.setToken(null);
+  document.getElementById('gcal-signin').style.display='';
+  document.getElementById('gcal-signout').style.display='none';
+  document.getElementById('gcal-refreshBtn').style.display='none';
+  document.getElementById('gcal-status').textContent='未登录';
+  document.getElementById('gcal-writeCal').style.display='none';
+  document.getElementById('gcal-picker').style.display='none';
+  if(gcal_calendar) gcal_calendar.destroy();
+});}
+document.getElementById('gcal-signin').onclick=gcalSignIn;
+document.getElementById('gcal-signout').onclick=gcalSignOut;
+document.getElementById('gcal-refreshBtn').onclick=()=>{ if(gcal_calendar) gcal_calendar.refetchEvents(); loadSessions(); };
+document.getElementById('gcal-status').textContent='未登录';
+
+function gcalIsSignedIn(){ return !!gcal_accessToken; }
+function currentWriteCalSummary(){ const meta=calendarListCache.find(c=>c.id===writeCalendarId); return meta ? meta.summary : writeCalendarId; }
+
+async function gcalOnSignedIn(){
+  document.getElementById('gcal-signin').style.display='none';
+  document.getElementById('gcal-signout').style.display='';
+  document.getElementById('gcal-refreshBtn').style.display='';
+  document.getElementById('gcal-status').textContent='已登录';
+
+  try{
+    const res=await gapi.client.calendar.calendarList.list({maxResults:250});
+    calendarListCache=(res.result.items||[]);
+
+    const writeSel=document.getElementById('gcal-writeCal'); writeSel.innerHTML='';
+    const writable=calendarListCache.filter(c=>c.accessRole==='owner'||c.accessRole==='writer');
+    for(const cal of writable){
+      const opt=document.createElement('option');
+      opt.value=cal.id; opt.textContent=cal.summary+(cal.primary?" (primary)":"");
+      writeSel.appendChild(opt);
+    }
+    const primary=writable.find(c=>c.primary);
+    writeCalendarId=primary?primary.id:(writable[0]?.id||'primary');
+    writeSel.value=writeCalendarId;
+    document.getElementById('gcal-currCal').textContent=writeCalendarId;
+    writeSel.style.display='';
+    writeSel.onchange=()=>{ writeCalendarId=writeSel.value; document.getElementById('gcal-currCal').textContent=writeCalendarId; loadSessions(); };
+
+    const picker=document.getElementById('gcal-picker');
+    const listDiv=document.getElementById('gcal-calList');
+    const legend=document.getElementById('gcal-legend');
+    listDiv.innerHTML=''; legend.innerHTML='';
+    showCalendarIds=new Set(calendarListCache.map(c=>c.id));
+    for(const cal of calendarListCache){
+      const wrap=document.createElement('label'); wrap.className='item';
+      const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=true; cb.value=cal.id;
+      cb.onchange=()=>{ if(cb.checked) showCalendarIds.add(cal.id); else showCalendarIds.delete(cal.id); if(gcal_calendar) gcal_calendar.refetchEvents(); };
+      const sw=document.createElement('span'); sw.className='sw'; sw.style.background=cal.backgroundColor||'#bbb';
+      const txt=document.createElement('span'); txt.textContent=cal.summary+(cal.accessRole==='reader'?'（只读）':'');
+      wrap.appendChild(cb); wrap.appendChild(sw); wrap.appendChild(txt); listDiv.appendChild(wrap);
+
+      const pill=document.createElement('span'); pill.className='pill';
+      const sw2=document.createElement('span'); sw2.className='sw'; sw2.style.background=cal.backgroundColor||'#bbb';
+      const name=document.createElement('span'); name.textContent=cal.summary;
+      pill.appendChild(sw2); pill.appendChild(name); legend.appendChild(pill);
+    }
+    picker.style.display='';
+
+    document.getElementById('gcal-checkAll').onclick=()=>{ showCalendarIds=new Set(calendarListCache.map(c=>c.id)); listDiv.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=true); if(gcal_calendar) gcal_calendar.refetchEvents(); };
+    document.getElementById('gcal-uncheckAll').onclick=()=>{ showCalendarIds=new Set(); listDiv.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false); if(gcal_calendar){ gcal_calendar.removeAllEvents(); gcal_calendar.refetchEvents(); } };
+
+  }catch(e){ gcalShowDiag(e); }
+
+  gcalRenderCalendar();
+}
+
+function gcalRenderCalendar(){
+  const el=document.getElementById('gcal-calendar'); if(gcal_calendar) gcal_calendar.destroy();
+
+  gcal_calendar=new FullCalendar.Calendar(el,{
+    initialView:'timeGridWeek',
+    timeZone:GCAL_TZ,
+    firstDay:1,
+    slotMinTime:"08:00:00",
+    slotMaxTime:"25:00:00",
+    nextDayThreshold:"01:00:00",
+    scrollTime:"08:00:00",
+    slotLabelFormat:{hour:'2-digit',minute:'2-digit',hour12:false},
+    selectable:true,
+    editable:true,
+    nowIndicator:true,
+    eventMaxStack:50,
+    headerToolbar:{ left:'prev,next today', center:'title', right:'dayGridMonth,timeGridWeek,timeGridDay' },
+
+    events: async (info, success, failure)=>{
+      try{
+        const timeMinISO=new Date(info.start.getTime()-GCAL_FETCH_BUFFER_MS).toISOString();
+        const timeMaxISO=new Date(info.end.getTime()+GCAL_FETCH_BUFFER_MS).toISOString();
+        const ids = Array.from(showCalendarIds);
+        if (!ids.length){ success([]); return; }
+
+        const fetchOne=async(cid)=>{
+          const res=await gapi.client.calendar.events.list({
+            calendarId:cid, timeMin:timeMinISO, timeMax:timeMaxISO,
+            singleEvents:true, orderBy:'startTime', showDeleted:false, maxResults:2500,
+          });
+          const meta=calendarListCache.find(x=>x.id===cid);
+          const color=meta?.backgroundColor;
+          const canEdit=meta && (meta.accessRole==='owner'||meta.accessRole==='writer');
+
+          return (res.result.items||[]).map(ev=>({
+            id:(ev.id||Math.random().toString(36).slice(2))+'::'+cid,
+            title:ev.summary||'(无标题)',
+            start:ev.start.dateTime||ev.start.date,
+            end:ev.end?.dateTime||ev.end?.date,
+            allDay:!!ev.start.date,
+            backgroundColor:color, borderColor:color,
+            extendedProps:{calendarId:cid, eventId:ev.id, canEdit}
+          }));
+        };
+
+        const chunks=await Promise.all(ids.map(cid=>fetchOne(cid)));
+        success(chunks.flat());
+      }catch(err){ gcalShowDiag(err); failure(err); }
+    },
+
+    eventAllow:(dropInfo, draggedEvent)=>{
+      const canEdit=draggedEvent.extendedProps?.canEdit;
+      if(!canEdit){ alert('这是只读日历的事件，不能编辑。'); return false; }
+      return true;
+    },
+
+    select: async (selInfo)=>{
+      if(!gcalIsSignedIn()) return;
+      const title=prompt('事件标题：','新事件');
+      if(!title){ gcal_calendar.unselect(); return; }
+      const isAllDay=selInfo.allDay;
+      const resource={
+        summary:title,
+        start:isAllDay?{date:selInfo.startStr}:{dateTime:selInfo.startStr,timeZone:GCAL_TZ},
+        end: isAllDay?{date:selInfo.endStr}:{dateTime:selInfo.endStr,timeZone:GCAL_TZ},
+      };
+      try{
+        const res=await gapi.client.calendar.events.insert({calendarId:writeCalendarId, resource});
+        const meta=calendarListCache.find(x=>x.id===writeCalendarId);
+        const color=meta?.backgroundColor;
+        if(showCalendarIds.has(writeCalendarId)){
+          gcal_calendar.addEvent({
+            id:(res.result.id||Math.random().toString(36).slice(2))+'::'+writeCalendarId,
+            title:res.result.summary||'(无标题)',
+            start:res.result.start.dateTime||res.result.start.date,
+            end:res.result.end?.dateTime||res.result.end?.date,
+            allDay:!!res.result.start.date,
+            backgroundColor:color, borderColor:color,
+            extendedProps:{calendarId:writeCalendarId, eventId:res.result.id, canEdit:true}
+          });
+        }
+      }catch(e){ gcalShowDiag(e); alert('创建失败：'+(e.result?.error?.message||e.message)); }
+    },
+
+    eventChange: async (chg)=>{
+      const e=chg.event;
+      const {calendarId,eventId,canEdit}=e.extendedProps||{};
+      if(!canEdit){ chg.revert(); return; }
+      try{
+        await gapi.client.calendar.events.update({
+          calendarId,eventId,
+          resource:{
+            summary:e.title,
+            start:e.allDay?{date:e.startStr}:{dateTime:e.start.toISOString(),timeZone:GCAL_TZ},
+            end: e.allDay?{date:e.endStr}:{dateTime:e.end?.toISOString(),timeZone:GCAL_TZ},
+          }
+        });
+      }catch(err){ gcalShowDiag(err); alert('更新失败，已回滚：'+(err.result?.error?.message||err.message)); chg.revert(); }
+    },
+
+    eventClick: async (clickInfo)=>{
+      const {calendarId,eventId,canEdit}=clickInfo.event.extendedProps||{};
+      if(!canEdit){ alert('这是只读日历的事件，不能删除。'); return; }
+      if(!confirm('删除这个事件？')) return;
+      try{
+        await gapi.client.calendar.events.delete({calendarId,eventId});
+        clickInfo.event.remove();
+        gcal_calendar.refetchEvents();
+      }catch(err){ gcalShowDiag(err); alert('删除失败：'+(err.result?.error?.message||err.message)); }
+    }
+  });
+
+  gcal_calendar.render();
+}
+
+window.addEventListener('load', ()=>{
+  ensureSignedIn();
+  if(window.gapi) gapiLoaded();
+  if(window.google) gisLoaded();
+});
+
+/* Admin：添加到球馆日历（含重复拦截） */
+async function addToFacilityCalendar(meta){
+  if (!gcalIsSignedIn()){
+    alert('日历未登录，请先在上方使用 Google 登录。');
+    return;
+  }
+
+  const existing = getAddedEntries(meta.session_id);
+  if (existing.length){
+    alert('该课程已被添加到日历：' + existing.map(e=>e.calName || e.calId).join(', '));
+    return;
+  }
+
+  const dateStr = (meta.date||'').replace(/\//g,'-');
+  const startISO = `${dateStr}T${meta.time||'00:00'}:00`;
+  const start = new Date(startISO);
+  const end = new Date(start.getTime() + (Number(meta.dur)||1)*3600*1000);
+
+  const calName = currentWriteCalSummary();
+  const title = `${(meta.coachName||'').trim()}-${(meta.coachId||'').trim()}-${(meta.clientFullName||'').trim()}-${calName}`.replace(/\s+/g,' ').trim();
+
+  try{
+    await gapi.client.calendar.events.insert({
+      calendarId: writeCalendarId,
+      resource:{
+        summary:title,
+        start:{dateTime:start.toISOString(), timeZone:GCAL_TZ},
+        end:{dateTime:end.toISOString(), timeZone:GCAL_TZ}
+      }
+    });
+    markAdded(meta.session_id, writeCalendarId, calName);
+    alert('已添加到当前写入目标日历：' + calName);
+    if(gcal_calendar) gcal_calendar.refetchEvents();
+  }catch(err){
+    gcalShowDiag(err);
+    alert('写入失败：' + (err?.result?.error?.message || err?.message || '未知错误'));
+  }
+}
+
+/* 对账（保留标记，不自动清除，避免误判导致可重复添加） */
+async function reconcileAddedMarksForVisible(rows, idx){
+  try{
+    if (!gcalIsSignedIn()) return;
+    const calId = writeCalendarId;
+    if (!calId) return;
+    return;
+  }catch(err){
+    console.warn('reconcile error', err);
+  }
+}
+
+/* 列表可见性存取 */
+const VIS_KEYS = {
+  vis_pendingSoon: 'sec_pendingSoon',
+  vis_pendingLater: 'sec_pendingLater',
+  vis_scheduled: 'sec_scheduled',
+  vis_done: 'sec_done'
+};
+function readVisPref(){ try{ return JSON.parse(localStorage.getItem('TXT_ADMIN_VIS')||'{}'); }catch(e){ return {}; } }
+function saveVisPref(obj){ localStorage.setItem('TXT_ADMIN_VIS', JSON.stringify(obj||{})); }
+function applyVisibilityFromStorage(){
+  const pref = readVisPref();
+  for (const [ckId, secId] of Object.entries(VIS_KEYS)){
+    const ck = document.getElementById(ckId);
+    const sec = document.getElementById(secId);
+    const show = pref[ckId] !== false;
+    if (ck) ck.checked = show;
+    if (sec) sec.style.display = show ? '' : 'none';
+  }
+}
+function bindVisibilityToggles(){
+  for (const [ckId, secId] of Object.entries(VIS_KEYS)){
+    const ck = document.getElementById(ckId);
+    if (!ck) continue;
+    ck.addEventListener('change', ()=>{
+      const pref = readVisPref();
+      pref[ckId] = ck.checked;
+      saveVisPref(pref);
+      const sec = document.getElementById(secId);
+      if (sec) sec.style.display = ck.checked ? '' : 'none';
+    });
+  }
+  const allBtn = document.getElementById('visSelectAll');
+  const noneBtn = document.getElementById('visUnselectAll');
+  if (allBtn) allBtn.onclick = ()=>{
+    const pref = readVisPref();
+    for (const k of Object.keys(VIS_KEYS)){ pref[k] = true; const ck=document.getElementById(k); if(ck) ck.checked=true; }
+    saveVisPref(pref);
+    applyVisibilityFromStorage();
+  };
+  if (noneBtn) noneBtn.onclick = ()=>{
+    const pref = readVisPref();
+    for (const k of Object.keys(VIS_KEYS)){ pref[k] = false; const ck=document.getElementById(k); if(ck) ck.checked=false; }
+    saveVisPref(pref);
+    applyVisibilityFromStorage();
+  };
+}
+
+/* ✅ 新增：课时统计功能脚本 */
+function populateHoursCoachSel(){
+  const sel = document.getElementById('hc_coach');
+  if(!sel) return;
+  const keep = sel.value || '*ALL*';
+  sel.innerHTML = '<option value="*ALL*">所有教练（合计）</option>' +
+    (COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_name||''} (${c.coach_id})</option>`).join('');
+  sel.value = keep;
+}
+function hcParseYmdLocal(ymd){
+  if(!ymd) return null;
+  const [y,m,d] = ymd.split('-').map(Number);
+  if(!y||!m||!d) return null;
+  return new Date(y, m-1, d, 0,0,0,0);
+}
+function hcComputeHours(){
+  if(!CURRENT_IDX){ alert('列表尚未载入，请先刷新列表。'); return; }
+  const coachId = (document.getElementById('hc_coach')?.value)||'*ALL*';
+  const fromStr = document.getElementById('hc_from')?.value;
+  const toStr   = document.getElementById('hc_to')?.value;
+  const msgEl   = document.getElementById('hc_msg');
+  const outEl   = document.getElementById('hc_hours');
+  const payEl   = document.getElementById('hc_pay');
+  msgEl.textContent = '';
+  if(!fromStr || !toStr){ msgEl.textContent = '请选择起止日期'; outEl.textContent='0'; payEl.textContent='0'; return; }
+  const from = hcParseYmdLocal(fromStr);
+  const to   = hcParseYmdLocal(toStr);
+  if(!from || !to){ msgEl.textContent = '日期格式不正确'; outEl.textContent='0'; payEl.textContent='0'; return; }
+  if(to.getTime() < from.getTime()){ msgEl.textContent = '结束日期需不早于开始日期'; outEl.textContent='0'; payEl.textContent='0'; return; }
+  const toEnd = new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23,59,59,999);
+
+  const idx = CURRENT_IDX;
+  // 仅统计完成的课（done）
+  const rows = (DONE_ALL||[]).filter(r => String(r[idx.status])==='done');
+
+  let hours = 0;
+  let count = 0;
+  rows.forEach(row=>{
+    const st = startDT(row, idx) || parseMaybeDate(row[idx.date]);
+    if(!st) return;
+    if(st.getTime() < from.getTime() || st.getTime() > toEnd.getTime()) return;
+    if(coachId!=='*ALL*' && String(row[idx.coach_id]||'') !== String(coachId)) return;
+    const dur = Number(row[idx.duration_hours]||1);
+    if(isFinite(dur) && dur>0){ hours += dur; count += 1; }
+  });
+
+  hours = Math.round(hours * 100) / 100;
+  outEl.textContent = String(hours);
+  msgEl.textContent = `计入 ${count} 节课`;
+}
+function hcComputePay(){
+  const hrs = Number(document.getElementById('hc_hours')?.textContent||'0');
+  const rate = Number(document.getElementById('hc_rate')?.value||'');
+  const payEl = document.getElementById('hc_pay');
+  if(!(hrs>=0)){ alert('请先计算课时'); return; }
+  if(!isFinite(rate) || rate<=0){ alert('请输入有效时薪'); return; }
+  const pay = Math.round(hrs * rate * 100) / 100;
+  payEl.textContent = String(pay);
+}
+function hcReset(){
+  const coachSel = document.getElementById('hc_coach');
+  if(coachSel) coachSel.value='*ALL*';
+  const from = document.getElementById('hc_from');
+  const to = document.getElementById('hc_to');
+  const rate = document.getElementById('hc_rate');
+  const hrs = document.getElementById('hc_hours');
+  const pay = document.getElementById('hc_pay');
+  const msg = document.getElementById('hc_msg');
+  if(from) from.value='';
+  if(to) to.value='';
+  if(rate) rate.value='';
+  if(hrs) hrs.textContent='0';
+  if(pay) pay.textContent='0';
+  if(msg) msg.textContent='';
+}
+/* ✅ 新增结束 */
+
+</script>
+</body>
+</html>
