@@ -225,7 +225,7 @@
           <thead>
             <tr>
               <th class="w-date">date</th><th class="w-time">time</th><th>duration</th><th class="w-coach">coach</th>
-              <th>status</th><th>notes</th><th>feedback</th><th>submit</th><th>cancel</th><th class="w-id">session_id</th>
+              <th>status</</th><th>notes</th><th>feedback</th><th>submit</th><th>cancel</th><th class="w-id">session_id</th>
             </tr>
           </thead>
           <tbody id="tbDone"></tbody>
@@ -251,9 +251,11 @@ const API_BASE = 'https://script.google.com/macros/s/AKfycbzIRAc4FhAGl_v-1m59lbH
 const CLIENT_TOKEN_KEY = 'TXT_CLIENT_ID_TOKEN';
 function setClientToken(t){ if(t) localStorage.setItem(CLIENT_TOKEN_KEY, t); }
 function clientToken(){ return localStorage.getItem(CLIENT_TOKEN_KEY)||''; }
-function saveSession(u){ localStorage.setItem('TXT_CLIENT', JSON.stringify(u||{})); }
+function saveSession(u){ if(!u){ localStorage.removeItem('TXT_CLIENT'); return; } localStorage.setItem('TXT_CLIENT', JSON.stringify(u||{})); }
 function readSession(){ try{ return JSON.parse(localStorage.getItem('TXT_CLIENT')||'{}'); }catch(e){return{}} }
 function postTimeout(ms){ return new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms)); }
+
+// ---- 修复1：所有请求自动携带 id_token（如果已登录） ----
 async function post(action, payload = {}, timeoutMs=12000) {
   try {
     const cache = readSession();
@@ -262,6 +264,9 @@ async function post(action, payload = {}, timeoutMs=12000) {
       if (!('email'     in payload) && cache.email)     payload.email     = cache.email;
       if (!('phone'     in payload) && cache.phone)     payload.phone     = cache.phone;
       if (!('name'      in payload) && cache.name)      payload.name      = cache.name;
+      // 附带 id_token 以兼容需要鉴权的路由
+      const tok = clientToken();
+      if (tok && !('id_token' in payload)) payload.id_token = tok;
     }
     const ctl = new AbortController();
     const p = fetch(API_BASE, {
@@ -284,6 +289,7 @@ async function post(action, payload = {}, timeoutMs=12000) {
     return { ok:false, msg:(err&&err.message)||'Network error' };
   }
 }
+
 const isDate = v => Object.prototype.toString.call(v)==='[object Date]' && !isNaN(v);
 function parseMaybeDate(x){
   if (x==null || x==='') return null;
@@ -303,6 +309,8 @@ function startDT(s){
   if(!d || !t) return null;
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
 }
+
+// Google 登录
 async function onGoogleCredential(resp){
   try{
     const id_token = resp && resp.credential;
@@ -332,10 +340,13 @@ function googlePrompt(){
     alert('Unable to open Google sign-in: '+e);
   }
 }
+
 let client=null; let PACKS=[]; let SESS=[]; let RESCH=[];
 const TEN = 10*24*3600*1000;
 const DONE_LOCKS = new Set(JSON.parse(localStorage.getItem('TXT_DONE_LOCKS')||'[]'));
 function saveLocks(){ localStorage.setItem('TXT_DONE_LOCKS', JSON.stringify([...DONE_LOCKS])); }
+
+// UI 切换
 function setLoginUI(logged){
   if (loginForm.style.display === (logged?'none':'block') &&
       userBar.style.display   === (logged?'flex':'none')) return;
@@ -368,6 +379,8 @@ async function refreshData(notify=true){
   }
 }
 async function reloadAfterLogin(){ return refreshData(true); }
+
+// 进度
 function renderProgress(){
   const done = PACKS.reduce((s,p)=>s+(Number(p.total_hours||0)-Number(p.remaining_hours||0)),0);
   const remain = PACKS.reduce((s,p)=>s+Number(p.remaining_hours||0),0);
@@ -379,6 +392,8 @@ function renderProgress(){
 function requestRenew(){
   alert('Please contact TXT to renew your package\nWeChat: TorontoXanaduTennis\nEmail: info@torontoxanadutennis.com');
 }
+
+// 预处理
 const _dateCache = new Map();
 const _timeCache = new Map();
 function fmtDateFast(x){ const k=typeof x+'|'+x; if(_dateCache.has(k)) return _dateCache.get(k); const v=fmtDate(x); _dateCache.set(k,v); return v; }
@@ -392,6 +407,8 @@ function preprocessSessions(){
     s._time_fmt = fmtTimeFast(s.time);
   }
 }
+
+// 登录后渲染
 async function afterLogin(data, isRefresh=false){
   client = data.client; PACKS = data.packages||[]; SESS = data.sessions||[]; RESCH = data.reschedules||[];
   preprocessSessions();
@@ -420,6 +437,8 @@ async function afterLogin(data, isRefresh=false){
   renderLateList();
   if (!isRefresh){ bookMsg.textContent=''; }
 }
+
+// 预约
 function composeTimeStr(){ return `${hourSel.value||'08'}:${minSel.value||'00'}`; }
 function isPastSelection(dateStr, timeStr){ const sel=new Date(`${dateStr}T${timeStr}:00`); return sel.getTime() < Date.now() - 60*1000; }
 async function createSession(){
@@ -454,46 +473,15 @@ async function createSession(){
   if(!r.ok){ bookMsg.style.color='var(--red)'; bookMsg.textContent='Booking failed: ' + (r.msg||'Unknown error'); }
   else{ bookMsg.style.color='var(--green)'; bookMsg.textContent='Booking submitted; waiting for coach confirmation'; await refreshData(false); }
 }
-function renderReschedules(){
-  const tb = document.getElementById('tbResch'); tb.innerHTML='';
-  const getOrig = (sid)=>{
-    const s = (SESS||[]).find(x=>x.session_id===sid);
-    if (!s) return { when:'', sid:sid||'' };
-    const when = `${s._date_fmt||fmtDate(s.date)} ${s._time_fmt||fmtTime(s.time)}`;
-    return { when, sid:s.session_id };
-  };
-  const frag = document.createDocumentFragment();
-  (RESCH||[]).forEach(p=>{
-    const orig = getOrig(String(p.session_id||''));
-    const opts=[]; for(let i=1;i<=5;i++){ const d=p['opt'+i+'_date'], t=p['opt'+i+'_time']; if(d&&t) opts.push({i,label:`${fmtDateFast(d)} ${fmtTimeFast(t)}`}); }
-    const size = Math.max(2, Math.min(8, opts.length));
-    const selId = `sel-${p.proposal_id}`;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${p.reason||''}</td>
-      <td class="w-opts">
-        <select id="${selId}" class="opt-multi" multiple size="${size}" title="multi-select">
-          ${opts.map(o=>`<option value="${o.i}">${o.label}</option>`).join('')}
-        </select>
-      </td>
-      <td class="w-date">${orig.when}</td>
-      <td class="w-id">${orig.sid}</td>
-      <td><button class="btn" onclick="submitResch('${p.proposal_id}')">Submit selection</button></td>
-    `;
-    frag.appendChild(tr);
-  });
-  tb.appendChild(frag);
-  secResch.style.display = (tgResch.checked) ? 'block' : 'none';
-}
-async function submitResch(pid){
-  const sel = document.getElementById(`sel-${pid}`);
-  if (!sel){ alert('Selector not found'); return; }
-  const indices = Array.from(sel.selectedOptions).map(o=>Number(o.value)).filter(Boolean);
-  if (indices.length===0){ alert('Please select at least one time slot'); return; }
-  const r = await post('client_choose_reschedule', { proposal_id: pid, selected_indices: indices }, 15000);
-  if (!r.ok) return alert(r.msg||'Submit failed');
-  bookMsg.style.color='var(--green)'; bookMsg.textContent='Reschedule submitted';
-  await refreshData(false);
+
+// ——— 渲染 & 操作：改进提交选择器、HTML 转义 ———
+function escAttr(s){
+  return String(s||'')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
 }
 function calcCancelState(s){
   try{
@@ -525,22 +513,22 @@ async function cancelSessionClient(session_id, penalty){
 }
 function rowHTML(s, locked){
   const sid = s.session_id;
-  const note = (s.notes||'').replace(/"/g,'&quot;');
-  const fb   = (s.feedback||'').replace(/"/g,'&quot;');
+  const note = escAttr(s.notes||'');
+  const fb   = escAttr(s.feedback||'');
   const dis = locked ? 'disabled' : '';
   const cancel = calcCancelState(s);
   const cancelBtn = cancel.disabled
-    ? `<button class="btn gray" disabled title="${cancel.reason||''}">cancel</button>`
+    ? `<button class="btn gray" disabled title="${escAttr(cancel.reason||'')}">cancel</button>`
     : `<button class="btn red" onclick="cancelSessionClient('${sid}', ${cancel.penalty||0})">cancel</button>`;
   return `
     <td class="w-date">${s._date_fmt||fmtDate(s.date)}</td>
     <td class="w-time">${s._time_fmt||fmtTime(s.time)}</td>
     <td>${s.duration_hours||1} hr</td>
-    <td class="w-coach">${s.coach_name||''}</td>
-    <td>${s.status||''}</td>
+    <td class="w-coach">${escAttr(s.coach_name||'')}</td>
+    <td>${escAttr(s.status||'')}</td>
     <td><input class="row-input note" ${dis} data-id="${sid}" value="${note}"></td>
     <td><input class="row-input fb" ${dis} data-id="${sid}" value="${fb}"></td>
-    <td><button class="btn ${locked?'lock':''}" ${locked?'disabled':''} onclick="submitRow('${sid}','${s.status}')">${locked?'Submitted':'submit'}</button></td>
+    <td><button class="btn ${locked?'lock':''}" data-submit="${sid}" ${locked?'disabled':''} onclick="submitRow('${sid}','${s.status}')">${locked?'Submitted':'submit'}</button></td>
     <td>${cancelBtn}</td>
     <td class="w-id">${sid}</td>
   `;
@@ -579,6 +567,8 @@ function renderPending(){
   tb.appendChild(frag);
   secPending.style.display = tgPending.checked ? 'block' : 'none';
 }
+
+// Done 分页
 let DONE_LIST=[]; let donePage=1; const donePageSize=10;
 function prepareDone(){
   DONE_LIST = (SESS||[]).filter(x=>x.status==='done')
@@ -605,6 +595,8 @@ function renderDonePaged(){
   donePrev.disabled = donePage<=1; doneNext.disabled = donePage>=totalPages;
   secDone.style.display = tgDone.checked ? 'block' : 'none';
 }
+
+// ---- 修复2：删除 Promise.any，改为稳定的顺序回退提交 ----
 function buildPayloadByAction(base, action){
   if (action==='client_update_session') return { action, session_id:base.session_id, notes:base.notes, feedback:base.feedback, source:'client_ui' };
   if (action==='update_session_fields') return { action, session_id:base.session_id, fields:{ notes:base.notes, feedback:base.feedback }, source:'client_ui' };
@@ -614,52 +606,102 @@ function buildPayloadByAction(base, action){
   return { action, session_id:base.session_id, notes:base.notes, feedback:base.feedback, source:'client_ui' };
 }
 async function tryActionsFast(base){
+  // 先用缓存
   const cached = localStorage.getItem('TXT_UPDATE_ACTION')||'';
   if (cached){
     const r1 = await post(cached, buildPayloadByAction(base, cached), 12000);
     if (r1 && r1.ok) return { ok:true, used:cached };
   }
+  // 顺序尝试，保证兼容所有浏览器
   const candidates = ['client_update_session','update_session_fields','update_session_notes','update_session','update_session_v2'];
-  const tasks = candidates.map(a=>post(a, buildPayloadByAction(base,a), 12000).then(r=>({a,r})));
-  let winner=null;
-  await Promise.any(tasks.map(t=>t.then(({a,r})=>{ if(r&&r.ok){ winner={a,r}; return r;} else { throw new Error('fail'); } }))).catch(()=>{});
-  if (winner && winner.r && winner.r.ok){ localStorage.setItem('TXT_UPDATE_ACTION', winner.a); return { ok:true, used:winner.a }; }
   for (const a of candidates){
-    const r = await post(a, buildPayloadByAction(base,a), 8000);
+    const r = await post(a, buildPayloadByAction(base,a), 12000);
     if (r && r.ok){ localStorage.setItem('TXT_UPDATE_ACTION', a); return { ok:true, used:a }; }
   }
-  return { ok:false, msg:'All tries failed' };
+  return { ok:false, msg:'No backend action matched' };
 }
 async function updateNotesCompat(base){
   const r = await tryActionsFast(base);
   if (r.ok) return r;
   return { ok:false, msg:r.msg||'Failed' };
 }
+
+// ---- 修复3：仅锁定“本行”的提交按钮（使用 data-submit） ----
 async function submitRow(id, status){
   const noteEl = document.querySelector(`.note[data-id='${id}']`);
   const fbEl   = document.querySelector(`.fb[data-id='${id}']`);
-  const btn    = document.querySelector(`button.btn[onclick*="${id}"]`);
+  const row    = noteEl ? noteEl.closest('tr') : null;
+  const btn    = row ? row.querySelector(`button[data-submit='${id}']`) : null;
   const notes = noteEl ? noteEl.value : '';
   const feedback = fbEl ? fbEl.value : '';
-  btn.disabled = true;
+  if(btn) btn.disabled = true;
   const r = await updateNotesCompat({ session_id:id, notes, feedback });
-  btn.disabled = false;
+  if(btn) btn.disabled = false;
   if(!r.ok){
-    btn.textContent='submit failed';
-    btn.classList.remove('ok'); btn.classList.add('red');
-    setTimeout(()=>{btn.textContent=(status==='done'?'Submitted':'submit');btn.classList.remove('red')},1400);
+    if(btn){
+      btn.textContent='submit failed';
+      btn.classList.remove('ok'); btn.classList.add('red');
+      setTimeout(()=>{btn.textContent=(status==='done'?'Submitted':'submit');btn.classList.remove('red')},1400);
+    }
     return;
   }
-  btn.textContent='submitted';
-  btn.classList.add('ok');
-  setTimeout(()=>{btn.textContent=(status==='done'?'Submitted':'submit');btn.classList.remove('ok')},1000);
-  if (status==='done'){
-    DONE_LOCKS.add(id); saveLocks();
-    if (noteEl) { noteEl.disabled=true; noteEl.classList.add('disabled'); }
-    if (fbEl)   { fbEl.disabled=true;  fbEl.classList.add('disabled'); }
-    btn.classList.add('lock'); btn.disabled=true;
+  if(btn){
+    btn.textContent='submitted';
+    btn.classList.add('ok');
+    setTimeout(()=>{btn.textContent=(status==='done'?'Submitted':'submit');btn.classList.remove('ok')},1000);
+    if (status==='done'){
+      DONE_LOCKS.add(id); saveLocks();
+      if (noteEl) { noteEl.disabled=true; noteEl.classList.add('disabled'); }
+      if (fbEl)   { fbEl.disabled=true;  fbEl.classList.add('disabled'); }
+      btn.classList.add('lock'); btn.disabled=true;
+    }
   }
 }
+
+// Reschedule
+function renderReschedules(){
+  const tb = document.getElementById('tbResch'); tb.innerHTML='';
+  const getOrig = (sid)=>{
+    const s = (SESS||[]).find(x=>x.session_id===sid);
+    if (!s) return { when:'', sid:sid||'' };
+    const when = `${s._date_fmt||fmtDate(s.date)} ${s._time_fmt||fmtTime(s.time)}`;
+    return { when, sid:s.session_id };
+  };
+  const frag = document.createDocumentFragment();
+  (RESCH||[]).forEach(p=>{
+    const orig = getOrig(String(p.session_id||''));
+    const opts=[]; for(let i=1;i<=5;i++){ const d=p['opt'+i+'_date'], t=p['opt'+i+'_time']; if(d&&t) opts.push({i,label:`${fmtDateFast(d)} ${fmtTimeFast(t)}`}); }
+    const size = Math.max(2, Math.min(8, opts.length));
+    const selId = `sel-${p.proposal_id}`;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escAttr(p.reason||'')}</td>
+      <td class="w-opts">
+        <select id="${selId}" class="opt-multi" multiple size="${size}" title="multi-select">
+          ${opts.map(o=>`<option value="${o.i}">${o.label}</option>`).join('')}
+        </select>
+      </td>
+      <td class="w-date">${escAttr(orig.when)}</td>
+      <td class="w-id">${escAttr(orig.sid)}</td>
+      <td><button class="btn" onclick="submitResch('${p.proposal_id}')">Submit selection</button></td>
+    `;
+    frag.appendChild(tr);
+  });
+  tb.appendChild(frag);
+  secResch.style.display = (tgResch.checked) ? 'block' : 'none';
+}
+async function submitResch(pid){
+  const sel = document.getElementById(`sel-${pid}`);
+  if (!sel){ alert('Selector not found'); return; }
+  const indices = Array.from(sel.selectedOptions).map(o=>Number(o.value)).filter(Boolean);
+  if (indices.length===0){ alert('Please select at least one time slot'); return; }
+  const r = await post('client_choose_reschedule', { proposal_id: pid, selected_indices: indices }, 15000);
+  if (!r.ok) return alert(r.msg||'Submit failed');
+  bookMsg.style.color='var(--green)'; bookMsg.textContent='Reschedule submitted';
+  await refreshData(false);
+}
+
+// Late & NoShow
 function renderLateList(){
   const tb = document.getElementById('tbLate'); tb.innerHTML='';
   if (!Array.isArray(SESS) || !SESS.length){ lateCard.style.display='block'; tb.innerHTML = `<tr><td colspan="7" class="muted">No records</td></tr>`; return; }
@@ -685,12 +727,14 @@ function renderLateList(){
     const tr = document.createElement('tr');
     tr.innerHTML = `<td class="w-date">${fmtDateFast(it.date)}</td>
       <td class="w-time">${fmtTimeFast(it.time)}</td>
-      <td>${it.type}</td><td class="w-coach">${it.coach||''}</td>
-      <td>${it.pkg||''}</td><td>${it.dur||1} hr</td><td>${it.note||''}</td>`;
+      <td>${escAttr(it.type)}</td><td class="w-coach">${escAttr(it.coach||'')}</td>
+      <td>${escAttr(it.pkg||'')}</td><td>${it.dur||1} hr</td><td>${escAttr(it.note||'')}</td>`;
     frag.appendChild(tr);
   });
   tb.appendChild(frag);
 }
+
+// refs
 const hourSel = document.getElementById('hourSel');
 const minSel  = document.getElementById('minSel');
 const date    = document.getElementById('date');
@@ -720,6 +764,7 @@ const tgDone    = document.getElementById('tgDone');
 const btnAll    = document.getElementById('btnAll');
 const btnNone   = document.getElementById('btnNone');
 const lateCard  = document.getElementById('lateCard');
+
 [tgResch,tgUpcoming,tgPending,tgDone].forEach(el=>{
   el.addEventListener('change', ()=>{
     secResch.style.display    = tgResch.checked ? 'block' : 'none';
@@ -736,6 +781,8 @@ btnNone.addEventListener('click', ()=>{
   [tgResch,tgUpcoming,tgPending,tgDone].forEach(el=>el.checked=false);
   tgResch.dispatchEvent(new Event('change'));
 });
+
+// 初始化
 (async function init(){
   [tgResch,tgUpcoming,tgPending,tgDone].forEach(el=>el.checked=false);
   setLoginUI(false);
