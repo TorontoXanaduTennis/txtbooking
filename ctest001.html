@@ -69,7 +69,7 @@ tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:1
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 
-/* Google Calendar 样式 */
+/* Google Calendar */
 #gcal-wrap * { box-sizing: border-box; }
 #gcal-wrap .bar{display:flex;gap:8px;align-items:center}
 #gcal-wrap .right{margin-left:auto;display:flex;gap:8px;align-items:center}
@@ -125,10 +125,10 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 })();
 </script>
 
-<!-- ✅ 正确触发加载回调 -->
-<script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
-<script src="https://apis.google.com/js/api.js?onload=gapiLoaded"></script>
+<!-- 外部库（保持原顺序） -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.global.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
 </head>
 
 <body>
@@ -214,7 +214,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <button id="gcal-checkAll" class="help">全选</button>
 <button id="gcal-uncheckAll" class="help">全不选</button>
 <select id="gcal-writeCal" title="写入目标（只列可写）" style="display:none;"></select>
-<div class="help">当前写入目标：<code id="gcal-currCal">primary</code></div>
+<div class="help">当前写入目标：<code id="gcal-currCal">-</code></div>
 </div>
 <div id="gcal-calList" class="list"></div>
 <div id="gcal-legend"></div>
@@ -376,7 +376,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
   </div>
 </div>
 
-<!-- 新增：收入计算 -->
+<!-- 收入计算 -->
 <div class="card" id="incomeCard">
   <h3>收入计算</h3>
   <div class="toolbar" style="gap:16px;align-items:flex-end;flex-wrap:wrap">
@@ -412,7 +412,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
     </table>
   </div>
 </div>
-<!-- 新增结束 -->
+<!-- 收入计算结束 -->
 
 </div>
 </div>
@@ -479,7 +479,7 @@ async function ensureSignedIn(){
     await loadSessions();
     bindVisibilityToggles();
     applyVisibilityFromStorage();
-    icInit(); /* 初始化收入计算 UI */
+    icInit();
   }else{
     clearAdminToken();
     showLogin('登录已过期，请重新登录。');
@@ -899,7 +899,7 @@ async function changeAssignedCoach(client_id){
   searchClients();
 }
 
-/* ========== Session 列表加载/渲染（提速&修复名字） ========== */
+/* ========== Session 列表加载/渲染（修复名字&按钮安全） ========== */
 let DONE_ALL = []; let donePage=1; const donePageSize=50;
 function pageDone(delta){
   const totalPages = Math.max(1, Math.ceil(DONE_ALL.length/donePageSize));
@@ -962,12 +962,11 @@ async function loadSessions(){
       await ensurePackageNames(pids);
     }
 
-    renderPendingGroup('tbodyPendingSoon', pendingSoon, idx, createdIdx);
-    renderPendingGroup('tbodyPendingLater', pendingLater, idx, createdIdx);
-    renderTable('tbodyScheduled', scheduled, idx, 'scheduled', createdIdx);
-    donePage = 1; renderDonePaged(idx, createdIdx);
+    renderPendingGroup('tbodyPendingSoon', pendingSoon, idx);
+    renderPendingGroup('tbodyPendingLater', pendingLater, idx);
+    renderTable('tbodyScheduled', scheduled, idx);
+    donePage = 1; renderDonePaged(idx);
 
-    reconcileAddedMarksForVisible([], idx);
     applyVisibilityFromStorage();
     setRefreshing(false,'刷新已完成');
   }catch(e){
@@ -977,11 +976,11 @@ async function loadSessions(){
   }
 }
 
-function renderDonePaged(idx, createdIdx){
+function renderDonePaged(idx){
   const totalPages = Math.max(1, Math.ceil(DONE_ALL.length/donePageSize));
   const s = (donePage-1)*donePageSize, e = s+donePageSize;
   const pageRows = DONE_ALL.slice(s,e);
-  renderTable('tbodyDone', pageRows, CURRENT_IDX || {}, 'done', createdIdx);
+  renderTable('tbodyDone', pageRows, CURRENT_IDX || {});
   document.getElementById('donePageInfo').textContent = `第 ${donePage} / 共 ${totalPages} 页（每页 50）`;
   document.getElementById('donePrev').disabled = donePage<=1;
   document.getElementById('doneNext').disabled = donePage>=totalPages;
@@ -992,8 +991,8 @@ function coachLabelFromRow(row, idx){
   return (cname?cname:'') + (cid?` (${cid})`:'');
 }
 
-/* 行操作渲染（事件标题：客户名-教练名-套餐名-日历名） */
-function buildOpsHTMLForRow(row, idx, status, clientName, pkgName, coachLabel){
+/* 安全的“添加到日历”参数传递（URI 编码） */
+function buildOpsHTMLForRow(row, idx, status, clientName, pkgName){
   const sid = row[idx.session_id];
   const et = endDT(row, idx);
   const finished = et ? (Date.now() >= et.getTime()) : false;
@@ -1006,16 +1005,17 @@ function buildOpsHTMLForRow(row, idx, status, clientName, pkgName, coachLabel){
   if (addedToName){
     addBtn = `<span class="muted">已添加到球馆${addedToName}</span>`;
   }else{
-    const coachName = String(row[idx.coach_name]||'').trim();
-    addBtn = `<button class="btn gray" onclick='addToFacilityCalendar(${JSON.stringify({
-      session_id:sid,
-      date:fmtDate(row[idx.date]),
-      time:fmtTime(row[idx.time]),
+    const meta = {
+      session_id: sid,
+      dateRaw: row[idx.date],
+      timeRaw: row[idx.time],
       dur:(row[idx.duration_hours]||1),
-      coachName,
-      clientName:clientName || '(未命名)',
-      packageName:pkgName || ''
-    }).replace(/'/g,"&#39;")})'>添加到球馆日历</button>`;
+      coachName: String(row[idx.coach_name]||'').trim(),
+      clientName: clientName || '(未命名)',
+      packageName: pkgName || ''
+    };
+    const metaStr = encodeURIComponent(JSON.stringify(meta));
+    addBtn = `<button class="btn gray" onclick="addToFacilityCalendarU('${metaStr}')">添加到球馆日历</button>`;
   }
 
   const completeBtn = `<button class="btn success ${canComplete?'':'disabled'}" onclick="${canComplete?`complete('${sid}')`:'void(0)'}">已完成</button>`;
@@ -1024,20 +1024,19 @@ function buildOpsHTMLForRow(row, idx, status, clientName, pkgName, coachLabel){
 
   return `${completeBtn} ${cancelBtn} ${switchBtn} ${addBtn}`;
 }
-
 function renderPendingGroup(tbodyId, rows, idx){
   const tb = document.getElementById(tbodyId);
   tb.innerHTML='';
   rows.forEach(row=>{
     const status = (row[idx.status]+'') || '';
-    const clientName = clientNameOnlyFromRow(row, idx); // 第三列只显示名字
+    const clientName = clientNameOnlyFromRow(row, idx);
     const pkgName = packageNameFromRow(row, idx);
     const session_id = row[idx.session_id] || '';
     const pkg_id = row[idx.package_id] || '';
     const client_id = clientIdFromRow(row, idx) || '';
     const coachLabel = coachLabelFromRow(row, idx);
 
-    const opHTML = buildOpsHTMLForRow(row, idx, status, clientName, pkgName, coachLabel);
+    const opHTML = buildOpsHTMLForRow(row, idx, status, clientName, pkgName);
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1068,7 +1067,7 @@ function renderTable(tbodyId, rows, idx){
     const client_id = clientIdFromRow(row, idx) || '';
     const coachLabel = coachLabelFromRow(row, idx);
 
-    const opHTML = buildOpsHTMLForRow(row, idx, status, clientName, pkgName, coachLabel);
+    const opHTML = buildOpsHTMLForRow(row, idx, status, clientName, pkgName);
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1125,7 +1124,7 @@ const GCAL_FETCH_BUFFER_MS = 36 * 60 * 60 * 1000;
 let gcal_tokenClient, gcal_accessToken=null, gapiReady=false, gisReady=false, gcal_calendar;
 let calendarListCache=[], showCalendarIds=new Set(), writeCalendarId="primary";
 
-/* ✅ 新增：在指定时区输出 yyyy-MM-ddTHH:mm:ss 字符串（不带Z），避免时区偏移 */
+/* 在指定时区输出 yyyy-MM-ddTHH:mm:ss */
 function fmtDateTimeInTZ(dateObj, tz){
   const p = new Intl.DateTimeFormat('en-CA',{
     timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit',
@@ -1141,23 +1140,64 @@ function gcalShowDiag(obj){
   try{ p.textContent=(typeof obj==='string')?obj:JSON.stringify(obj,null,2); }
   catch(e){ p.textContent=String(obj); }
 }
-function gapiLoaded(){ gapi.load('client', async ()=>{ await gapi.client.init({discoveryDocs:["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"]}); gapiReady=true; }); }
-function gisLoaded(){ gcal_tokenClient=google.accounts.oauth2.initTokenClient({
-  client_id:GCAL_CLIENT_ID, scope:GCAL_SCOPES,
-  callback:(resp)=>{ if(resp&&resp.access_token){ gcal_accessToken=resp.access_token; gapi.client.setToken({access_token:gcal_accessToken}); gcalOnSignedIn(); } else { gcalShowDiag({oauth_callback_resp:resp}); } }
-}); gisReady=true; }
 
-async function gcalSignIn(){ if(!gapiReady||!gisReady) return; gcal_tokenClient.requestAccessToken({prompt:'consent'}); }
-function gcalSignOut(){ if(!gcal_accessToken) return; google.accounts.oauth2.revoke(gcal_accessToken,()=>{
-  gcal_accessToken=null; gapi.client.setToken(null);
-  document.getElementById('gcal-signin').style.display='';
-  document.getElementById('gcal-signout').style.display='none';
-  document.getElementById('gcal-refreshBtn').style.display='none';
-  document.getElementById('gcal-status').textContent='未登录';
-  document.getElementById('gcal-writeCal').style.display='none';
-  document.getElementById('gcal-picker').style.display='none';
-  if(gcal_calendar) gcal_calendar.destroy();
-});}
+function gapiLoaded(){ initGcalLibs(); }   // 兼容某些环境会调用
+function gisLoaded(){ initGcalLibs(); }
+
+/* 稳健初始化：轮询到库就绪 */
+function initGcalLibs(){
+  let tries = 0;
+  const timer = setInterval(()=>{
+    tries++;
+    try{
+      if (!gapiReady && window.gapi && gapi.load){
+        gapi.load('client', async ()=>{
+          try{ await gapi.client.init({discoveryDocs:["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"]}); gapiReady=true; }
+          catch(e){ console.error('gapi init error', e); }
+        });
+      }
+      if (!gisReady && window.google && google.accounts && google.accounts.oauth2){
+        gcal_tokenClient=google.accounts.oauth2.initTokenClient({
+          client_id:GCAL_CLIENT_ID, scope:GCAL_SCOPES,
+          callback:(resp)=>{
+            if(resp&&resp.access_token){
+              gcal_accessToken=resp.access_token;
+              gapi.client.setToken({access_token:gcal_accessToken});
+              gcalOnSignedIn();
+            }else{
+              gcalShowDiag({oauth_callback_resp:resp});
+            }
+          }
+        });
+        gisReady=true;
+      }
+      if (gapiReady && gisReady){ clearInterval(timer); }
+    }catch(e){ console.error(e); }
+    if (tries>60) clearInterval(timer);
+  }, 300);
+}
+
+function gcalSignIn(){
+  if(!gapiReady || !gisReady){
+    initGcalLibs();
+    alert('日历组件正在初始化，请稍后再点一次登录。');
+    return;
+  }
+  gcal_tokenClient.requestAccessToken({prompt:'consent'});
+}
+function gcalSignOut(){
+  if(!gcal_accessToken) return;
+  google.accounts.oauth2.revoke(gcal_accessToken,()=>{
+    gcal_accessToken=null; gapi.client.setToken(null);
+    document.getElementById('gcal-signin').style.display='';
+    document.getElementById('gcal-signout').style.display='none';
+    document.getElementById('gcal-refreshBtn').style.display='none';
+    document.getElementById('gcal-status').textContent='未登录';
+    document.getElementById('gcal-writeCal').style.display='none';
+    document.getElementById('gcal-picker').style.display='none';
+    if(gcal_calendar) gcal_calendar.destroy();
+  });
+}
 document.getElementById('gcal-signin').onclick=gcalSignIn;
 document.getElementById('gcal-signout').onclick=gcalSignOut;
 document.getElementById('gcal-refreshBtn').onclick=()=>{ if(gcal_calendar) gcal_calendar.refetchEvents(); loadSessions(); };
@@ -1188,7 +1228,7 @@ async function gcalOnSignedIn(){
     writeSel.value=writeCalendarId;
     document.getElementById('gcal-currCal').textContent=currentWriteCalSummary();
     writeSel.style.display='';
-    writeSel.onchange=()=>{ writeCalendarId=writeSel.value; document.getElementById('gcal-currCal').textContent=currentWriteCalSummary(); loadSessions(); };
+    writeSel.onchange=()=>{ writeCalendarId=writeSel.value; document.getElementById('gcal-currCal').textContent=currentWriteCalSummary(); };
 
     const picker=document.getElementById('gcal-picker');
     const listDiv=document.getElementById('gcal-calList');
@@ -1333,32 +1373,44 @@ function gcalRenderCalendar(){
   gcal_calendar.render();
 }
 
-/* 写入球馆日历：标题=客户名-教练名-套餐名-日历名（无ID） */
-async function addToFacilityCalendar(meta){
-  if (!gcalIsSignedIn()){
-    alert('日历未登录，请先在上方使用 Google 登录。');
-    return;
-  }
-  const existing = getAddedEntries(meta.session_id);
-  if (existing.length){
-    alert('该课程已被添加到日历：' + existing.map(e=>e.calName || e.calId).join(', '));
-    return;
-  }
-
-  const dateStr = (meta.date||'').replace(/\//g,'-'); // yyyy-MM-dd
-  const startLocal = new Date(`${dateStr}T${meta.time||'00:00'}:00`);
-  const endLocal = new Date(startLocal.getTime() + (Number(meta.dur)||1)*3600*1000);
-
-  const calName = currentWriteCalSummary();
-  const title = `${(meta.clientName||'').trim()}-${(meta.coachName||'').trim()}-${(meta.packageName||'').trim()}-${calName}`.replace(/\s+/g,' ').trim();
-
+/* 传参解码包装 */
+function addToFacilityCalendarU(s){
   try{
+    const meta = JSON.parse(decodeURIComponent(s));
+    return addToFacilityCalendar(meta);
+  }catch(e){
+    alert('内部错误：参数解析失败');
+  }
+}
+
+/* 写入球馆日历：标题=客户名-教练名-套餐名-日历名 */
+async function addToFacilityCalendar(meta){
+  try{
+    if (!gcalIsSignedIn()){
+      alert('日历未登录，请先在上方使用 Google 登录。');
+      return;
+    }
+    const existing = getAddedEntries(meta.session_id);
+    if (existing.length){
+      alert('该课程已被添加到日历：' + existing.map(e=>e.calName || e.calId).join(', '));
+      return;
+    }
+
+    const d = parseMaybeDate(meta.dateRaw || meta.date);
+    const t = parseMaybeDate(meta.timeRaw || meta.time);
+    if (!d || !t){ alert('该行缺少有效日期/时间'); return; }
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
+    const end = new Date(start.getTime() + (Number(meta.dur)||1)*3600*1000);
+
+    const calName = currentWriteCalSummary();
+    const title = `${(meta.clientName||'').trim()}-${(meta.coachName||'').trim()}-${(meta.packageName||'').trim()}-${calName}`.replace(/\s+/g,' ').trim();
+
     await gapi.client.calendar.events.insert({
       calendarId: writeCalendarId,
       resource:{
         summary:title,
-        start:{dateTime:fmtDateTimeInTZ(startLocal, GCAL_TZ), timeZone:GCAL_TZ},
-        end:{dateTime:fmtDateTimeInTZ(endLocal, GCAL_TZ), timeZone:GCAL_TZ}
+        start:{dateTime:fmtDateTimeInTZ(start, GCAL_TZ), timeZone:GCAL_TZ},
+        end:{dateTime:fmtDateTimeInTZ(end, GCAL_TZ), timeZone:GCAL_TZ}
       }
     });
     markAdded(meta.session_id, writeCalendarId, calName);
@@ -1387,7 +1439,6 @@ function getAddedEntries(sessionId){
   }catch(e){}
   return out;
 }
-async function reconcileAddedMarksForVisible(){}
 
 /* 列表可见性（保留） */
 const VIS_KEYS = {
@@ -1524,7 +1575,6 @@ function icInit(){
   const sel = document.getElementById('ic_method');
   if(!sel) return;
   sel.innerHTML = PAY_METHODS.map(m=>`<option value="${m}">${m}</option>`).join('');
-  /* 默认 60 天区间 */
   const to = new Date(); const from = new Date(to.getTime() - 60*24*3600*1000);
   document.getElementById('ic_from').value = from.toISOString().slice(0,10);
   document.getElementById('ic_to').value   = to.toISOString().slice(0,10);
@@ -1668,15 +1718,16 @@ async function icCompute(){
     </tr>`;
   }).join('');
 
-  totalEl.textContent = String(Math.round(total*100)/100);
-  countEl.textContent = String(list.length);
+  // 最终确认输出
+  document.getElementById('ic_total').textContent = String(Math.round(total*100)/100);
+  document.getElementById('ic_count').textContent = String(list.length);
   msg.textContent = list.length ? '' : '无记录';
 }
 
-/* 绑定加载 */
-window.gapiLoaded=gapiLoaded; window.gisLoaded=gisLoaded;
+/* 启动 */
 window.addEventListener('load', ()=>{
-  ensureSignedIn();       // 显示登录/应用界面
+  ensureSignedIn();
+  initGcalLibs(); // 开始初始化日历库
 });
 </script>
 </body>
