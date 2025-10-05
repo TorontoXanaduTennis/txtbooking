@@ -16,7 +16,6 @@
   .wrap{max-width:980px;margin:26px auto;padding:0 14px}
   h1{font-size:26px;margin:0 0 12px}
   .card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:14px}
-
   .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   input,select,button,textarea{padding:8px 10px;border:1px solid var(--bdr);border-radius:10px;background:#fff}
   button{background:var(--primary);color:#fff;cursor:pointer}
@@ -28,13 +27,11 @@
   .btn.lock{background:#86efac;color:#064e3b}
   .muted{color:var(--muted)}
   .pill{display:inline-block;padding:5px 10px;border:1px solid var(--bdr);border-radius:999px;background:#fff}
-
   .section{border:2px solid var(--deep);border-radius:14px;background:#fff;overflow:hidden;margin-bottom:14px}
   .section-inner{padding:10px}
   .pattern{height:8px;background:
       repeating-linear-gradient(135deg,#4b5563 0 8px,rgba(75,85,99,0) 8px 16px),
       repeating-linear-gradient(225deg,#4b5563 0 8px,rgba(75,85,99,0) 8px 16px);opacity:.45}
-
   .table-wrap{position:relative;overflow:auto}
   table{width:100%;table-layout:auto;border-collapse:separate;border-spacing:0 8px}
   thead th{position:sticky;top:0;background:var(--bg);z-index:1;font-weight:600;padding:6px 8px;font-size:13px;white-space:nowrap}
@@ -42,51 +39,42 @@
   th,td{padding:6px 8px;font-size:13px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   tbody tr td:first-child{border-top-left-radius:10px;border-bottom-left-radius:10px}
   tbody tr td:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}
-
   .row-input{width:100%}
   .w-date{max-width:150px}
   .w-time{max-width:88px}
   .w-coach,.w-client{max-width:140px}
   .w-id{max-width:180px}
   .w-opts{min-width:220px}
-
   .progress-wrap{margin-top:6px;background:#e5e7eb;border-radius:999px;box-shadow:inset 0 2px 6px rgba(0,0,0,.12);height:10px}
   .progress-bar{height:100%;border-radius:999px;background:linear-gradient(90deg,#34d399,#10b981)}
   .num-green{color:var(--green);font-weight:700}
   .num-gray{color:#6b7280;font-weight:700}
   .renew-row{display:flex;justify-content:flex-end;margin-top:8px}
   .disabled{opacity:.55;pointer-events:none}
-
   .toggles{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .toggles label{display:flex;gap:6px;align-items:center;font-size:12px;color:#374151}
   .opt-multi{width:100%; min-width:220px}
-
   .note-red{color:#b91c1c;line-height:1.5;margin:6px 0 10px;font-size:12px}
 </style>
-
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div class="wrap">
   <h1>Client · TXT Booking</h1>
-
   <div class="card" id="loginCard">
     <div id="loginForm">
       <h3>Sign in</h3>
       <div class="muted" style="margin:6px 0 10px">Use your <b>Google email</b> listed on the Client List to sign in.</div>
-
       <div id="g_id_onload"
            data-client_id="126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com"
            data-auto_prompt="false"
            data-callback="onGoogleCredential"></div>
       <div class="g_id_signin" data-type="standard" data-size="large" data-shape="rectangular" data-theme="outline"></div>
-
       <div class="toolbar" style="margin-top:10px">
         <button class="btn" onclick="googlePrompt()">Sign in with popup</button>
       </div>
       <div class="muted" style="margin-top:6px;font-size:12px">Only emails present on the Client List can be authenticated.</div>
     </div>
-
     <div id="userBar" style="display:none;align-items:center;justify-content:space-between" class="toolbar">
       <div id="userInfo" style="color:#10b981"></div>
       <div class="toolbar">
@@ -95,7 +83,6 @@
       </div>
     </div>
   </div>
-
   <div id="pkgCard" class="card" style="display:none">
     <div class="note-red">
       <div>1) The system may process slowly. Click once and wait until it completes before the next action.</div>
@@ -105,7 +92,6 @@
     <h3>My Packages</h3>
     <div id="pkgs" class="muted">(Shown after sign-in)</div>
   </div>
-
   <div id="progressCard" class="card" style="display:none">
     <h3>My Progress</h3>
     <div id="progressText" class="muted"></div>
@@ -114,7 +100,6 @@
       <button class="btn blue" onclick="requestRenew()">Renew package</button>
     </div>
   </div>
-
   <div id="dash" class="card" style="display:none">
     <h3>Book a Session</h3>
     <div class="toolbar" style="flex-wrap:wrap;gap:8px">
@@ -137,7 +122,6 @@
     </div>
     <div id="bookMsg" class="muted" style="margin-top:6px"></div>
   </div>
-
   <div id="toggleCard" class="card" style="display:none">
     <div class="toolbar" style="justify-content:space-between;gap:12px">
       <div class="muted">Choose lists to display:</div>
@@ -153,9 +137,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Order: Upcoming -> Reschedule -> Pending -> Completed -->
-
   <div id="secUpcoming" class="section" style="display:none">
     <div class="pattern"></div>
     <div class="section-inner">
@@ -188,7 +169,6 @@
     </div>
     <div class="pattern"></div>
   </div>
-
   <div id="secResch" class="section" style="display:none">
     <div class="pattern"></div>
     <div class="section-inner">
@@ -211,7 +191,6 @@
     </div>
     <div class="pattern"></div>
   </div>
-
   <div id="secPending" class="section" style="display:none">
     <div class="pattern"></div>
     <div class="section-inner">
@@ -230,7 +209,6 @@
     </div>
     <div class="pattern"></div>
   </div>
-
   <div id="secDone" class="section" style="display:none">
     <div class="pattern"></div>
     <div class="section-inner">
@@ -256,7 +234,6 @@
     </div>
     <div class="pattern"></div>
   </div>
-
   <div id="lateCard" class="card" style="display:none">
     <h3>Late Cancellations (&lt;24h) &amp; No Shows (view only)</h3>
     <div class="table-wrap">
@@ -269,18 +246,15 @@
     </div>
   </div>
 </div>
-
 <script>
 const API_BASE = 'https://script.google.com/macros/s/AKfycbzIRAc4FhAGl_v-1m59lbHg4zl5Kth6z-1TIuM4en2CS0i8fBV26b5Gi-c0wNL1LPawyA/exec';
-
 const CLIENT_TOKEN_KEY = 'TXT_CLIENT_ID_TOKEN';
 function setClientToken(t){ if(t) localStorage.setItem(CLIENT_TOKEN_KEY, t); }
 function clientToken(){ return localStorage.getItem(CLIENT_TOKEN_KEY)||''; }
-
 function saveSession(u){ localStorage.setItem('TXT_CLIENT', JSON.stringify(u||{})); }
 function readSession(){ try{ return JSON.parse(localStorage.getItem('TXT_CLIENT')||'{}'); }catch(e){return{}} }
-
-async function post(action, payload = {}) {
+function postTimeout(ms){ return new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms)); }
+async function post(action, payload = {}, timeoutMs=12000) {
   try {
     const cache = readSession();
     if (action !== 'login_client' && action !== 'login_client_google' && cache){
@@ -289,19 +263,27 @@ async function post(action, payload = {}) {
       if (!('phone'     in payload) && cache.phone)     payload.phone     = cache.phone;
       if (!('name'      in payload) && cache.name)      payload.name      = cache.name;
     }
-    const res = await fetch(API_BASE, {
+    const ctl = new AbortController();
+    const p = fetch(API_BASE, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action, ...payload })
+      headers: { 'Content-Type': 'text/plain', 'Accept':'application/json' },
+      body: JSON.stringify({ action, ...payload }),
+      signal: ctl.signal,
+      cache: 'no-store',
+      credentials: 'omit',
+      mode: 'cors',
+      redirect: 'follow'
+    }).then(async res=>{
+      const txt = await res.text();
+      try { return JSON.parse(txt); } catch { return { ok:/\"ok\"\s*:\s*true/.test(txt) }; }
     });
-    const txt = await res.text();
-    try { return JSON.parse(txt); } catch { return { ok:/\"ok\"\s*:\s*true/.test(txt) }; }
+    const r = await Promise.race([p, postTimeout(timeoutMs)]);
+    try{ ctl.abort(); }catch(_){}
+    return r;
   } catch (err) {
-    console.error('POST error', err);
-    return { ok:false, msg:'Network error' };
+    return { ok:false, msg:(err&&err.message)||'Network error' };
   }
 }
-
 const isDate = v => Object.prototype.toString.call(v)==='[object Date]' && !isNaN(v);
 function parseMaybeDate(x){
   if (x==null || x==='') return null;
@@ -321,16 +303,13 @@ function startDT(s){
   if(!d || !t) return null;
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
 }
-
 async function onGoogleCredential(resp){
   try{
     const id_token = resp && resp.credential;
     if (!id_token){ alert('Google sign-in failed: no id_token'); return; }
     const r = await post('login_client_google', { id_token });
     if (!r.ok){ alert(r.msg || 'Google verification failed'); return; }
-
     setClientToken(id_token);
-
     saveSession({
       client_id: r.client.client_id,
       email: r.client.email || '',
@@ -339,7 +318,6 @@ async function onGoogleCredential(resp){
     });
     await afterLogin(r);
   }catch(e){
-    console.error(e);
     alert('Sign-in exception');
   }
 }
@@ -354,13 +332,13 @@ function googlePrompt(){
     alert('Unable to open Google sign-in: '+e);
   }
 }
-
 let client=null; let PACKS=[]; let SESS=[]; let RESCH=[];
 const TEN = 10*24*3600*1000;
 const DONE_LOCKS = new Set(JSON.parse(localStorage.getItem('TXT_DONE_LOCKS')||'[]'));
 function saveLocks(){ localStorage.setItem('TXT_DONE_LOCKS', JSON.stringify([...DONE_LOCKS])); }
-
 function setLoginUI(logged){
+  if (loginForm.style.display === (logged?'none':'block') &&
+      userBar.style.display   === (logged?'flex':'none')) return;
   loginForm.style.display = logged ? 'none' : 'block';
   userBar.style.display   = logged ? 'flex' : 'none';
   pkgCard.style.display   = logged ? 'block': 'none';
@@ -378,11 +356,10 @@ function logout(){
   setLoginUI(false); bookMsg.textContent='';
   [tgResch,tgUpcoming,tgPending,tgDone].forEach(el=>el.checked=false);
 }
-
 async function refreshData(notify=true){
   const token = clientToken();
   if(!token){ if(notify){ bookMsg.style.color='var(--red)'; bookMsg.textContent='Please sign in first'; } return; }
-  const r = await post('login_client_google', { id_token: token });
+  const r = await post('login_client_google', { id_token: token }, 12000);
   if(r && r.ok){
     await afterLogin(r, true);
     if(notify){ bookMsg.style.color='var(--green)'; bookMsg.textContent='Refreshed'; setTimeout(()=>bookMsg.textContent='',1200); }
@@ -391,7 +368,6 @@ async function refreshData(notify=true){
   }
 }
 async function reloadAfterLogin(){ return refreshData(true); }
-
 function renderProgress(){
   const done = PACKS.reduce((s,p)=>s+(Number(p.total_hours||0)-Number(p.remaining_hours||0)),0);
   const remain = PACKS.reduce((s,p)=>s+Number(p.remaining_hours||0),0);
@@ -403,36 +379,40 @@ function renderProgress(){
 function requestRenew(){
   alert('Please contact TXT to renew your package\nWeChat: TorontoXanaduTennis\nEmail: info@torontoxanadutennis.com');
 }
-
+const _dateCache = new Map();
+const _timeCache = new Map();
+function fmtDateFast(x){ const k=typeof x+'|'+x; if(_dateCache.has(k)) return _dateCache.get(k); const v=fmtDate(x); _dateCache.set(k,v); return v; }
+function fmtTimeFast(x){ const k=typeof x+'|'+x; if(_timeCache.has(k)) return _timeCache.get(k); const v=fmtTime(x); _timeCache.set(k,v); return v; }
+function preprocessSessions(){
+  if (!Array.isArray(SESS)) return;
+  for (const s of SESS){
+    const st = startDT(s);
+    s._start_ts = st ? st.getTime() : Number.NaN;
+    s._date_fmt = fmtDateFast(s.date);
+    s._time_fmt = fmtTimeFast(s.time);
+  }
+}
 async function afterLogin(data, isRefresh=false){
   client = data.client; PACKS = data.packages||[]; SESS = data.sessions||[]; RESCH = data.reschedules||[];
-
+  preprocessSessions();
   const coachName = client.coach_name || '';
   const coachId = client.coach_id || client.assigned_coach || '';
   const coachLabel = coachName ? coachName : (coachId ? `ID: ${coachId}` : 'Unassigned');
-
   userInfo.textContent = `${client.name} (${client.client_id}) signed in`;
   setLoginUI(true);
-
   pkgs.innerHTML =
     (PACKS||[]).map(p =>
       `• ${p.package_name} [${p.package_id}]: total <span class="num-green">${p.total_hours}</span> h / remaining <span style="color:#ef4444;font-weight:700">${p.remaining_hours}</span> h`
     ).join('<br/>') || '<span class="muted">No packages</span>';
-
   renderProgress();
-
   pkgSel.innerHTML = (PACKS||[]).map(p=>`<option value="${p.package_id}">${p.package_name} [${p.package_id}]</option>`).join('');
-
   coachPill.textContent = `Your coach: ${coachLabel}`;
   coachPill.dataset.coachId = coachId || '';
-
   const today = new Date(); const y=today.getFullYear(), m=String(today.getMonth()+1).padStart(2,'0'), d=String(today.getDate()).padStart(2,'0');
   date.min = `${y}-${m}-${d}`; if (!date.value) date.value = date.min;
-
   if (hourSel.options.length === 0){ for(let h=8; h<=23; h++){ const v=String(h).padStart(2,'0'); hourSel.add(new Option(v,v)); } }
   const now=new Date(); let H=Math.max(8, now.getHours()); let M=now.getMinutes()<30?'30':'00'; if (M==='00') H=Math.min(23,H+1);
   hourSel.value=String(Math.min(Math.max(H,8),23)).padStart(2,'0'); minSel.value=M;
-
   renderReschedules();
   renderUpcoming();
   renderPending();
@@ -440,7 +420,6 @@ async function afterLogin(data, isRefresh=false){
   renderLateList();
   if (!isRefresh){ bookMsg.textContent=''; }
 }
-
 function composeTimeStr(){ return `${hourSel.value||'08'}:${minSel.value||'00'}`; }
 function isPastSelection(dateStr, timeStr){ const sel=new Date(`${dateStr}T${timeStr}:00`); return sel.getTime() < Date.now() - 60*1000; }
 async function createSession(){
@@ -451,11 +430,9 @@ async function createSession(){
   const duration_hours = Number(durSel.value);
   const notes = notesEl.value.trim();
   const coach_id = coachPill.dataset.coachId || '';
-
   if(!package_id){ alert('Please select a package'); return; }
   if(!dateStr){ alert('Please select a date'); return; }
   if (isPastSelection(dateStr, timeStr)){ alert('Cannot select a past time'); return; }
-
   const packs = (PACKS||[]).filter(p=>String(p.status||'')!=='inactive');
   const cur = packs.find(p=>String(p.package_id)===String(package_id));
   const curRemain = Number(cur?.remaining_hours||0);
@@ -473,27 +450,24 @@ async function createSession(){
     if (!(idx>=0 && idx<candidates.length)) return;
     package_id = candidates[idx].package_id;
   }
-
-  const r = await post('create_session', { package_id, date: dateStr, time: timeStr, duration_hours, notes, coach_id });
+  const r = await post('create_session', { package_id, date: dateStr, time: timeStr, duration_hours, notes, coach_id }, 15000);
   if(!r.ok){ bookMsg.style.color='var(--red)'; bookMsg.textContent='Booking failed: ' + (r.msg||'Unknown error'); }
   else{ bookMsg.style.color='var(--green)'; bookMsg.textContent='Booking submitted; waiting for coach confirmation'; await refreshData(false); }
 }
-
 function renderReschedules(){
   const tb = document.getElementById('tbResch'); tb.innerHTML='';
   const getOrig = (sid)=>{
     const s = (SESS||[]).find(x=>x.session_id===sid);
     if (!s) return { when:'', sid:sid||'' };
-    const when = `${fmtDate(s.date)} ${fmtTime(s.time)}`;
+    const when = `${s._date_fmt||fmtDate(s.date)} ${s._time_fmt||fmtTime(s.time)}`;
     return { when, sid:s.session_id };
   };
-
+  const frag = document.createDocumentFragment();
   (RESCH||[]).forEach(p=>{
     const orig = getOrig(String(p.session_id||''));
-    const opts=[]; for(let i=1;i<=5;i++){ const d=p['opt'+i+'_date'], t=p['opt'+i+'_time']; if(d&&t) opts.push({i,label:`${fmtDate(d)} ${fmtTime(t)}`}); }
+    const opts=[]; for(let i=1;i<=5;i++){ const d=p['opt'+i+'_date'], t=p['opt'+i+'_time']; if(d&&t) opts.push({i,label:`${fmtDateFast(d)} ${fmtTimeFast(t)}`}); }
     const size = Math.max(2, Math.min(8, opts.length));
     const selId = `sel-${p.proposal_id}`;
-
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${p.reason||''}</td>
@@ -506,29 +480,27 @@ function renderReschedules(){
       <td class="w-id">${orig.sid}</td>
       <td><button class="btn" onclick="submitResch('${p.proposal_id}')">Submit selection</button></td>
     `;
-    tb.appendChild(tr);
+    frag.appendChild(tr);
   });
-
+  tb.appendChild(frag);
   secResch.style.display = (tgResch.checked) ? 'block' : 'none';
 }
-
 async function submitResch(pid){
   const sel = document.getElementById(`sel-${pid}`);
   if (!sel){ alert('Selector not found'); return; }
   const indices = Array.from(sel.selectedOptions).map(o=>Number(o.value)).filter(Boolean);
   if (indices.length===0){ alert('Please select at least one time slot'); return; }
-  const r = await post('client_choose_reschedule', { proposal_id: pid, selected_indices: indices });
+  const r = await post('client_choose_reschedule', { proposal_id: pid, selected_indices: indices }, 15000);
   if (!r.ok) return alert(r.msg||'Submit failed');
   bookMsg.style.color='var(--green)'; bookMsg.textContent='Reschedule submitted';
   await refreshData(false);
 }
-
 function calcCancelState(s){
   try{
-    const st = startDT(s);
-    if (!st) return { disabled:true, reason:'Invalid time' };
+    const st_ts = Number.isFinite(s._start_ts)?s._start_ts:(startDT(s)?.getTime()||NaN);
+    if (!Number.isFinite(st_ts)) return { disabled:true, reason:'Invalid time' };
     const now = Date.now();
-    const diff = st.getTime() - now;
+    const diff = st_ts - now;
     const H2 = 2*3600*1000, H24 = 24*3600*1000;
     const half = (Number(s.duration_hours||1))/2;
     if (diff < H2) return { disabled:true, reason:'Cannot cancel within 2 hours' };
@@ -536,14 +508,13 @@ function calcCancelState(s){
     return { disabled:false, penalty:0, reason:'Free cancel' };
   }catch(e){ return { disabled:true, reason:'Error' }; }
 }
-
 async function cancelSessionClient(session_id, penalty){
   try{
     if (penalty>0){
       const ok = confirm(`Canceling will deduct half of this session (${penalty} h). Confirm?`);
       if (!ok) return;
     }
-    const r = await post('client_cancel_session', { session_id });
+    const r = await post('client_cancel_session', { session_id }, 15000);
     if (!r.ok){ bookMsg.style.color='var(--red)'; bookMsg.textContent = 'Cancel failed: ' + (r.msg || ''); return; }
     const ph = (typeof r.penalty_hours!== 'undefined') ? r.penalty_hours : penalty;
     bookMsg.style.color='var(--green)'; bookMsg.textContent = `Cancelled successfully${ph>0?` (deducted ${ph} h)`:''}`;
@@ -552,21 +523,18 @@ async function cancelSessionClient(session_id, penalty){
     bookMsg.style.color='var(--red)'; bookMsg.textContent='Cancel exception: '+e;
   }
 }
-
 function rowHTML(s, locked){
   const sid = s.session_id;
   const note = (s.notes||'').replace(/"/g,'&quot;');
   const fb   = (s.feedback||'').replace(/"/g,'&quot;');
   const dis = locked ? 'disabled' : '';
-
   const cancel = calcCancelState(s);
   const cancelBtn = cancel.disabled
     ? `<button class="btn gray" disabled title="${cancel.reason||''}">cancel</button>`
     : `<button class="btn red" onclick="cancelSessionClient('${sid}', ${cancel.penalty||0})">cancel</button>`;
-
   return `
-    <td class="w-date">${fmtDate(s.date)}</td>
-    <td class="w-time">${fmtTime(s.time)}</td>
+    <td class="w-date">${s._date_fmt||fmtDate(s.date)}</td>
+    <td class="w-time">${s._time_fmt||fmtTime(s.time)}</td>
     <td>${s.duration_hours||1} hr</td>
     <td class="w-coach">${s.coach_name||''}</td>
     <td>${s.status||''}</td>
@@ -577,47 +545,44 @@ function rowHTML(s, locked){
     <td class="w-id">${sid}</td>
   `;
 }
-
 function renderUpcoming(){
   const soonTB = document.getElementById('tbUpcomingSoon');
   const laterTB= document.getElementById('tbUpcomingLater');
   soonTB.innerHTML = ''; laterTB.innerHTML = '';
   const now = Date.now();
-
   const list = (SESS||[]).filter(x=>x.status==='scheduled')
     .sort((a,b)=>{
-      const sa=startDT(a), sb=startDT(b);
-      const da = sa?sa.getTime():Number.MAX_SAFE_INTEGER;
-      const db = sb?sb.getTime():Number.MAX_SAFE_INTEGER;
+      const da = Number.isFinite(a._start_ts)?a._start_ts:Number.MAX_SAFE_INTEGER;
+      const db = Number.isFinite(b._start_ts)?b._start_ts:Number.MAX_SAFE_INTEGER;
       return da-db;
     });
-
+  const fragSoon=document.createDocumentFragment(), fragLater=document.createDocumentFragment();
   list.forEach(s=>{
-    const st=startDT(s); const isSoon=!st||(st.getTime()-now)<=TEN;
+    const isSoon=!Number.isFinite(s._start_ts)||(s._start_ts-now)<=TEN;
     const tr=document.createElement('tr'); tr.innerHTML=rowHTML(s,false);
-    (isSoon?soonTB:laterTB).appendChild(tr);
+    (isSoon?fragSoon:fragLater).appendChild(tr);
   });
-
+  soonTB.appendChild(fragSoon); laterTB.appendChild(fragLater);
   secUpcoming.style.display = tgUpcoming.checked ? 'block' : 'none';
 }
-
 function renderPending(){
   const tb = document.getElementById('tbPending'); tb.innerHTML='';
   const createdKey = ['created_at','createdAt','created','created_time'].find(k=>SESS.some(s=>s[k]!=null));
   const list = (SESS||[]).filter(x=>x.status==='pending')
     .sort((a,b)=>{
-      const ca = createdKey ? parseMaybeDate(a[createdKey]) : startDT(a);
-      const cb = createdKey ? parseMaybeDate(b[createdKey]) : startDT(b);
+      const ca = createdKey ? parseMaybeDate(a[createdKey]) : (Number.isFinite(a._start_ts)?new Date(a._start_ts):null);
+      const cb = createdKey ? parseMaybeDate(b[createdKey]) : (Number.isFinite(b._start_ts)?new Date(b._start_ts):null);
       return (ca?ca.getTime():0) - (cb?cb.getTime():0);
     });
-  list.forEach(s=>{ const tr=document.createElement('tr'); tr.innerHTML=rowHTML(s,false); tb.appendChild(tr); });
+  const frag=document.createDocumentFragment();
+  list.forEach(s=>{ const tr=document.createElement('tr'); tr.innerHTML=rowHTML(s,false); frag.appendChild(tr); });
+  tb.appendChild(frag);
   secPending.style.display = tgPending.checked ? 'block' : 'none';
 }
-
 let DONE_LIST=[]; let donePage=1; const donePageSize=10;
 function prepareDone(){
   DONE_LIST = (SESS||[]).filter(x=>x.status==='done')
-    .sort((a,b)=>{ const sa=startDT(a), sb=startDT(b); return (sb?sb.getTime():0)-(sa?sa.getTime():0); });
+    .sort((a,b)=>{ const sa=Number.isFinite(a._start_ts)?a._start_ts:0; const sb=Number.isFinite(b._start_ts)?b._start_ts:0; return sb-sa; });
   donePage=1; renderDonePaged();
 }
 function pageDone(delta){
@@ -629,77 +594,65 @@ function renderDonePaged(){
   const totalPages=Math.max(1,Math.ceil(DONE_LIST.length/donePageSize));
   const s=(donePage-1)*donePageSize, e=s+donePageSize;
   const page = DONE_LIST.slice(s,e);
-
   const tb=document.getElementById('tbDone'); tb.innerHTML='';
+  const frag=document.createDocumentFragment();
   page.forEach(s=>{
     const locked = DONE_LOCKS.has(s.session_id);
-    const tr=document.createElement('tr'); tr.innerHTML=rowHTML(s,locked); tb.appendChild(tr);
+    const tr=document.createElement('tr'); tr.innerHTML=rowHTML(s,locked); frag.appendChild(tr);
   });
-
+  tb.appendChild(frag);
   donePageInfo.textContent = `Page ${donePage} / ${totalPages} (10 per page)`;
   donePrev.disabled = donePage<=1; doneNext.disabled = donePage>=totalPages;
   secDone.style.display = tgDone.checked ? 'block' : 'none';
 }
-
-async function updateNotesCompat(base){
-  const actions = [
-    'update_session_notes','update_session_feedback','update_notes','update_feedback',
-    'update_session','update_session_v2','update_session_fields','update_session_meta',
-    'save_session','set_session','set_session_fields','update_session_info',
-    'update_client_session','client_update_session','client_update_notes',
-    'client_set_session','client_save_session',
-    'mutate_session','patch_session','edit_session_notes','set_session_notes','save_session_notes'
-  ];
-  const idKeys   = ['session_id','id','sid'];
-  const noteKeys = ['notes','client_notes','note','remark'];
-  const fbKeys   = ['feedback','client_feedback','fb',''];
-  const shapes = [
-    (p, idk, nk, fk) => Object.assign({ [idk]:p.session_id, [nk]:p.notes }, fk?{[fk]:p.feedback}:{}),
-    (p, idk, nk, fk) => { const fields = Object.assign({[nk]:p.notes}, fk?{[fk]:p.feedback}:{}); return { [idk]:p.session_id, fields }; },
-    (p, idk, nk, fk) => { const data = Object.assign({[idk]:p.session_id, [nk]:p.notes}, fk?{[fk]:p.feedback}:{}); return { data }; },
-    (p, idk, nk, fk) => { const updates = Object.assign({[nk]:p.notes}, fk?{[fk]:p.feedback}:{}); return { [idk]:p.session_id, updates }; },
-    (p, idk, nk, fk) => { const patch = Object.assign({[nk]:p.notes}, fk?{[fk]:p.feedback}:{}); return { [idk]:p.session_id, patch }; },
-    (p, idk, nk, fk) => { const session = Object.assign({[idk]:p.session_id, [nk]:p.notes}, fk?{[fk]:p.feedback}:{}); return { session }; }
-  ];
-  for (const act of actions){
-    for (const idk of idKeys){
-      for (const nk of noteKeys){
-        for (const fk of fbKeys){
-          for (const build of shapes){
-            const payload = build(base, idk, nk, fk);
-            payload.action = act; payload.source = 'client_ui';
-            const r = await post(act, payload);
-            if (r && r.ok) return r;
-          }
-        }
-      }
-    }
+function buildPayloadByAction(base, action){
+  if (action==='client_update_session') return { action, session_id:base.session_id, notes:base.notes, feedback:base.feedback, source:'client_ui' };
+  if (action==='update_session_fields') return { action, session_id:base.session_id, fields:{ notes:base.notes, feedback:base.feedback }, source:'client_ui' };
+  if (action==='update_session') return { action, session_id:base.session_id, notes:base.notes, feedback:base.feedback, source:'client_ui' };
+  if (action==='update_session_v2') return { action, session:{ session_id:base.session_id, notes:base.notes, feedback:base.feedback }, source:'client_ui' };
+  if (action==='update_session_notes') return { action, session_id:base.session_id, notes:base.notes, feedback:base.feedback, source:'client_ui' };
+  return { action, session_id:base.session_id, notes:base.notes, feedback:base.feedback, source:'client_ui' };
+}
+async function tryActionsFast(base){
+  const cached = localStorage.getItem('TXT_UPDATE_ACTION')||'';
+  if (cached){
+    const r1 = await post(cached, buildPayloadByAction(base, cached), 12000);
+    if (r1 && r1.ok) return { ok:true, used:cached };
+  }
+  const candidates = ['client_update_session','update_session_fields','update_session_notes','update_session','update_session_v2'];
+  const tasks = candidates.map(a=>post(a, buildPayloadByAction(base,a), 12000).then(r=>({a,r})));
+  let winner=null;
+  await Promise.any(tasks.map(t=>t.then(({a,r})=>{ if(r&&r.ok){ winner={a,r}; return r;} else { throw new Error('fail'); } }))).catch(()=>{});
+  if (winner && winner.r && winner.r.ok){ localStorage.setItem('TXT_UPDATE_ACTION', winner.a); return { ok:true, used:winner.a }; }
+  for (const a of candidates){
+    const r = await post(a, buildPayloadByAction(base,a), 8000);
+    if (r && r.ok){ localStorage.setItem('TXT_UPDATE_ACTION', a); return { ok:true, used:a }; }
   }
   return { ok:false, msg:'All tries failed' };
 }
-
+async function updateNotesCompat(base){
+  const r = await tryActionsFast(base);
+  if (r.ok) return r;
+  return { ok:false, msg:r.msg||'Failed' };
+}
 async function submitRow(id, status){
   const noteEl = document.querySelector(`.note[data-id='${id}']`);
   const fbEl   = document.querySelector(`.fb[data-id='${id}']`);
   const btn    = document.querySelector(`button.btn[onclick*="${id}"]`);
   const notes = noteEl ? noteEl.value : '';
   const feedback = fbEl ? fbEl.value : '';
-
   btn.disabled = true;
   const r = await updateNotesCompat({ session_id:id, notes, feedback });
   btn.disabled = false;
-
   if(!r.ok){
     btn.textContent='submit failed';
     btn.classList.remove('ok'); btn.classList.add('red');
     setTimeout(()=>{btn.textContent=(status==='done'?'Submitted':'submit');btn.classList.remove('red')},1400);
     return;
   }
-
   btn.textContent='submitted';
   btn.classList.add('ok');
   setTimeout(()=>{btn.textContent=(status==='done'?'Submitted':'submit');btn.classList.remove('ok')},1000);
-
   if (status==='done'){
     DONE_LOCKS.add(id); saveLocks();
     if (noteEl) { noteEl.disabled=true; noteEl.classList.add('disabled'); }
@@ -707,47 +660,37 @@ async function submitRow(id, status){
     btn.classList.add('lock'); btn.disabled=true;
   }
 }
-
 function renderLateList(){
   const tb = document.getElementById('tbLate'); tb.innerHTML='';
   if (!Array.isArray(SESS) || !SESS.length){ lateCard.style.display='block'; tb.innerHTML = `<tr><td colspan="7" class="muted">No records</td></tr>`; return; }
   const now = Date.now();
   const items = [];
-
-  SESS.forEach(s=>{
-    const st = startDT(s); const dur = Number(s.duration_hours||1);
+  for (const s of SESS){
+    const st_ts = Number.isFinite(s._start_ts)?s._start_ts:(startDT(s)?.getTime()||NaN);
+    const dur = Number(s.duration_hours||1);
     const coach = s.coach_name||''; const pkg = s.package_name||''; const note = s.notes||'';
     const isNoShow = String(s.status)==='done' && /no\s*show|noshow|缺席|未到|未出席/i.test(note||'');
-    const isLateCancel = (String(s.status)==='canceled_by_client' || String(s.status)==='cancelled') && st && (Math.abs(st.getTime()-now) <= 24*3600*1000);
-
+    const isLateCancel = (String(s.status)==='canceled_by_client' || String(s.status)==='cancelled') && Number.isFinite(st_ts) && (Math.abs(st_ts-now) <= 24*3600*1000);
     if (isNoShow || isLateCancel){
-      items.push({
-        date: s.date, time: s.time,
-        type: isNoShow ? 'No Show' : 'Late Cancel (<24h)',
-        coach, pkg, dur, note
-      });
+      items.push({ date: s.date, time: s.time, type: isNoShow ? 'No Show' : 'Late Cancel (<24h)', coach, pkg, dur, note, _ts: st_ts||0 });
     }
-  });
-
+  }
   if(!items.length){
     tb.innerHTML = `<tr><td colspan="7" class="muted">No “Late Cancel / No Show” records</td></tr>`;
     return;
   }
-  items.sort((a,b)=>{
-    const ad = parseMaybeDate(a.date)||new Date(0);
-    const bd = parseMaybeDate(b.date)||new Date(0);
-    return (bd - ad);
-  });
+  items.sort((a,b)=>b._ts-a._ts);
+  const frag=document.createDocumentFragment();
   items.forEach(it=>{
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="w-date">${fmtDate(it.date)}</td>
-      <td class="w-time">${fmtTime(it.time)}</td>
+    tr.innerHTML = `<td class="w-date">${fmtDateFast(it.date)}</td>
+      <td class="w-time">${fmtTimeFast(it.time)}</td>
       <td>${it.type}</td><td class="w-coach">${it.coach||''}</td>
       <td>${it.pkg||''}</td><td>${it.dur||1} hr</td><td>${it.note||''}</td>`;
-    tb.appendChild(tr);
+    frag.appendChild(tr);
   });
+  tb.appendChild(frag);
 }
-
 const hourSel = document.getElementById('hourSel');
 const minSel  = document.getElementById('minSel');
 const date    = document.getElementById('date');
@@ -777,14 +720,13 @@ const tgDone    = document.getElementById('tgDone');
 const btnAll    = document.getElementById('btnAll');
 const btnNone   = document.getElementById('btnNone');
 const lateCard  = document.getElementById('lateCard');
-
 [tgResch,tgUpcoming,tgPending,tgDone].forEach(el=>{
   el.addEventListener('change', ()=>{
     secResch.style.display    = tgResch.checked ? 'block' : 'none';
     secUpcoming.style.display = tgUpcoming.checked ? 'block' : 'none';
     secPending.style.display  = tgPending.checked ? 'block' : 'none';
     secDone.style.display     = tgDone.checked ? 'block' : 'none';
-  });
+  }, { passive:true });
 });
 btnAll.addEventListener('click', ()=>{
   [tgResch,tgUpcoming,tgPending,tgDone].forEach(el=>el.checked=true);
@@ -794,14 +736,12 @@ btnNone.addEventListener('click', ()=>{
   [tgResch,tgUpcoming,tgPending,tgDone].forEach(el=>el.checked=false);
   tgResch.dispatchEvent(new Event('change'));
 });
-
 (async function init(){
   [tgResch,tgUpcoming,tgPending,tgDone].forEach(el=>el.checked=false);
   setLoginUI(false);
-
   const token = clientToken();
   if(token){
-    const r = await post('login_client_google', { id_token: token });
+    const r = await post('login_client_google', { id_token: token }, 12000);
     if(r && r.ok){ await afterLogin(r); }
   }
 })();
