@@ -21,7 +21,7 @@ h1{font-size:28px;margin:0 0 16px}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 input,select,button{padding:10px 12px;border:1px solid var(--bdr);border-radius:10px;background:#fff}
 button{background:var(--primary);color:#fff;cursor:pointer}
-.btn{padding:8px 12px;border-radius:10px;border:1px solid透明}
+.btn{padding:8px 12px;border-radius:10px;border:1px solid transparent}
 .btn.success{background:var(--success)}
 .btn.danger{background:var(--danger)}
 .btn.blue{background:var(--blue)}
@@ -87,17 +87,6 @@ tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:1
 #gcal-legend .sw{width:10px;height:10px;border-radius:3px;border:1px solid #00000022}
 #gcal-picker .sw{width:10px;height:10px;border-radius:3px;border:1px solid #00000022}
 
-/* 更明显的事件分隔 */
-#gcal-calendar .fc-timegrid-event{
-  margin:3px !important;
-  border:1.5px solid rgba(0,0,0,.28) !important;
-  box-shadow:0 1px 2px rgba(0,0,0,.18) !important;
-  border-radius:8px !important;
-}
-#gcal-calendar .fc-timegrid-slot{
-  border-bottom:1.5px dashed var(--gcal-border);
-}
-
 /* 列表可见性条 */
 .vis-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px}
 .vis-bar label{display:flex;gap:6px;align-items:center;font-size:13px}
@@ -126,7 +115,9 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.global.min.js"></script>
+<!-- Admin 登录（Google Identity Services） -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- Google Calendar API 用于球馆日历（原有） -->
 <script src="https://apis.google.com/js/api.js"></script>
 </head>
 
@@ -134,6 +125,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <div class="wrap">
 <h1>管理端 · TXT 订课</h1>
 
+<!-- ===== 登录页 ===== -->
 <div id="loginPane" class="card" style="display:none;">
   <h3>管理员登录</h3>
   <p class="muted">使用被授权的 Google 账号登录</p>
@@ -141,6 +133,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
   <div id="loginMsg" class="muted"></div>
 </div>
 
+<!-- ===== 应用页（登录后可见） ===== -->
 <div id="appPane" style="display:none;">
 
 <div class="card">
@@ -149,10 +142,12 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
     <button class="btn gray" onclick="signOutAdmin()">退出登录</button>
     <button class="btn" onclick="loadSessions()">刷新列表</button>
     <button class="btn orange" onclick="softReset()">刷新页面</button>
+    <!-- 新增：刷新提示 -->
     <span id="refreshHint" class="muted" style="margin-left:8px"></span>
   </div>
 </div>
 
+<!-- 录入新客户 + 交易 -->
 <div class="card">
 <h3>录入新客户</h3>
 <div class="grid">
@@ -165,6 +160,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <input id="p_hours" placeholder="总小时(如 10)" />
 <select id="coach_sel"><option value="">选择教练…</option></select>
 
+<!-- 新增必填的交易信息 -->
 <input id="amount_due" placeholder="税后课程总价（必填）" />
 <input id="amount_paid" placeholder="已付金额（必填）" />
 <select id="pay_method">
@@ -181,10 +177,12 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <button class="btn gray" onclick="clearCreateForm()">清空</button>
 </div>
 </div>
+<!-- 修复：成功后保持绿色提示不被清空 -->
 <div id="createClientMsg" style="margin-top:8px;color:var(--success)"></div>
 <div class="muted" style="margin-top:6px">提示：教练名单来自 Coach List</div>
 </div>
 
+<!-- 搜索客户 -->
 <div class="card">
 <h3>搜索客户</h3>
 <div class="toolbar" style="gap:12px">
@@ -196,6 +194,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <div id="searchRes" style="margin-top:10px"></div>
 </div>
 
+<!-- Google 日历 -->
 <div class="card" id="gcal-wrap">
 <div class="bar">
 <strong>球馆日历</strong>
@@ -227,6 +226,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 </div>
 </div>
 
+<!-- 列表可见性控制 -->
 <div class="card">
 <strong>列表显示/隐藏</strong>
 <div class="vis-bar" style="margin-top:10px">
@@ -241,6 +241,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 </div>
 </div>
 
+<!-- Session 列表（四段） -->
 <div class="card">
 <h3 style="margin:0 0 8px">Session 列表</h3>
 
@@ -252,6 +253,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <table>
 <thead>
 <tr>
+<!-- 按要求：不再显示创建时间，但排序逻辑保持 -->
 <th>date</th><th>time</th><th>client</th>
 <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
 <th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
@@ -274,6 +276,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <table>
 <thead>
 <tr>
+<!-- 去除创建时间列 -->
 <th>date</th><th>time</th><th>client</th>
 <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
 <th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
@@ -296,6 +299,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <table>
 <thead>
 <tr>
+<!-- 去除创建时间列 -->
 <th>date</th><th>time</th><th>client</th>
 <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
 <th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
@@ -325,6 +329,7 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 <table>
 <thead>
 <tr>
+<!-- 去除创建时间列；并将取消的课并入该表显示 -->
 <th>date</th><th>time</th><th>client</th>
 <th>coach</th><th>package</th><th>duration</th><th>status</th><th>备注</th>
 <th style="width:280px">操作</th><th>session_id</th><th>package_id</th>
@@ -336,20 +341,23 @@ setTimeout(()=>{ const l=document.getElementById('gcal-fc-css'); if(!loaded(l)) 
 </div>
 <div class="pattern"></div>
 </div>
-</div>
+</div><!-- card end -->
 
-</div>
-</div>
+</div><!-- appPane -->
+</div><!-- wrap -->
 
 <script>
+/* === Apps Script /exec === */
 const API_BASE = 'https://script.google.com/macros/s/AKfycbzIRAc4FhAGl_v-1m59lbHg4zl5Kth6z-1TIuM4en2CS0i8fBV26b5Gi-c0wNL1LPawyA/exec';
 
+/* ---- Admin 登录：ID Token 存取 ---- */
 const ADMIN_ID_TOKEN_KEY = 'TXT_ADMIN_ID_TOKEN';
 function adminToken(){ return localStorage.getItem(ADMIN_ID_TOKEN_KEY) || ''; }
 function setAdminToken(t){ if(t) localStorage.setItem(ADMIN_ID_TOKEN_KEY, t); }
 function clearAdminToken(){ localStorage.removeItem(ADMIN_ID_TOKEN_KEY); }
 function softReset(){ clearCreateForm(); resetSearch(); loadSessions(); }
 
+/* ---- 刷新提示 ---- */
 function setRefreshing(on,msg){
   const el = document.getElementById('refreshHint');
   if(!el) return;
@@ -363,6 +371,7 @@ function setRefreshing(on,msg){
   }
 }
 
+/* ---- 请求封装（自动带 id_token；text/plain 避免预检） ---- */
 async function post(action, payload={}){
   const t = adminToken();
   if (t && !payload.id_token) payload.id_token = t;
@@ -379,7 +388,8 @@ async function post(action, payload={}){
   }
 }
 
-const ADMIN_GOOGLE_CLIENT_ID = "126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com";
+/* ===== 登录页与鉴权 ===== */
+const ADMIN_GOOGLE_CLIENT_ID = "126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com"; // 与脚本属性 ADMIN_OAUTH_AUDIENCE 对应
 
 function showLogin(msg){
   document.getElementById('appPane').style.display='none';
@@ -398,6 +408,7 @@ async function ensureSignedIn(){
   const r = await post('admin_login', { id_token: t });
   if (r && r.ok){
     showApp(r.email||'');
+    // 登录后加载
     await loadCoaches();
     await loadSessions();
     bindVisibilityToggles();
@@ -435,6 +446,7 @@ function renderGsiButton(){
   google.accounts.id.renderButton(document.getElementById('gsiBtn'), { theme:'outline', size:'large', type:'standard', width:280 });
 }
 
+/* ---- 日期/时间工具（保持不变） ---- */
 const isDate = v => Object.prototype.toString.call(v)==='[object Date]' && !isNaN(v);
 function parseMaybeDate(x){
   if (x==null || x==='') return null;
@@ -492,6 +504,7 @@ function badge(status){
   return status||'';
 }
 
+/* ---- 教练清单 ---- */
 let COACHES = [];
 async function loadCoaches(){
   const r = await post('list_coaches', {});
@@ -501,6 +514,7 @@ async function loadCoaches(){
   (COACHES||[]).map(c=>`<option value="${c.coach_id}">${c.coach_id} - ${c.coach_name}</option>`).join('');
 }
 
+/* ---- 客户/套餐 名称缓存 ---- */
 const CLIENT_NAME_CACHE = new Map();
 const PKG_NAME_CACHE = new Map();
 
@@ -530,7 +544,8 @@ function clientLabel(id){
 async function ensurePackageNames(ids){
   const miss = [...new Set(ids.filter(Boolean).map(String))].filter(id=>!PKG_NAME_CACHE.has(id));
   if (!miss.length) return;
-  for (const pid of miss){ PKG_NAME_CACHE.set(pid, ''); }
+  for (const pid of miss){ PKG_NAME_CACHE.set(pid, ''); } // 防抖
+  // 尝试读取（若后端不存在该兼容接口，会安全失败）
   for (const pid of miss){
     try{
       const rr = await post('package_name_by_id', { id: pid });
@@ -548,6 +563,7 @@ function packageNameFromRow(row, idx){
   return cached || pid;
 }
 
+/* ---- 选择教练弹窗 ---- */
 function pickCoach(title='选择教练'){
   return new Promise(resolve=>{
     const ov = document.createElement('div'); ov.className='overlay';
@@ -569,6 +585,8 @@ function pickCoach(title='选择教练'){
   });
 }
 
+/* ---- 录入新客户（含首笔交易） ---- */
+/* 修改：支持 keepMsg，成功后不清空“录入成功”绿色提示 */
 function clearCreateForm(keepMsg){
   ['c_name','c_phone','c_wechat','c_email','c_pass','p_name','p_hours','amount_due','amount_paid'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
@@ -606,7 +624,7 @@ async function createClient(){
     const r = await post('create_client', payload);
     const el = document.getElementById('createClientMsg');
     if (r && r.ok){
-      clearCreateForm(true);
+      clearCreateForm(true); // 先清输入，再显示提示（防止提示被清空）
       el.style.color = 'var(--success)';
       el.textContent = `成功录入：client_id=${r.client_id}，package_id=${r.package_id}${r.transaction_id?('，transaction_id='+r.transaction_id):''}`;
     }else{
@@ -616,6 +634,7 @@ async function createClient(){
   }catch(err){ alert('创建失败：' + err.message); }
 }
 
+/* ---- 搜索客户 + 套餐支付渲染 ---- */
 function resetSearch(){ q.value=''; srCount.textContent=''; searchRes.innerHTML=''; }
 async function searchClients(){
   const keyword = q.value.trim();
@@ -646,11 +665,7 @@ async function searchClients(){
       </div>`;
     }).join('') || '<div class="muted">无</div>';
 
-    /* 修改处：课程行增加 session_id 与时长 */
-    const sessLines = (sess||[]).map(s=>{
-      const dur = (s && (s.duration_hours!=null && s.duration_hours!=='')) ? s.duration_hours : (s?.duration ?? s?.dur ?? 1);
-      return `• ${fmtDate(s.date)} ${fmtTime(s.time)} | ${s.coach_name||''} | ${s.status} | ${s.session_id||''} | ${dur}小时`;
-    }).join('<br/>') || '无';
+    const sessLines = (sess||[]).map(s=>`• ${fmtDate(s.date)} ${fmtTime(s.time)} | ${s.coach_name||''} | ${s.status}`).join('<br/>') || '无';
 
     return `
     <div class="client-card">
@@ -675,6 +690,7 @@ async function searchClients(){
     </div>`;
   }).join('') || '<div class="muted">未找到匹配客户</div>';
 
+  // 异步加载每个 package 的支付信息
   for (const it of (items||[])){
     const c = it.client || {};
     for (const p of (it.packages||[])){
@@ -746,6 +762,7 @@ async function doTopup(package_id, client_id){
   await loadPackagePaymentBlock(package_id, client_id);
 }
 
+/* 续课添加 */
 async function addPackage(client_id){
   const package_name = prompt('输入新套餐名称（如 800/10hr）');
   if(!package_name) return;
@@ -775,6 +792,7 @@ async function changeAssignedCoach(client_id){
   searchClients();
 }
 
+/* ---- Session 列表 ---- */
 function idxOf(H, names){ for (const n of names){ const i = H.indexOf(n); if (i !== -1) return i; } return -1; }
 
 let DONE_ALL = []; let donePage=1; const donePageSize=50;
@@ -817,6 +835,7 @@ async function loadSessions(){
       return (sa?sa.getTime():0) - (sb?sb.getTime():0);
     });
 
+    // 修改：DONE 列表包含已取消（客户取消）课程
     DONE_ALL = rows.filter(row => {
       const s = String(row[idx.status]||'');
       return s==='done' || s==='cancelled';
@@ -875,26 +894,13 @@ function createdTimeStr(row, createdIdx){
   return `${dt} ${tm}`;
 }
 
-/* 已写入日历的本地标记 */
+/* ---- 已写入日历的本地标记 ---- */
 function addedKey(sessionId, calId){ return `SESSION_CAL_ADDED::${sessionId}::${calId}`; }
 function markAdded(sessionId, calId, calName){ try{ localStorage.setItem(addedKey(sessionId, calId), calName||''); }catch(e){} }
 function getAddedName(sessionId, calId){ try{ return localStorage.getItem(addedKey(sessionId, calId)); }catch(e){ return null; } }
 function unmarkAdded(sessionId, calId){ try{ localStorage.removeItem(addedKey(sessionId, calId)); }catch(e){} }
-/* 查询某session是否被添加到任意日历 */
-function getAddedEntries(sessionId){
-  const out=[];
-  try{
-    for(let i=0;i<localStorage.length;i++){
-      const k=localStorage.key(i);
-      if(k && k.startsWith(`SESSION_CAL_ADDED::${sessionId}::`)){
-        out.push({ calId:(k.split('::')[2]||''), calName:(localStorage.getItem(k)||'') });
-      }
-    }
-  }catch(e){}
-  return out;
-}
 
-/* 行操作渲染 */
+/* ---- 行操作渲染 ---- */
 function buildOpsHTMLForRow(row, idx, status, clientStr, pkgName, coachLabel){
   const sid = row[idx.session_id];
   const et = endDT(row, idx);
@@ -1017,7 +1023,9 @@ async function sw(session_id, status){
   loadSessions();
 }
 
-/* Google Calendar 嵌入 */
+/* =========================
+Google Calendar 嵌入（原有）
+========================= */
 const GCAL_CLIENT_ID = "126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com";
 const GCAL_SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events";
 const GCAL_TZ = "America/Toronto";
@@ -1104,7 +1112,7 @@ async function gcalOnSignedIn(){
     picker.style.display='';
 
     document.getElementById('gcal-checkAll').onclick=()=>{ showCalendarIds=new Set(calendarListCache.map(c=>c.id)); listDiv.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=true); if(gcal_calendar) gcal_calendar.refetchEvents(); };
-    document.getElementById('gcal-uncheckAll').onclick=()=>{ showCalendarIds=new Set(); listDiv.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false); if(gcal_calendar){ gcal_calendar.removeAllEvents(); gcal_calendar.refetchEvents(); } };
+    document.getElementById('gcal-uncheckAll').onclick=()=>{ showCalendarIds=new Set(); listDiv.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false); if(gcal_calendar) gcal_calendar.refetchEvents(); };
 
   }catch(e){ gcalShowDiag(e); }
 
@@ -1119,8 +1127,7 @@ function gcalRenderCalendar(){
     timeZone:GCAL_TZ,
     firstDay:1,
     slotMinTime:"08:00:00",
-    slotMaxTime:"25:00:00",
-    nextDayThreshold:"01:00:00",
+    slotMaxTime:"23:59:59",
     scrollTime:"08:00:00",
     slotLabelFormat:{hour:'2-digit',minute:'2-digit',hour12:false},
     selectable:true,
@@ -1133,8 +1140,7 @@ function gcalRenderCalendar(){
       try{
         const timeMinISO=new Date(info.start.getTime()-GCAL_FETCH_BUFFER_MS).toISOString();
         const timeMaxISO=new Date(info.end.getTime()+GCAL_FETCH_BUFFER_MS).toISOString();
-        const ids = Array.from(showCalendarIds);
-        if (!ids.length){ success([]); return; }
+        const ids=(showCalendarIds.size?Array.from(showCalendarIds):[writeCalendarId]);
 
         const fetchOne=async(cid)=>{
           const res=await gapi.client.calendar.events.list({
@@ -1227,24 +1233,19 @@ function gcalRenderCalendar(){
 }
 
 window.addEventListener('load', ()=>{
+  // 先做管理员登录鉴权
   ensureSignedIn();
+  // 加载 gapi/gis（用于日历）
   if(window.gapi) gapiLoaded();
   if(window.google) gisLoaded();
 });
 
-/* Admin：添加到球馆日历（含重复拦截） */
+/* ====== Admin：添加到球馆日历 ====== */
 async function addToFacilityCalendar(meta){
   if (!gcalIsSignedIn()){
     alert('日历未登录，请先在上方使用 Google 登录。');
     return;
   }
-
-  const existing = getAddedEntries(meta.session_id);
-  if (existing.length){
-    alert('该课程已被添加到日历：' + existing.map(e=>e.calName || e.calId).join(', '));
-    return;
-  }
-
   const dateStr = (meta.date||'').replace(/\//g,'-');
   const startISO = `${dateStr}T${meta.time||'00:00'}:00`;
   const start = new Date(startISO);
@@ -1271,19 +1272,77 @@ async function addToFacilityCalendar(meta){
   }
 }
 
-/* 对账（保留标记，不自动清除，避免误判导致可重复添加） */
+/* ===== 对账 / 可见性（原有） ===== */
 async function reconcileAddedMarksForVisible(rows, idx){
   try{
     if (!gcalIsSignedIn()) return;
     const calId = writeCalendarId;
     if (!calId) return;
-    return;
+
+    const needCheck = rows.filter(r => {
+      const sid = r[idx.session_id];
+      return sid && getAddedName(sid, calId);
+    });
+    if (!needCheck.length) return;
+
+    let anyChanged = false;
+    const getMeta = (row)=>{
+      const st = startDT(row, idx);
+      const dur = Number(row[idx.duration_hours]||1)||1;
+      const et = st ? new Date(st.getTime() + dur*3600*1000) : null;
+      const clientId = row[idx.client_id];
+      const clientStr = clientLabel(clientId);
+      const clientNameOnly = (clientStr||'').replace(/\s*\([^)]*\)\s*$/,'').trim();
+      return { st, et, clientNameOnly,
+        coachId: String(row[idx.coach_id]||''),
+        coachName: String(row[idx.coach_name]||'')
+      };
+    };
+
+    for (const row of needCheck){
+      const sid = row[idx.session_id];
+      const { st, et, clientNameOnly, coachId, coachName } = getMeta(row);
+      if (!st || !et){ unmarkAdded(sid, calId); anyChanged = true; continue; }
+
+      const pad = 90*60*1000;
+      const timeMin = new Date(st.getTime() - pad).toISOString();
+      const timeMax = new Date(et.getTime() + pad).toISOString();
+
+      const resp = await gapi.client.calendar.events.list({
+        calendarId: calId,
+        timeMin, timeMax,
+        singleEvents: true,
+        orderBy: 'startTime',
+        showDeleted: false,
+        maxResults: 250
+      });
+
+      const items = resp.result.items || [];
+      const exists = items.some(ev=>{
+        const evStartISO = ev.start?.dateTime || ev.start?.date;
+        if (!evStartISO) return false;
+        const evStart = new Date(evStartISO);
+        if (isNaN(evStart)) return false;
+        const diff = Math.abs(evStart.getTime() - st.getTime());
+        const summary = (ev.summary||'').toLowerCase();
+        const keys = [clientNameOnly, coachId, coachName].map(s=>String(s||'').toLowerCase()).filter(Boolean);
+        const hit = keys.length ? keys.some(k=>k && summary.includes(k)) : true;
+        return diff <= 10*60*1000 && hit;
+      });
+
+      if (!exists){
+        unmarkAdded(sid, calId);
+        anyChanged = true;
+      }
+    }
+
+    if (anyChanged){ loadSessions(); }
   }catch(err){
     console.warn('reconcile error', err);
   }
 }
 
-/* 列表可见性存取 */
+/* ===== 列表可见性存取（原有） ===== */
 const VIS_KEYS = {
   vis_pendingSoon: 'sec_pendingSoon',
   vis_pendingLater: 'sec_pendingLater',
