@@ -1,4 +1,5 @@
 <!doctype html>
+
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -76,21 +77,19 @@
 
   <div class="card">
     <h3>Sign in with an authorized Google account</h3>
-
-    <div id="g_id_onload"
-         data-client_id="126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com"
-         data-auto_prompt="false"
-         data-callback="onCoachGoogleCredential"></div>
-    <div class="g_id_signin" data-type="standard" data-size="large" data-shape="rectangular" data-theme="outline"></div>
-
-    <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
-      <button class="btn-secondary" onclick="coachGooglePrompt()">Sign in with popup</button>
-      <button class="btn-secondary" onclick="refresh()">Refresh</button>
-      <button class="btn-secondary" onclick="coachLogout()">Sign out</button>
-      <span id="info" style="color:#10b981;margin-left:auto"></span>
-    </div>
-    <div id="opMsg" class="muted" style="margin-top:6px"></div>
-    <div class="muted" style="margin-top:6px">Only accounts whose email appears in the Coach List field <code>coach_email</code> can sign in.</div>
+<div id="g_id_onload"
+     data-client_id="126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com"
+     data-auto_prompt="false"
+     data-callback="onCoachGoogleCredential"></div>
+<div class="g_id_signin" data-type="standard" data-size="large" data-shape="rectangular" data-theme="outline"></div>
+<div style="display:flex;gap:8px;align-items:center;margin-top:10px">
+  <button class="btn-secondary" onclick="coachGooglePrompt()">Sign in with popup</button>
+  <button class="btn-secondary" onclick="refresh()">Refresh</button>
+  <button class="btn-secondary" onclick="coachLogout()">Sign out</button>
+  <span id="info" style="color:#10b981;margin-left:auto"></span>
+</div>
+<div id="opMsg" class="muted" style="margin-top:6px"></div>
+<div class="muted" style="margin-top:6px">Only accounts whose email appears in the Coach List field <code>coach_email</code> can sign in.</div>
   </div>
 
   <div class="card" id="gcal-wrap" style="display:none;">
@@ -103,25 +102,24 @@
         <span id="gcal-status" class="help">Signed out</span>
       </div>
     </div>
+<div id="gcal-picker" class="card" style="padding:10px;margin:12px 0;display:none;">
+  <div class="row">
+    <div class="help">Select calendars to display (multi-select; read-only allowed):</div>
+    <button id="gcal-checkAll" class="help">Select all</button>
+    <button id="gcal-uncheckAll" class="help">Deselect all</button>
+    <select id="gcal-writeCal" title="Write target (writable only)" style="display:none;"></select>
+    <div class="help">Write target: <code id="gcal-currCal">primary</code></div>
+  </div>
+  <div id="gcal-calList" class="list"></div>
+  <div id="gcal-legend"></div>
+</div>
 
-    <div id="gcal-picker" class="card" style="padding:10px;margin:12px 0;display:none;">
-      <div class="row">
-        <div class="help">Select calendars to display (multi-select; read-only allowed):</div>
-        <button id="gcal-checkAll" class="help">Select all</button>
-        <button id="gcal-uncheckAll" class="help">Deselect all</button>
-        <select id="gcal-writeCal" title="Write target (writable only)" style="display:none;"></select>
-        <div class="help">Write target: <code id="gcal-currCal">primary</code></div>
-      </div>
-      <div id="gcal-calList" class="list"></div>
-      <div id="gcal-legend"></div>
-    </div>
+<div id="gcal-calendar"></div>
 
-    <div id="gcal-calendar"></div>
-
-    <div id="gcal-diag" class="card" style="padding:10px;">
-      <b>Diagnostics</b>
-      <pre id="gcal-diagText"></pre>
-    </div>
+<div id="gcal-diag" class="card" style="padding:10px;">
+  <b>Diagnostics</b>
+  <pre id="gcal-diagText"></pre>
+</div>
   </div>
 
   <div id="upcoming" class="card" style="display:none">
@@ -578,21 +576,51 @@ async function confirmSess(id){
 }
 window.confirmSess = confirmSess;
 
+function localDateTimeString(date, tz){
+  const parts = new Intl.DateTimeFormat('en-CA',{
+    timeZone:tz, hour12:false,
+    year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  }).formatToParts(date).reduce((o,p)=>{ if(p.type!=='literal') o[p.type]=p.value; return o; },{});
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`;
+}
+function dateFromLocalComponents(dateStr,timeStr,tz){
+  const [y,m,d]=dateStr.split('-').map(Number);
+  const [H,M]=timeStr.split(':').map(Number);
+  const guess = Date.UTC(y,m-1,d,H,M||0,0,0);
+  const fmt = new Intl.DateTimeFormat('en-CA',{
+    timeZone:tz, hour12:false,
+    year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  });
+  function parts(ts){ return fmt.formatToParts(new Date(ts)).reduce((o,p)=>{ if(p.type!=='literal') o[p.type]=Number(p.value); return o; },{}); }
+  let ts=guess;
+  for(let i=0;i<3;i++){
+    const p = parts(ts);
+    const want = Date.UTC(y,m-1,d,H,M||0,0);
+    const have = Date.UTC(p.year,p.month-1,p.day,p.hour,p.minute,p.second||0);
+    const delta = want - have;
+    if(delta===0) break;
+    ts += delta;
+  }
+  return new Date(ts);
+}
 function addToMyCalendar(meta, dateDisp, timeDisp, durHours){
   if (!gcalIsSignedIn()){
     showMsg('Calendar not signed in. Click “Sign in with Google” first.','red');
     return;
   }
   const dateStr = (dateDisp||'').slice(0,10);
-  const startISO = `${dateStr}T${timeDisp}:00`;
-  const start = new Date(startISO);
-  const end   = new Date(start.getTime() + (Number(durHours)||1)*3600*1000);
-
+  const timeStr = timeDisp || '00:00';
+  const startDate = dateFromLocalComponents(dateStr, timeStr, GCAL_API_TZ);
+  const endDate   = new Date(startDate.getTime() + (Number(durHours)||1)*3600*1000);
+  const startField = {dateTime: localDateTimeString(startDate, GCAL_API_TZ), timeZone: GCAL_API_TZ};
+  const endField   = {dateTime: localDateTimeString(endDate,   GCAL_API_TZ), timeZone: GCAL_API_TZ};
   gcalEnsurePrimaryWriteTarget();
-
   gcalInsertEventToPrimary({
     summary: meta.title || 'Session',
-    start, end
+    start: startField,
+    end: endField
   }).then(()=>{ showMsg('Added to your Google Calendar (primary)','green'); })
     .catch(err=>{ console.error(err); showMsg('Write failed: ' + (err?.result?.error?.message || err?.message || 'Unknown error'),'red'); });
 }
@@ -609,7 +637,8 @@ window.addToMyCalendar = addToMyCalendar;
 <script>
   const GCAL_CLIENT_ID = "126117723960-3gdibqblicp6ncc0jiuv9pu8frgmhs5n.apps.googleusercontent.com";
   const GCAL_SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events";
-  const GCAL_TZ = "America/Toronto";
+  const GCAL_API_TZ = "America/Toronto";
+  const GCAL_FC_TZ = "local";
   const GCAL_FETCH_BUFFER_MS = 36 * 60 * 60 * 1000;
 
   let gcal_tokenClient, gcal_accessToken=null, gapiReady=false, gisReady=false, gcal_calendar;
@@ -667,11 +696,22 @@ window.addToMyCalendar = addToMyCalendar;
   }
   async function gcalInsertEventToPrimary({summary,start,end,allDay=false}){
     if(!gcalIsSignedIn()) throw new Error('calendar not signed in');
-    const resource = {
-      summary,
-      start: allDay ? {date: start.toISOString().slice(0,10)} : {dateTime: start.toISOString(), timeZone: GCAL_TZ},
-      end:   allDay ? {date: end.toISOString().slice(0,10)}   : {dateTime: end.toISOString(),   timeZone: GCAL_TZ}
-    };
+    let startField, endField;
+    if(allDay){
+      startField = typeof start==='string' ? {date:start.slice(0,10)} : start.date ? start : {date:String(start).slice(0,10)};
+      endField   = typeof end==='string'   ? {date:end.slice(0,10)}   : end.date   ? end   : {date:String(end).slice(0,10)};
+    }else{
+      if(start instanceof Date){ startField = {dateTime: localDateTimeString(start, GCAL_API_TZ), timeZone: GCAL_API_TZ}; }
+      else if(typeof start==='object' && (start.dateTime||start.date)){ startField = start; }
+      else if(typeof start==='string'){ startField = /[+-]\d{2}:\d{2}|Z$/.test(start)?{dateTime:start}:{dateTime:start,timeZone:GCAL_API_TZ}; }
+      else { startField = {dateTime: localDateTimeString(new Date(start), GCAL_API_TZ), timeZone: GCAL_API_TZ}; }
+
+      if(end instanceof Date){ endField = {dateTime: localDateTimeString(end, GCAL_API_TZ), timeZone: GCAL_API_TZ}; }
+      else if(typeof end==='object' && (end.dateTime||end.date)){ endField = end; }
+      else if(typeof end==='string'){ endField = /[+-]\d{2}:\d{2}|Z$/.test(end)?{dateTime:end}:{dateTime:end,timeZone:GCAL_API_TZ}; }
+      else { endField = {dateTime: localDateTimeString(new Date(end), GCAL_API_TZ), timeZone: GCAL_API_TZ}; }
+    }
+    const resource = { summary, start:startField, end:endField };
     const res = await gapi.client.calendar.events.insert({calendarId: gcalPrimaryId(), resource});
     return res.result;
   }
@@ -733,7 +773,7 @@ window.addToMyCalendar = addToMyCalendar;
 
     gcal_calendar=new FullCalendar.Calendar(el,{
       initialView:'timeGridWeek',
-      timeZone:GCAL_TZ,
+      timeZone:GCAL_FC_TZ,
       firstDay:1,
       slotMinTime:"08:00:00",
       slotMaxTime:"23:59:59",
@@ -787,10 +827,12 @@ window.addToMyCalendar = addToMyCalendar;
         const title=prompt('Event title:','New event');
         if(!title){ gcal_calendar.unselect(); return; }
         const isAllDay=selInfo.allDay;
+        const start = new Date(selInfo.startStr);
+        const end   = new Date(selInfo.endStr);
         const resource={
           summary:title,
-          start:isAllDay?{date:selInfo.startStr}:{dateTime:selInfo.startStr,timeZone:GCAL_TZ},
-          end:  isAllDay?{date:selInfo.endStr}:{dateTime:selInfo.endStr,timeZone:GCAL_TZ},
+          start:isAllDay?{date:selInfo.startStr}:{dateTime: localDateTimeString(start, GCAL_API_TZ), timeZone: GCAL_API_TZ},
+          end:  isAllDay?{date:selInfo.endStr}:{dateTime: localDateTimeString(end,   GCAL_API_TZ), timeZone: GCAL_API_TZ},
         };
         try{
           const res=await gapi.client.calendar.events.insert({calendarId:gcalPrimaryId(), resource});
@@ -819,8 +861,8 @@ window.addToMyCalendar = addToMyCalendar;
             calendarId,eventId,
             resource:{
               summary:e.title,
-              start:e.allDay?{date:e.startStr}:{dateTime:e.start.toISOString(),timeZone:GCAL_TZ},
-              end:  e.allDay?{date:e.endStr}:{dateTime:e.end?.toISOString(),timeZone:GCAL_TZ},
+              start:e.allDay?{date:e.startStr}:{dateTime: localDateTimeString(e.start, GCAL_API_TZ), timeZone: GCAL_API_TZ},
+              end:  e.allDay?{date:e.endStr}:{dateTime: e.end?localDateTimeString(e.end, GCAL_API_TZ):null, timeZone: GCAL_API_TZ},
             }
           });
         }catch(err){ gcalShowDiag(err); alert('Update failed; reverted: '+(err.result?.error?.message||err.message)); chg.revert(); }
@@ -893,5 +935,6 @@ async function submitReschedule(){
   refresh();
 }
 </script>
+
 </body>
 </html>
